@@ -1,0 +1,57 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('patients', function (Blueprint $table) {
+            $table->index('nombre', 'patients_nombre_index');
+        });
+
+        DB::statement("CREATE VIRTUAL TABLE IF NOT EXISTS patients_fts
+            USING fts5(nombre, cedula, content='patients', content_rowid='id')");
+
+        DB::statement("INSERT INTO patients_fts(rowid, nombre, cedula)
+            SELECT id, COALESCE(nombre,''), COALESCE(cedula,'')
+            FROM patients WHERE deleted_at IS NULL");
+
+        DB::statement("CREATE TRIGGER IF NOT EXISTS patients_fts_insert
+            AFTER INSERT ON patients BEGIN
+                INSERT INTO patients_fts(rowid, nombre, cedula)
+                VALUES (new.id, COALESCE(new.nombre,''), COALESCE(new.cedula,''));
+            END");
+
+        DB::statement("CREATE TRIGGER IF NOT EXISTS patients_fts_update
+            AFTER UPDATE ON patients
+            WHEN new.deleted_at IS NULL BEGIN
+                INSERT INTO patients_fts(patients_fts, rowid, nombre, cedula)
+                VALUES ('delete', old.id, COALESCE(old.nombre,''), COALESCE(old.cedula,''));
+                INSERT INTO patients_fts(rowid, nombre, cedula)
+                VALUES (new.id, COALESCE(new.nombre,''), COALESCE(new.cedula,''));
+            END");
+
+        DB::statement("CREATE TRIGGER IF NOT EXISTS patients_fts_soft_delete
+            AFTER UPDATE OF deleted_at ON patients
+            WHEN new.deleted_at IS NOT NULL BEGIN
+                INSERT INTO patients_fts(patients_fts, rowid, nombre, cedula)
+                VALUES ('delete', old.id, COALESCE(old.nombre,''), COALESCE(old.cedula,''));
+            END");
+    }
+
+    public function down(): void
+    {
+        DB::statement("DROP TRIGGER IF EXISTS patients_fts_insert");
+        DB::statement("DROP TRIGGER IF EXISTS patients_fts_update");
+        DB::statement("DROP TRIGGER IF EXISTS patients_fts_soft_delete");
+        DB::statement("DROP TABLE IF EXISTS patients_fts");
+
+        Schema::table('patients', function (Blueprint $table) {
+            $table->dropIndex('patients_nombre_index');
+        });
+    }
+};
