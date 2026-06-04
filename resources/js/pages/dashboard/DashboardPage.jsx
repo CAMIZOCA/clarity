@@ -64,9 +64,9 @@ export default function DashboardPage() {
                     <div className="divide-y divide-gray-50">
                         {!data ? (
                             <div className="py-8 text-center"><div className="animate-spin h-6 w-6 border-2 border-[#1a2a4a] border-t-transparent rounded-full mx-auto" /></div>
-                        ) : data.ultimasConsultas.length === 0 ? (
+                        ) : (data.ultimasConsultas ?? []).length === 0 ? (
                             <p className="py-8 text-center text-gray-400 text-sm">Sin consultas aún</p>
-                        ) : data.ultimasConsultas.map(c => (
+                        ) : (data.ultimasConsultas ?? []).map(c => (
                             <Link key={c.id} to={`/consulta/${c.id}`} className="px-6 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors block">
                                 <div>
                                     <p className="font-medium text-gray-900 text-sm">{c.patient?.nombre}</p>
@@ -93,9 +93,9 @@ export default function DashboardPage() {
                     <div className="divide-y divide-gray-50">
                         {!data ? (
                             <div className="py-8 text-center"><div className="animate-spin h-6 w-6 border-2 border-[#1a2a4a] border-t-transparent rounded-full mx-auto" /></div>
-                        ) : data.proximasCitas.length === 0 ? (
+                        ) : (data.proximasCitas ?? []).length === 0 ? (
                             <p className="py-8 text-center text-gray-400 text-sm">Sin citas próximas</p>
-                        ) : data.proximasCitas.map(a => (
+                        ) : (data.proximasCitas ?? []).map(a => (
                             <div key={a.id} className="px-6 py-3 flex items-center justify-between">
                                 <div>
                                     <p className="font-medium text-gray-900 text-sm">{a.titulo || a.patient?.nombre || 'Cita sin título'}</p>

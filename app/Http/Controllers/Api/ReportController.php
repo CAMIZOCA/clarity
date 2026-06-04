@@ -42,7 +42,13 @@ class ReportController extends Controller
                 ->limit(5)
                 ->get(['id', 'patient_id', 'titulo', 'fecha_hora_inicio', 'estado']);
 
-            return compact('totalPacientes', 'consultasHoy', 'citasPendientes', 'ultimasConsultas', 'proximasCitas');
+            return [
+                'totalPacientes'   => $totalPacientes,
+                'consultasHoy'     => $consultasHoy,
+                'citasPendientes'  => $citasPendientes,
+                'ultimasConsultas' => $ultimasConsultas->values()->toArray(),
+                'proximasCitas'    => $proximasCitas->values()->toArray(),
+            ];
         });
 
         return response()->json($data);
