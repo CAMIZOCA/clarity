@@ -1,58 +1,200 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+<div align="center">
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+# Clarity — Sistema de Gestión Clínica Oftalmológica
 
-## About Laravel
+**Plataforma web completa para la administración de consultorios y clínicas de oftalmología.**  
+Gestión de pacientes, consultas clínicas, agenda, brigadas comunitarias y reportes analíticos.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+![Laravel](https://img.shields.io/badge/Laravel-13-FF2D20?style=flat-square&logo=laravel&logoColor=white)
+![React](https://img.shields.io/badge/React-18-61DAFB?style=flat-square&logo=react&logoColor=black)
+![PHP](https://img.shields.io/badge/PHP-8.3+-777BB4?style=flat-square&logo=php&logoColor=white)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4.0-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white)
+![SQLite](https://img.shields.io/badge/SQLite-default-003B57?style=flat-square&logo=sqlite&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+</div>
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+---
 
-## Learning Laravel
+## Características principales
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+| Módulo | Descripción |
+|---|---|
+| **Pacientes** | Registro completo con historial clínico, búsqueda en tiempo real y perfil oftalmológico |
+| **Consultas** | Formulario clínico estructurado con agudeza visual, biomicroscopía, tonometría, diagnósticos CIE-10 y generación de PDF |
+| **Agenda** | Calendario interactivo (FullCalendar) con gestión de citas por día, semana o mes |
+| **Brigadas** | Organización de jornadas comunitarias con asignación masiva de pacientes |
+| **Lentes especiales** | Control de pedidos y seguimiento de lentes de contacto especiales |
+| **Referencias** | Gestión de referencias oftalmológicas a especialistas |
+| **Reportes** | Dashboard analítico, estadísticas de consultas y diagnósticos, exportación CSV |
+| **Configuración** | Logo, datos del consultorio, plantillas de impresión y catálogos clínicos personalizables |
+| **Usuarios & Roles** | Control de acceso basado en roles con Spatie Laravel Permission |
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+---
 
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
+## Stack tecnológico
 
-## Agentic Development
+**Backend**
+- [Laravel 13](https://laravel.com/) — Framework PHP
+- [Laravel Sanctum](https://laravel.com/docs/sanctum) — Autenticación API por tokens
+- [Spatie Laravel Permission](https://spatie.be/docs/laravel-permission) — Roles y permisos
+- [Maatwebsite Excel](https://laravel-excel.com/) — Exportación de datos
+- SQLite — Base de datos (sin configuración adicional)
 
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+**Frontend**
+- [React 18](https://react.dev/) + [React Router 6](https://reactrouter.com/) — SPA
+- [Tailwind CSS 4.0](https://tailwindcss.com/) — Estilos utilitarios
+- [FullCalendar](https://fullcalendar.io/) — Módulo de agenda
+- [React Hook Form](https://react-hook-form.com/) + [Zod](https://zod.dev/) — Formularios y validación
+- [Headless UI](https://headlessui.com/) — Componentes accesibles
+- [html2pdf.js](https://ekoopmans.github.io/html2pdf.js/) — Generación de PDF en cliente
+- [Lucide React](https://lucide.dev/) — Iconografía
+
+**Tooling**
+- [Vite 8](https://vite.dev/) — Bundler y dev server
+- [Laravel Pint](https://laravel.com/docs/pint) — Formateo de código PHP
+- [PHPUnit 12](https://phpunit.de/) — Tests
+
+---
+
+## Requisitos
+
+- PHP 8.3+
+- Composer
+- Node.js 20+
+- npm
+
+---
+
+## Instalación
+
+### Configuración rápida (recomendado)
 
 ```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+git clone https://github.com/CAMIZOCA/clarity.git
+cd clarity
+composer setup
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+Este comando ejecuta en secuencia: `composer install`, copia `.env`, genera la clave de app, ejecuta migraciones, instala dependencias npm y compila los assets.
 
-## Contributing
+### Configuración manual
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+```bash
+# 1. Clonar e instalar dependencias
+git clone https://github.com/CAMIZOCA/clarity.git
+cd clarity
+composer install
+npm install
 
-## Code of Conduct
+# 2. Configurar entorno
+cp .env.example .env
+php artisan key:generate
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+# 3. Crear base de datos y ejecutar migraciones
+touch database/database.sqlite
+php artisan migrate
 
-## Security Vulnerabilities
+# 4. Poblar datos iniciales (roles, catálogos, usuario admin)
+php artisan db:seed
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+# 5. Compilar assets
+npm run build
+```
 
-## License
+---
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+## Desarrollo
+
+```bash
+# Levanta todos los servicios en paralelo:
+# servidor PHP · Vite (HMR) · queue listener · log viewer (Pail)
+composer dev
+```
+
+La aplicación estará disponible en `http://localhost:8000`.
+
+**Credenciales de acceso por defecto:**
+- Email: `admin@clarity.com`
+- Password: `password`
+
+---
+
+## Comandos útiles
+
+```bash
+# Ejecutar suite de tests
+composer test
+
+# Filtrar un test específico
+php artisan test --filter NombreTest
+
+# Formatear código PHP
+./vendor/bin/pint
+
+# Compilar assets para producción
+npm run build
+
+# Importar historias clínicas desde CSV
+php artisan import:historias-clinicas
+```
+
+---
+
+## Estructura del proyecto
+
+```
+clarity/
+├── app/
+│   ├── Http/Controllers/Api/   # Controladores REST (14 módulos)
+│   └── Models/                 # Modelos Eloquent
+├── database/
+│   ├── migrations/             # Esquema de base de datos
+│   └── seeders/                # Datos iniciales (roles, catálogos CIE-10)
+├── resources/
+│   ├── css/app.css             # Entrada Tailwind CSS 4
+│   └── js/
+│       ├── components/         # Componentes reutilizables (UI, PDF, forms)
+│       ├── pages/              # Páginas por módulo
+│       ├── contexts/           # AuthContext, SettingsContext
+│       ├── hooks/              # useAutosave, usePatientSearch
+│       └── api/                # Cliente HTTP centralizado con caché
+└── routes/
+    └── api.php                 # Endpoints REST protegidos con Sanctum
+```
+
+---
+
+## API
+
+Todos los endpoints requieren autenticación Bearer Token (Laravel Sanctum).
+
+```
+POST   /api/login
+
+GET    /api/patients
+GET    /api/patients/search?q=...
+GET    /api/patients/{id}/consultations
+GET    /api/consultations/{id}/pdf-data
+GET    /api/reports/dashboard
+GET    /api/reports/export/csv
+...
+```
+
+Ver [`routes/api.php`](routes/api.php) para el listado completo de endpoints.
+
+---
+
+## Tests
+
+```bash
+composer test
+```
+
+Los tests de Feature validan los endpoints de la API. Los de Unit cubren la lógica de modelos.
+
+---
+
+## Licencia
+
+Distribuido bajo la [Licencia MIT](https://opensource.org/licenses/MIT).
