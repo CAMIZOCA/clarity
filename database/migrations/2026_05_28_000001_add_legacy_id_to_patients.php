@@ -8,6 +8,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasColumn('patients', 'legacy_id')) {
+            return;
+        }
+
         Schema::table('patients', function (Blueprint $table) {
             $table->string('legacy_id', 50)->nullable()->unique()->after('codigo_interno')
                 ->comment('ID del sistema anterior (para importación)');
@@ -16,6 +20,10 @@ return new class extends Migration
 
     public function down(): void
     {
+        if (! Schema::hasColumn('patients', 'legacy_id')) {
+            return;
+        }
+
         Schema::table('patients', function (Blueprint $table) {
             $table->dropColumn('legacy_id');
         });

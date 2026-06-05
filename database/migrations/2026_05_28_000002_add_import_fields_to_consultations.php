@@ -8,6 +8,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasColumn('consultations', 'legacy_id')) {
+            return;
+        }
+
         Schema::table('consultations', function (Blueprint $table) {
             // Identificación legacy
             $table->string('legacy_id', 50)->nullable()->index()->after('id')

@@ -8,15 +8,18 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('consultations', function (Blueprint $table) {
-            $table->index('fecha_consulta');
-            $table->index('estado');
-            $table->index(['patient_id', 'fecha_consulta']);
-        });
+        $safeIndex = function (string $table, \Closure $cb): void {
+            try {
+                Schema::table($table, $cb);
+            } catch (\Exception) {
+                // Index already exists — skip
+            }
+        };
 
-        Schema::table('appointments', function (Blueprint $table) {
-            $table->index(['estado', 'fecha_hora_inicio']);
-        });
+        $safeIndex('consultations', fn($t) => $t->index('fecha_consulta'));
+        $safeIndex('consultations', fn($t) => $t->index('estado'));
+        $safeIndex('consultations', fn($t) => $t->index(['patient_id', 'fecha_consulta']));
+        $safeIndex('appointments',  fn($t) => $t->index(['estado', 'fecha_hora_inicio']));
     }
 
     public function down(): void
