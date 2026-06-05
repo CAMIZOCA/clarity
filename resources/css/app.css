@@ -31,3 +31,125 @@
 .animate-clarity-rise {
     animation: clarity-rise 620ms ease-out both;
 }
+
+.landing-page {
+    --landing-ink: #071923;
+    --landing-navy: #0d2d4f;
+    --landing-blue: #135d8f;
+    --landing-cyan: #20b8c7;
+    --landing-green: #1f9f7a;
+    --landing-soft: #eef7f8;
+    --landing-line: #d9e8eb;
+    --landing-muted: #526c76;
+    scroll-behavior: smooth;
+}
+
+.landing-grid {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image:
+        linear-gradient(rgba(13, 45, 79, 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(13, 45, 79, 0.05) 1px, transparent 1px);
+    background-size: 44px 44px;
+    mask-image: linear-gradient(to bottom, black, transparent 82%);
+}
+
+.landing-eyebrow {
+    color: var(--landing-blue);
+    font-size: 0.82rem;
+    font-weight: 900;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+}
+
+.landing-title {
+    margin-top: 0.75rem;
+    color: var(--landing-ink);
+    font-size: clamp(2.25rem, 5vw, 3.6rem);
+    font-weight: 900;
+    line-height: 1.02;
+}
+
+.landing-subtitle {
+    margin-top: 1rem;
+    max-width: 45rem;
+    color: var(--landing-muted);
+    font-size: 1.08rem;
+    line-height: 1.85;
+}
+
+.landing-field {
+    display: grid;
+    gap: 0.45rem;
+    color: var(--landing-ink);
+    font-size: 0.9rem;
+    font-weight: 900;
+}
+
+.landing-field input,
+.landing-field select,
+.landing-field textarea {
+    width: 100%;
+    border: 1px solid var(--landing-line);
+    border-radius: 0.9rem;
+    background: #fff;
+    padding: 0.85rem 1rem;
+    color: var(--landing-ink);
+    font-size: 1rem;
+    font-weight: 650;
+    outline: none;
+    transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.landing-field textarea {
+    resize: vertical;
+}
+
+.landing-field input:focus,
+.landing-field select:focus,
+.landing-field textarea:focus {
+    border-color: var(--landing-cyan);
+    box-shadow: 0 0 0 4px rgba(32, 184, 199, 0.15);
+}
+
+@keyframes landing-reveal {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes landing-float {
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-10px);
+    }
+}
+
+.landing-reveal {
+    animation: landing-reveal 700ms ease-out both;
+}
+
+.landing-float {
+    animation: landing-float 7s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .landing-page {
+        scroll-behavior: auto;
+    }
+
+    .landing-reveal,
+    .landing-float,
+    .animate-clarity-rise {
+        animation: none;
+    }
+}
