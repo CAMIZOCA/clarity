@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
+use App\Http\Resources\UserResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -14,11 +14,11 @@ class AuthController extends Controller
     public function login(Request $request): JsonResponse
     {
         $request->validate([
-            'email' => 'required|email',
+            'email'    => 'required|email',
             'password' => 'required',
         ]);
 
-        if (!Auth::attempt($request->only('email', 'password'))) {
+        if (! Auth::attempt($request->only('email', 'password'))) {
             throw ValidationException::withMessages([
                 'email' => ['Las credenciales son incorrectas.'],
             ]);
@@ -26,14 +26,10 @@ class AuthController extends Controller
 
         $request->session()->regenerate();
 
-        $user = Auth::user();
-        $user->load('roles');
+        $user = Auth::user()->load('roles');
 
         return response()->json([
-            'user' => array_merge($user->toArray(), [
-                'firma_digital_url' => $user->firma_digital_url,
-                'roles' => $user->getRoleNames(),
-            ]),
+            'user' => UserResource::make($user),
         ]);
     }
 
@@ -48,12 +44,6 @@ class AuthController extends Controller
 
     public function me(Request $request): JsonResponse
     {
-        $user = $request->user();
-        $user->load('roles');
-
-        return response()->json(array_merge($user->toArray(), [
-            'firma_digital_url' => $user->firma_digital_url,
-            'roles' => $user->getRoleNames(),
-        ]));
+        return UserResource::make($request->user()->load('roles'))->response();
     }
 }

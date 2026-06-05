@@ -3,6 +3,10 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Api\Concerns\ApiResponses;
+use App\Http\Requests\StoreUserRequest;
+use App\Http\Requests\UpdateUserRequest;
+use App\Http\Resources\UserResource;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -11,53 +15,47 @@ use Illuminate\Support\Facades\Storage;
 
 class UserController extends Controller
 {
+    use ApiResponses;
+
     public function index(): JsonResponse
     {
-        return response()->json(User::with('roles')->orderBy('name')->paginate(20));
+        $users = User::with('roles')->orderBy('name')->paginate(20);
+
+        return response()->json(UserResource::collection($users)->response()->getData(true));
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(StoreUserRequest $request): JsonResponse
     {
-        $data = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users',
-            'password' => 'required|string|min:8',
-            'role' => 'required|in:admin,optometra,recepcionista',
-            'codigo' => 'nullable|string|max:50',
-            'registro_senescyt' => 'nullable|string|max:100',
-        ]);
-
+        $data = $request->validated();
         $role = $data['role'];
+
         $data['password'] = Hash::make($data['password']);
+        unset($data['password_confirmation']);
 
-        $user = User::create($data);
-        $user->assignRole($role);
+        $user = User::create($data);  // $data['role'] is stored as a denormalized column
+        $user->syncRoles([$role]);    // also assign via Spatie for permission checks
+        $user->load('roles');
 
-        return response()->json(array_merge($user->toArray(), [
-            'firma_digital_url' => $user->firma_digital_url,
-            'roles' => $user->getRoleNames(),
-        ]), 201);
+        return (new UserResource($user))
+            ->response()
+            ->setStatusCode(201);
     }
 
     public function show(User $user): JsonResponse
     {
         $user->load('roles');
-        return response()->json(array_merge($user->toArray(), [
-            'firma_digital_url' => $user->firma_digital_url,
-            'roles' => $user->getRoleNames(),
-        ]));
+
+        return (new UserResource($user))->response();
     }
 
-    public function update(Request $request, User $user): JsonResponse
+    public function update(UpdateUserRequest $request, User $user): JsonResponse
     {
-        $data = $request->validate([
-            'name' => 'sometimes|string|max:255',
-            'email' => 'sometimes|email|unique:users,email,' . $user->id,
-            'password' => 'nullable|string|min:8',
-            'role' => 'sometimes|in:admin,optometra,recepcionista',
-            'codigo' => 'nullable|string|max:50',
-            'registro_senescyt' => 'nullable|string|max:100',
-        ]);
+        $data = $request->validated();
+
+        if (isset($data['role'])) {
+            $user->syncRoles([$data['role']]);
+            unset($data['role']);
+        }
 
         if (isset($data['password']) && $data['password']) {
             $data['password'] = Hash::make($data['password']);
@@ -65,21 +63,18 @@ class UserController extends Controller
             unset($data['password']);
         }
 
-        if (isset($data['role'])) {
-            $user->syncRoles([$data['role']]);
-        }
+        unset($data['password_confirmation']);
 
         $user->update($data);
+        $user->load('roles');
 
-        return response()->json(array_merge($user->fresh()->toArray(), [
-            'firma_digital_url' => $user->firma_digital_url,
-            'roles' => $user->getRoleNames(),
-        ]));
+        return (new UserResource($user->fresh()))->response();
     }
 
     public function destroy(User $user): JsonResponse
     {
         $user->delete();
+
         return response()->json(['message' => 'Usuario eliminado.']);
     }
 
@@ -91,11 +86,11 @@ class UserController extends Controller
             Storage::delete($user->firma_digital);
         }
 
-        $path = $request->file('firma')->store("firmas", 'public');
+        $path = $request->file('firma')->store('firmas', 'public');
         $user->update(['firma_digital' => $path]);
 
         return response()->json([
-            'firma_digital' => $path,
+            'firma_digital'     => $path,
             'firma_digital_url' => $user->firma_digital_url,
         ]);
     }

@@ -17,6 +17,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'login',
             'api/*',
         ]);
+        $middleware->appendToGroup('api', \App\Http\Middleware\SetActiveBranch::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

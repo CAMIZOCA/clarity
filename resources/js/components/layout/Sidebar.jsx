@@ -3,7 +3,9 @@ import { NavLink } from 'react-router-dom';
 import {
     Eye, Users, Calendar, Shield, FileText,
     BarChart2, LogOut, User, Stethoscope, LayoutDashboard,
-    Settings, BookOpen, Database, ClipboardList
+    Settings, BookOpen, Database, ClipboardList, Package, Warehouse, RefreshCw,
+    ShoppingCart, History, FlaskConical, DollarSign, BarChart3, FileSpreadsheet,
+    Megaphone, Bell, Building2
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import client from '../../api/client';
@@ -70,8 +72,53 @@ export default function Sidebar() {
                 <NavItem to="/lentes-especiales" icon={Eye} label="Lentes Especiales" />
                 <NavItem to="/referencias" icon={FileText} label="Oftalmología" />
                 <NavItem to="/reportes" icon={BarChart2} label="Reportes" />
+
+                {/* Comercial */}
+                <div className="border-t border-white/10 my-2" />
+                <p className="px-4 pt-1 pb-0.5 text-[10px] font-semibold text-blue-300 uppercase tracking-widest">
+                    Comercial
+                </p>
+                <NavItem to="/pos"         icon={ShoppingCart} label="Punto de Venta" />
+                <NavItem to="/ventas"      icon={History}      label="Ventas" />
+                <NavItem to="/laboratorio" icon={FlaskConical} label="Laboratorio" />
+                <NavItem to="/caja"        icon={DollarSign}   label="Caja" />
+
+                {/* CRM */}
+                <div className="border-t border-white/10 my-2" />
+                <p className="px-4 pt-1 pb-0.5 text-[10px] font-semibold text-blue-300 uppercase tracking-widest">
+                    CRM
+                </p>
+                <NavItem to="/crm/campanas"      icon={Megaphone}  label="Campañas" />
+                <NavItem to="/crm/plantillas"    icon={FileText}   label="Plantillas" />
+                <NavItem to="/crm/recordatorios" icon={Bell}       label="Recordatorios" />
+
+                {/* Inventario */}
+                <div className="border-t border-white/10 my-2" />
+                <p className="px-4 pt-1 pb-0.5 text-[10px] font-semibold text-blue-300 uppercase tracking-widest">
+                    Inventario
+                </p>
+                <NavItem to="/inventario/productos" icon={Package} label="Productos" />
+                <NavItem to="/inventario/stock" icon={Warehouse} label="Stock" />
+                <NavItem to="/inventario/movimientos" icon={RefreshCw} label="Movimientos" />
+
                 {isAdmin() && (
                     <>
+                        {/* Gerencia */}
+                        <div className="border-t border-white/10 my-2" />
+                        <p className="px-4 pt-1 pb-0.5 text-[10px] font-semibold text-blue-300 uppercase tracking-widest">
+                            Gerencia
+                        </p>
+                        <NavItem to="/dashboard-gerencial"  icon={BarChart3}       label="Dashboard" />
+                        <NavItem to="/reportes-comerciales" icon={FileSpreadsheet} label="Reportes" />
+
+                            {/* Administración */}
+                        <div className="border-t border-white/10 my-2" />
+                        <p className="px-4 pt-1 pb-0.5 text-[10px] font-semibold text-blue-300 uppercase tracking-widest">
+                            Administración
+                        </p>
+                        <NavItem to="/admin/sucursales" icon={Building2} label="Sucursales" />
+                        <NavItem to="/admin/bodegas"    icon={Warehouse}  label="Bodegas" />
+
                         <div className="border-t border-white/10 my-2" />
                         <NavItem to="/usuarios" icon={User} label="Usuarios" />
                         <NavItem to="/catalogos" icon={Database} label="Catálogos" />

@@ -1,9 +1,10 @@
 import React, { lazy, Suspense } from 'react';
-import { createBrowserRouter, Navigate } from 'react-router-dom';
+import { createBrowserRouter, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import AppShell from '../components/layout/AppShell';
 
 // Pages (lazy loaded)
+const LandingPage = lazy(() => import('../pages/LandingPage'));
 const LoginPage = lazy(() => import('../pages/auth/LoginPage'));
 const DashboardPage = lazy(() => import('../pages/dashboard/DashboardPage'));
 const PatientListPage = lazy(() => import('../pages/patients/PatientListPage'));
@@ -27,6 +28,21 @@ const SettingsPage = lazy(() => import('../pages/settings/SettingsPage'));
 const CatalogPage = lazy(() => import('../pages/catalog/CatalogPage'));
 const HelpPage = lazy(() => import('../pages/help/HelpPage'));
 const OrdenTrabajoPage = lazy(() => import('../pages/ordenes/OrdenTrabajoPage'));
+const ProductListPage = lazy(() => import('../pages/inventory/ProductListPage'));
+const ProductFormPage = lazy(() => import('../pages/inventory/ProductFormPage'));
+const ProductDetailPage = lazy(() => import('../pages/inventory/ProductDetailPage'));
+const StockPage = lazy(() => import('../pages/inventory/StockPage'));
+const PosPage = lazy(() => import('../pages/pos/PosPage'));
+const SalesHistoryPage = lazy(() => import('../pages/pos/SalesHistoryPage'));
+const LabOrdersPage = lazy(() => import('../pages/laboratory/LabOrdersPage'));
+const CashRegisterPage = lazy(() => import('../pages/cash/CashRegisterPage'));
+const GerencialDashboard = lazy(() => import('../pages/dashboard/GerencialDashboard'));
+const CommercialReportsPage = lazy(() => import('../pages/reports/CommercialReportsPage'));
+const CampaignPage = lazy(() => import('../pages/crm/CampaignPage'));
+const TemplatePage = lazy(() => import('../pages/crm/TemplatePage'));
+const RemindersPage = lazy(() => import('../pages/crm/RemindersPage'));
+const BranchesPage = lazy(() => import('../pages/admin/BranchesPage'));
+const WarehousesPage = lazy(() => import('../pages/admin/WarehousesPage'));
 
 const Loader = () => (
     <div className="flex items-center justify-center h-64">
@@ -39,6 +55,29 @@ function PrivateRoute({ children }) {
     if (loading) return <Loader />;
     if (!user) return <Navigate to="/login" replace />;
     return children;
+}
+
+function RootRoute() {
+    const { user, loading } = useAuth();
+    const location = useLocation();
+
+    if (loading) return <Loader />;
+
+    if (!user) {
+        if (location.pathname === '/') {
+            return (
+                <Suspense fallback={<Loader />}>
+                    <LandingPage />
+                </Suspense>
+            );
+        }
+
+        return <Navigate to="/login" replace />;
+    }
+
+    if (location.pathname === '/') return <Navigate to="/dashboard" replace />;
+
+    return <AppShell />;
 }
 
 function PublicRoute({ children }) {
@@ -71,9 +110,8 @@ export const router = createBrowserRouter([
     },
     {
         path: '/',
-        element: <PrivateRoute><AppShell /></PrivateRoute>,
+        element: <RootRoute />,
         children: [
-            { index: true, element: <Navigate to="/dashboard" replace /> },
             { path: 'dashboard', element: wrap(DashboardPage) },
             { path: 'consulta', element: wrap(ConsultationPage) },
             { path: 'consulta/:consultationId', element: wrap(ConsultationPage) },
@@ -103,6 +141,23 @@ export const router = createBrowserRouter([
             { path: 'catalogos', element: wrap(CatalogPage) },
             { path: 'ayuda', element: wrap(HelpPage) },
             { path: 'ordenes-trabajo', element: wrap(OrdenTrabajoPage) },
+            { path: 'inventario/productos', element: wrap(ProductListPage) },
+            { path: 'inventario/productos/nuevo', element: wrap(ProductFormPage) },
+            { path: 'inventario/productos/:id', element: wrap(ProductDetailPage) },
+            { path: 'inventario/productos/:id/editar', element: wrap(ProductFormPage) },
+            { path: 'inventario/stock', element: wrap(StockPage) },
+            { path: 'inventario/movimientos', element: wrap(StockPage) },
+            { path: 'pos', element: wrap(PosPage) },
+            { path: 'ventas', element: wrap(SalesHistoryPage) },
+            { path: 'laboratorio', element: wrap(LabOrdersPage) },
+            { path: 'caja', element: wrap(CashRegisterPage) },
+            { path: 'dashboard-gerencial', element: wrap(GerencialDashboard) },
+            { path: 'reportes-comerciales', element: wrap(CommercialReportsPage) },
+            { path: 'crm/campanas', element: wrap(CampaignPage) },
+            { path: 'crm/plantillas', element: wrap(TemplatePage) },
+            { path: 'crm/recordatorios', element: wrap(RemindersPage) },
+            { path: 'admin/sucursales', element: wrap(BranchesPage) },
+            { path: 'admin/bodegas', element: wrap(WarehousesPage) },
         ],
     },
     { path: '*', element: <Navigate to="/dashboard" replace /> },

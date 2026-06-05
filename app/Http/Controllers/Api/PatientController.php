@@ -3,27 +3,36 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Api\Concerns\ApiResponses;
+use App\Http\Requests\StorePatientRequest;
+use App\Http\Requests\UpdatePatientRequest;
+use App\Http\Resources\PatientCollection;
+use App\Http\Resources\PatientResource;
 use App\Models\Patient;
+use App\Services\PatientService;
+use App\Support\AppConfig;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class PatientController extends Controller
 {
+    use ApiResponses;
+
+    public function __construct(
+        protected PatientService $patientService,
+    ) {}
+
     public function index(Request $request): JsonResponse
     {
-        $query = Patient::withCount('consultations');
+        $filters = [];
 
         if ($q = trim($request->input('q', ''))) {
-            $ftsQuery = $this->buildFtsQuery($q);
-            $query->whereRaw(
-                "patients.id IN (SELECT rowid FROM patients_fts WHERE patients_fts MATCH ?)",
-                [$ftsQuery]
-            );
+            $filters['search'] = $q;
         }
 
-        $patients = $query->orderBy('nombre')->paginate(25);
+        $patients = $this->patientService->paginate($filters, AppConfig::PATIENTS_PER_PAGE);
 
-        return response()->json($patients);
+        return response()->json(new PatientCollection($patients));
     }
 
     public function search(Request $request): JsonResponse
@@ -34,86 +43,41 @@ class PatientController extends Controller
             return response()->json([]);
         }
 
-        $ftsQuery = $this->buildFtsQuery($q);
-        $patients = Patient::whereRaw(
-            "id IN (SELECT rowid FROM patients_fts WHERE patients_fts MATCH ?)",
-            [$ftsQuery]
-        )
-            ->select('id', 'nombre', 'cedula', 'codigo_interno', 'fecha_nacimiento', 'ocupacion', 'direccion', 'antecedentes')
-            ->limit(10)
-            ->get()
-            ->map(fn($p) => array_merge($p->toArray(), ['edad' => $p->edad]));
+        $patients = $this->patientService->search($q, 15);
 
-        return response()->json($patients);
+        $result = $patients->map(fn ($p) => array_merge($p->toArray(), ['edad' => $p->edad]));
+
+        return response()->json($result);
     }
 
-    private function buildFtsQuery(string $q): string
+    public function store(StorePatientRequest $request): JsonResponse
     {
-        $clean = preg_replace('/[^a-zA-Z0-9áéíóúÁÉÍÓÚàèìòùäëïöüñÑ\s]/u', ' ', $q);
-        $words = array_filter(explode(' ', trim($clean)));
+        $patient = $this->patientService->create($request->validated(), $request->user()->id);
 
-        return empty($words) ? '""' : implode(' ', array_map(fn($w) => $w . '*', $words));
-    }
-
-    public function store(Request $request): JsonResponse
-    {
-        $data = $request->validate([
-            'nombre' => 'required|string|max:255',
-            'cedula' => 'required|string|max:20|unique:patients',
-            'codigo_interno' => 'nullable|string|max:50|unique:patients,codigo_interno',
-            'fecha_nacimiento' => 'required|date',
-            'ocupacion' => 'nullable|string|max:255',
-            'direccion' => 'nullable|string',
-            'telefono' => 'nullable|string|max:20',
-            'email' => 'nullable|email|max:255',
-            'avatar_path' => 'nullable|string|max:255',
-            'antecedentes' => 'nullable|string',
-        ]);
-
-        $data['created_by'] = $request->user()->id;
-        $patient = Patient::create($data);
-
-        return response()->json(
-            array_merge($patient->toArray(), ['edad' => $patient->edad]),
-            201
-        );
+        return (new PatientResource($patient))
+            ->response()
+            ->setStatusCode(201);
     }
 
     public function show(Patient $patient): JsonResponse
     {
         $patient->loadCount('consultations');
 
-        return response()->json(
-            array_merge($patient->toArray(), ['edad' => $patient->edad])
-        );
+        return (new PatientResource($patient))->response();
     }
 
-    public function update(Request $request, Patient $patient): JsonResponse
+    public function update(UpdatePatientRequest $request, Patient $patient): JsonResponse
     {
-        $data = $request->validate([
-            'nombre' => 'sometimes|string|max:255',
-            'cedula' => 'sometimes|string|max:20|unique:patients,cedula,' . $patient->id,
-            'codigo_interno' => 'nullable|string|max:50|unique:patients,codigo_interno,' . $patient->id,
-            'fecha_nacimiento' => 'sometimes|date',
-            'ocupacion' => 'nullable|string|max:255',
-            'direccion' => 'nullable|string',
-            'telefono' => 'nullable|string|max:20',
-            'email' => 'nullable|email|max:255',
-            'avatar_path' => 'nullable|string|max:255',
-            'antecedentes' => 'nullable|string',
-        ]);
+        $patient = $this->patientService->update($patient, $request->validated());
 
-        $patient->update($data);
-
-        return response()->json(
-            array_merge($patient->fresh()->toArray(), ['edad' => $patient->edad])
-        );
+        return (new PatientResource($patient))->response();
     }
 
     public function destroy(Patient $patient): JsonResponse
     {
-        $patient->delete();
-        return response()->json(['message' => 'Paciente eliminado.']);
+        $this->patientService->delete($patient);
+
+        return $this->noContent();
     }
 
     public function consultations(Patient $patient): JsonResponse

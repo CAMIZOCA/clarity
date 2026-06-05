@@ -105,6 +105,15 @@ function attachDebugInterceptors(instance, name) {
 attachDebugInterceptors(client, 'api');
 attachDebugInterceptors(webClient, 'web');
 
+// Inyectar X-Branch-Id en cada request API según la sucursal activa en localStorage
+client.interceptors.request.use(config => {
+    const branchId = localStorage.getItem('active_branch_id');
+    if (branchId) {
+        config.headers['X-Branch-Id'] = branchId;
+    }
+    return config;
+});
+
 export const initCsrf = async () => {
     debugLog('csrf init start', {
         url: '/sanctum/csrf-cookie',

@@ -35,4 +35,29 @@ return [
         ],
     ],
 
+    'anthropic' => [
+        'api_key' => env('ANTHROPIC_API_KEY'),
+    ],
+
+    'ai' => [
+        'enabled' => env('AI_FEATURES_ENABLED', false),
+    ],
+
+    'sri' => [
+        'environment' => env('SRI_ENVIRONMENT', '1'),
+        'ruc'         => env('SRI_RUC'),
+        'cert_path'   => env('SRI_CERT_PATH'),
+        'cert_pass'   => env('SRI_CERT_PASS'),
+    ],
+
+    'whatsapp' => [
+        'provider' => env('WHATSAPP_PROVIDER', 'log'),
+    ],
+
+    'twilio' => [
+        'sid'           => env('TWILIO_ACCOUNT_SID'),
+        'token'         => env('TWILIO_AUTH_TOKEN'),
+        'whatsapp_from' => env('TWILIO_WHATSAPP_FROM', 'whatsapp:+14155238886'),
+    ],
+
 ];

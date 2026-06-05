@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Users, Stethoscope, Calendar, FileText, ArrowRight, TrendingUp } from 'lucide-react';
+import { Users, Stethoscope, Calendar, FileText, ArrowRight, TrendingUp, BarChart2 } from 'lucide-react';
 import client from '../../api/client';
 import { cached } from '../../api/cache';
 import Badge from '../../components/ui/Badge';
@@ -24,7 +24,7 @@ function StatCard({ icon: Icon, label, value, color, to }) {
 }
 
 export default function DashboardPage() {
-    const { user } = useAuth();
+    const { user, isAdmin } = useAuth();
     const [data, setData] = useState(null);
 
     useEffect(() => {
@@ -38,9 +38,21 @@ export default function DashboardPage() {
 
     return (
         <div className="p-6 max-w-7xl mx-auto">
-            <div className="mb-8">
-                <h1 className="text-3xl font-bold text-gray-900">{saludo}, {user?.name?.split(' ')[0]}</h1>
-                <p className="text-gray-500 mt-1">{format(new Date(), "EEEE d 'de' MMMM yyyy", { locale: es })}</p>
+            <div className="mb-8 flex items-start justify-between flex-wrap gap-3">
+                <div>
+                    <h1 className="text-3xl font-bold text-gray-900">{saludo}, {user?.name?.split(' ')[0]}</h1>
+                    <p className="text-gray-500 mt-1">{format(new Date(), "EEEE d 'de' MMMM yyyy", { locale: es })}</p>
+                </div>
+                {isAdmin() && (
+                    <Link
+                        to="/dashboard-gerencial"
+                        className="flex items-center gap-2 px-4 py-2 bg-[#1a2a4a] text-white rounded-xl text-sm font-medium hover:bg-[#253d6b] transition-colors"
+                    >
+                        <BarChart2 size={16} />
+                        Ver Dashboard Gerencial
+                        <ArrowRight size={14} />
+                    </Link>
+                )}
             </div>
 
             {/* Stats */}
