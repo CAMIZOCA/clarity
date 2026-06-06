@@ -24,8 +24,13 @@ body,
 }
 
 body {
-    overscroll-behavior-y: none;
     -webkit-text-size-adjust: 100%;
+}
+
+@media (max-width: 1023px) {
+    body {
+        overscroll-behavior-y: none;
+    }
 }
 
 button,

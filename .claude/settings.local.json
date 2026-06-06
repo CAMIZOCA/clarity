@@ -36,7 +36,8 @@
       "Bash(Get-Content \"D:\\\\laragon\\\\www\\\\sistemaclinico\\\\storage\\\\logs\\\\laravel.log\" -Tail 50)",
       "Bash(grep -rn \"Spatie\\\\\\\\\\\\\\\\Activitylog\\\\\\\\\\\\\\\\Traits\\\\\\\\\\\\\\\\LogsActivity\\\\|Spatie\\\\\\\\\\\\\\\\Activitylog\\\\\\\\\\\\\\\\LogOptions\" \"D:/laragon/www/sistemaclinico/app/Models/\" --include=\"*.php\")",
       "Bash(/c/laragon/bin/php/php8.3.14/php.exe -r \"require 'D:/laragon/www/sistemaclinico/vendor/autoload.php'; echo 'autoload ok';\")",
-      "Bash(find /c/laragon/bin/php -name \"php.exe\" 2>/dev/null | head -3 || find /d/laragon/bin/php -name \"php.exe\" 2>/dev/null | head -3)"
+      "Bash(find /c/laragon/bin/php -name \"php.exe\" 2>/dev/null | head -3 || find /d/laragon/bin/php -name \"php.exe\" 2>/dev/null | head -3)",
+      "PowerShell(php artisan test --colors=never 2>&1)"
     ]
   }
 }

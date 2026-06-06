@@ -1,264 +1,271 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
-    BookOpen, LayoutDashboard, Users, Stethoscope, Calendar,
-    Shield, Eye, FileText, BarChart2, Settings, Database,
-    ShieldCheck, ChevronDown, ChevronRight, User
+    BarChart2,
+    BookOpen,
+    Calendar,
+    ChevronDown,
+    ChevronRight,
+    ClipboardList,
+    DollarSign,
+    Eye,
+    FileText,
+    FlaskConical,
+    LayoutDashboard,
+    Megaphone,
+    Package,
+    Settings,
+    Shield,
+    Sparkles,
+    Stethoscope,
+    User,
+    Users,
 } from 'lucide-react';
 
 const sections = [
     {
-        icon: LayoutDashboard,
-        title: 'Dashboard',
-        color: 'text-indigo-600',
-        content: `La página de inicio muestra un resumen del estado actual de la clínica:
-• Total de pacientes registrados en el sistema.
-• Consultas realizadas el día de hoy.
-• Citas pendientes en los próximos 7 días.
-• Las 5 consultas más recientes.
-• Las próximas 5 citas agendadas.
-
-Haz clic en cualquier tarjeta estadística para navegar al módulo correspondiente.`,
+        icon: Sparkles,
+        title: 'Primeros pasos',
+        color: 'text-slate-700',
+        summary:
+            'Si acabas de entrar al sistema, empieza por ubicarte en el panel principal y luego abre el area que necesites segun tu trabajo del dia.',
+        bullets: [
+            'Busca primero al paciente o registralo si es nuevo.',
+            'Usa Consulta para dejar la atencion clinica completa.',
+            'Revisa Agenda si necesitas programar o confirmar citas.',
+            'Entra a Inventario, Ventas, Caja o Laboratorio si tu trabajo es operativo.',
+            'La ayuda puede consultarse en cualquier momento desde el menu lateral.',
+        ],
     },
     {
-        icon: Stethoscope,
-        title: 'Consulta',
-        color: 'text-blue-600',
-        content: `El formulario de consulta clínica es el núcleo del sistema. Permite registrar:
-
-**Datos básicos:** paciente, médico, motivo de consulta y fecha.
-
-**Agudeza visual (AV):** SC (sin corrección) y CC (con corrección) para ojo derecho (OD) e ojo izquierdo (OI).
-
-**Rx final:** prescripción óptica con esfera, cilindro, eje, adición y AV para cada ojo. Incluye distancia pupilar (DP).
-
-**Biomicroscopía:** exploración con lámpara de hendidura del segmento anterior.
-
-**Fondo de ojo:** examen del segmento posterior (retina, nervio óptico, mácula).
-
-**Diagnóstico:** diagnóstico principal y diagnósticos adicionales del catálogo clínico.
-
-**Recomendaciones:** indicaciones y recomendaciones al paciente.
-
-**Lentes de contacto:** parámetros de adaptación (radio base, diámetro, potencia, material, etc.).
-
-**Opciones de impresión:** selección de plantilla para generar el certificado/receta.
-
-Cada sección puede contraerse o expandirse haciendo clic en su encabezado. El estado se recuerda entre sesiones.
-
-**Campos obligatorios:** los campos marcados como requeridos en Configuración → Campos obligatorios se resaltan en rojo si están vacíos al intentar guardar.`,
+        icon: LayoutDashboard,
+        title: 'Panel principal',
+        color: 'text-indigo-600',
+        summary:
+            'El dashboard te muestra un resumen rapido de la actividad de la clinica para que no tengas que entrar modulo por modulo.',
+        bullets: [
+            'Pacientes registrados en el sistema.',
+            'Consultas realizadas en el dia.',
+            'Citas pendientes y proximas citas.',
+            'Consultas o movimientos recientes para retomar trabajo rapido.',
+            'Accesos directos a los modulos que mas usas.',
+        ],
     },
     {
         icon: Users,
         title: 'Pacientes',
         color: 'text-green-600',
-        content: `Gestión completa del directorio de pacientes.
-
-**Lista de pacientes:** búsqueda en tiempo real por nombre, apellido, cédula o teléfono. Acceso rápido al historial y nueva consulta.
-
-**Nuevo paciente / Editar:** formulario con datos personales (nombre, apellido, cédula, fecha de nacimiento, género, teléfono, email, dirección, ocupación, observaciones).
-
-**Historial del paciente:** vista unificada de todas las consultas e informes de garantía ordenados por fecha. Haz clic en una consulta para editarla.
-
-Desde el historial puedes:
-• Iniciar una nueva consulta vinculada al paciente.
-• Generar un Informe de Garantía.`,
+        summary:
+            'Aqui se guarda la informacion de cada paciente y se organiza su historial para que sea facil volver a encontrarlo.',
+        bullets: [
+            'Crear, editar y buscar pacientes por nombre, cedula o telefono.',
+            'Ver su historial clinico en un solo lugar.',
+            'Abrir una nueva consulta desde la ficha del paciente.',
+            'Consultar informacion de contacto y observaciones relevantes.',
+            'Revisar informes relacionados, como garantias o referencias.',
+        ],
     },
     {
-        icon: ShieldCheck,
-        title: 'Informe de Garantía',
-        color: 'text-amber-600',
-        content: `Documento clínico para registrar cambios, correcciones o soluciones postratamiento.
-
-Se genera desde el historial del paciente con el botón "Informe de Garantía". Campos:
-• Fecha del informe.
-• Estado: Pendiente o Completado.
-• Médico responsable.
-• Motivo del informe (texto libre).
-• Cambios realizados.
-• Soluciones indicadas.
-
-Los informes aparecen en el historial del paciente junto a las consultas normales, diferenciados por un ícono y borde ámbar. Cada informe genera un número único automático (IG-YYYY-XXXX).`,
+        icon: Stethoscope,
+        title: 'Consulta',
+        color: 'text-blue-600',
+        summary:
+            'Este es el espacio donde registras la atencion clinica. Esta pensado para que el proceso sea ordenado y facil de seguir.',
+        bullets: [
+            'Registrar el paciente atendido, el profesional y la fecha.',
+            'Guardar datos clinicos, diagnosticos y recomendaciones.',
+            'Completar medidas, observaciones y prescripcion cuando aplique.',
+            'Mantener todo ligado al historial del paciente.',
+            'Preparar la informacion que luego puede usarse en documentos o impresiones.',
+        ],
     },
     {
         icon: Calendar,
         title: 'Agenda',
         color: 'text-purple-600',
-        content: `Calendario interactivo de citas para la clínica.
-
-**Vistas disponibles:** mensual, semanal y diaria.
-
-**Nueva cita:** haz clic en cualquier slot vacío del calendario para agendar. Puedes especificar: paciente, médico, título, fecha/hora inicio y fin, notas, y estado.
-
-**Editar/eliminar cita:** haz clic en una cita existente para editarla o eliminarla.
-
-**Colores por estado:**
-• Azul: Pendiente
-• Verde: Atendido
-• Gris: Cancelado
-
-El sidebar muestra un badge rojo con el número de citas pendientes del día actual.`,
+        summary:
+            'La agenda te ayuda a organizar citas por dia, semana o mes para que el equipo sepa que paciente atender y cuando.',
+        bullets: [
+            'Crear nuevas citas en el calendario.',
+            'Revisar citas pendientes, atendidas o canceladas.',
+            'Editar una cita cuando cambien la hora o el paciente.',
+            'Ver de forma clara la carga de trabajo del dia.',
+            'Coordinar mejor la atencion entre recepcion y consulta.',
+        ],
     },
     {
         icon: Shield,
         title: 'Brigadas',
         color: 'text-orange-600',
-        content: `Gestión de brigadas médicas y operativos de salud visual.
-
-**Lista de brigadas:** muestra nombre, lugar, fecha, médico responsable y número de pacientes atendidos.
-
-**Nueva brigada / Editar:** nombre, lugar, fecha, médico responsable y observaciones.
-
-**Detalle de brigada:** lista de pacientes participantes. Puedes agregar pacientes existentes del sistema o quitarlos de la brigada. Los pacientes no se eliminan del sistema, solo se desasocian de la brigada.`,
+        summary:
+            'Sirve para organizar jornadas comunitarias o actividades fuera de la clinica y llevar control de los pacientes atendidos.',
+        bullets: [
+            'Crear brigadas con lugar, fecha y responsable.',
+            'Agregar pacientes participantes.',
+            'Editar la informacion de la jornada cuando sea necesario.',
+            'Mantener el seguimiento sin mezclarlo con las consultas diarias.',
+        ],
     },
     {
         icon: Eye,
-        title: 'Lentes Especiales',
+        title: 'Lentes especiales',
         color: 'text-cyan-600',
-        content: `Módulo para el seguimiento de adaptaciones de lentes de contacto especiales.
-
-**Tipos soportados:**
-• Lentes esclerales
-• Ortoqueratología
-• Lentes para queratocono
-
-**Parámetros por ojo (OD/OI):** radio base, diámetro, potencia esférica y cilíndrica, eje, material.
-
-**Seguimiento:** fecha de adaptación, protocolo de seguimiento y fecha de próxima revisión.
-
-Filtro por tipo de lente en la lista para localizar rápidamente los casos.`,
+        summary:
+            'Aqui se lleva el control de adaptaciones y seguimientos de lentes especiales para casos que requieren mas detalle.',
+        bullets: [
+            'Registrar lentes especiales por paciente.',
+            'Guardar datos de adaptacion y seguimiento.',
+            'Revisar el estado de cada caso en la lista.',
+            'Volver a una atencion anterior sin perder el contexto.',
+        ],
     },
     {
         icon: FileText,
-        title: 'Referencias Oftalmológicas',
+        title: 'Referencias',
         color: 'text-teal-600',
-        content: `Registro de referencias/derivaciones a especialistas oftalmológicos.
-
-Cada referencia incluye:
-• Paciente referido.
-• Motivo de la referencia.
-• Médico oftalmólogo al que se refiere.
-• Especialidad.
-• Fecha de referencia.
-• Observaciones adicionales.
-
-Útil para el seguimiento de casos que requieren atención especializada más allá de la optometría general.`,
+        summary:
+            'Cuando un caso necesita atencion especializada, aqui puedes dejar registrada la derivacion para su seguimiento.',
+        bullets: [
+            'Crear referencias a oftalmologia u otras especialidades.',
+            'Registrar el motivo y las observaciones del caso.',
+            'Mantener la trazabilidad de la derivacion.',
+            'Consultar despues si el paciente ya fue remitido o atendido.',
+        ],
+    },
+    {
+        icon: ClipboardList,
+        title: 'Ordenes de trabajo',
+        color: 'text-amber-600',
+        summary:
+            'Este modulo te ayuda a dejar por escrito lo que debe elaborarse, ajustarse o entregarse al paciente.',
+        bullets: [
+            'Crear una orden ligada al paciente cuando haga falta.',
+            'Revisar datos de trabajo, observaciones y estado.',
+            'Usarla como apoyo para control interno o produccion.',
+            'Tener un seguimiento claro de lo que ya fue atendido y lo que sigue pendiente.',
+        ],
+    },
+    {
+        icon: Package,
+        title: 'Inventario',
+        color: 'text-emerald-600',
+        summary:
+            'El inventario te permite controlar productos, existencias y movimientos para saber que hay disponible en cada momento.',
+        bullets: [
+            'Crear y editar productos.',
+            'Revisar stock disponible y movimientos recientes.',
+            'Trabajar por bodegas o sucursales cuando aplique.',
+            'Detectar faltantes antes de que afecten las ventas o la atencion.',
+        ],
+    },
+    {
+        icon: DollarSign,
+        title: 'Ventas y caja',
+        color: 'text-rose-600',
+        summary:
+            'Aqui se registra la operacion comercial del dia, desde la venta hasta el control de caja y su historial.',
+        bullets: [
+            'Hacer ventas en el punto de venta.',
+            'Revisar el historial de ventas y movimientos.',
+            'Registrar pagos, descuentos y devoluciones segun las reglas del negocio.',
+            'Abrir o cerrar la caja y consultar sus sesiones.',
+        ],
+    },
+    {
+        icon: FlaskConical,
+        title: 'Laboratorio',
+        color: 'text-sky-600',
+        summary:
+            'Centraliza las ordenes de laboratorio para darles seguimiento sin perder fechas, estados ni observaciones tecnicas.',
+        bullets: [
+            'Crear y revisar ordenes pendientes o completadas.',
+            'Consultar el estado del trabajo en cada etapa.',
+            'Ver observaciones tecnicas y notas de seguimiento.',
+            'Mantener el control de pedidos sin usar hojas sueltas.',
+        ],
+    },
+    {
+        icon: Megaphone,
+        title: 'CRM',
+        color: 'text-fuchsia-600',
+        summary:
+            'El CRM sirve para comunicarte mejor con tus pacientes y mantener recordatorios o campanas organizadas.',
+        bullets: [
+            'Crear recordatorios manuales o automatizados.',
+            'Gestionar plantillas de mensajes.',
+            'Lanzar campanas de seguimiento cuando sea necesario.',
+            'Reducir olvidos en citas, cobros o revisiones.',
+        ],
     },
     {
         icon: BarChart2,
         title: 'Reportes',
         color: 'text-red-600',
-        content: `Generación de informes estadísticos de la actividad clínica.
-
-**Consultas por período:** filtra por rango de fechas para ver el volumen de consultas. Incluye gráfico de barras.
-
-**Diagnósticos más frecuentes:** ranking de los diagnósticos más registrados en el período seleccionado.
-
-**Reporte de pacientes:** estadísticas demográficas y de registro de pacientes.
-
-**Exportar CSV:** descarga los datos del reporte activo en formato CSV para análisis externo.`,
-    },
-    {
-        icon: Users,
-        title: 'Usuarios',
-        color: 'text-gray-600',
-        content: `Administración de cuentas de usuario del sistema. Solo visible para administradores.
-
-**Roles disponibles:**
-• Admin: acceso completo, incluyendo gestión de usuarios y catálogos.
-• Optometrista: acceso a consultas, pacientes, agenda y módulos clínicos.
-• Recepcionista: acceso a pacientes y agenda.
-
-**Formulario de usuario:** nombre, email, contraseña (solo en creación), rol. Los usuarios pueden modificar sus propios datos desde "Mi Perfil".
-
-**Código / Registro:** campo para número de colegiado o registro profesional (aparece en los certificados impresos).`,
-    },
-    {
-        icon: Database,
-        title: 'Catálogos',
-        color: 'text-violet-600',
-        content: `Editor de los valores predefinidos que aparecen en los selectores del sistema. Solo accesible para administradores.
-
-**Catálogos disponibles:**
-• Médicos / Optometras
-• Materiales de lentes
-• Espesor de lentes
-• Protecciones/tratamientos
-• Diagnósticos clínicos
-• Recomendaciones
-• Plantillas de impresión
-• Tipos de lentes de contacto especiales
-
-Para agregar un elemento: haz clic en "Agregar" en el grupo correspondiente, escribe el código (opcional) y nombre, y presiona Enter o el ícono de confirmación.
-
-Para editar: haz clic en el ícono de lápiz. Para eliminar: ícono de papelera + confirmación.`,
+        summary:
+            'Los reportes te ayudan a revisar como va la clinica y a tomar decisiones con datos, no solo con percepciones.',
+        bullets: [
+            'Ver reportes clinicos y comerciales.',
+            'Abrir el dashboard gerencial si tienes permisos de administrador.',
+            'Revisar indicadores por periodo y por sucursal.',
+            'Exportar informacion cuando necesites compartirla o analizarla fuera del sistema.',
+            'Identificar tendencias de pacientes, ventas, stock o laboratorio.',
+        ],
     },
     {
         icon: Settings,
-        title: 'Configuración',
+        title: 'Administracion',
         color: 'text-slate-600',
-        content: `Parámetros globales de la clínica.
-
-**Pestaña General:**
-• Nombre de la clínica (aparece en certificados e informes).
-• Slogan / Tagline.
-• Dirección y teléfono.
-• Logo de la clínica (PNG/JPG, máx. 2 MB, recomendado 300×100 px). El logo aparece en la cabecera de los documentos impresos.
-
-**Pestaña Campos obligatorios:**
-Define cuáles campos del formulario de consulta son requeridos. Al intentar guardar una consulta con campos faltantes, se mostrarán en rojo con un aviso indicando cuáles faltan completar.`,
+        summary:
+            'Estas opciones son para usuarios con permisos de administrador y ayudan a mantener la plataforma ordenada.',
+        bullets: [
+            'Gestionar usuarios, roles y permisos.',
+            'Configurar sucursales y bodegas.',
+            'Editar catalogos y listas maestras.',
+            'Ajustar la informacion general de la clinica y los datos de impresion.',
+        ],
     },
     {
         icon: User,
-        title: 'Mi Perfil',
+        title: 'Mi perfil',
         color: 'text-pink-600',
-        content: `Permite a cada usuario actualizar su propia información.
-
-**Datos personales:** nombre completo y correo electrónico.
-
-**Cambio de contraseña:** requiere ingresar la contraseña actual antes de establecer una nueva. La nueva contraseña debe tener al menos 8 caracteres. Si no deseas cambiarla, deja los campos en blanco.
-
-Accede desde el enlace "Mi perfil" en la parte inferior del menú lateral.`,
+        summary:
+            'Cada usuario puede actualizar sus propios datos sin depender del administrador.',
+        bullets: [
+            'Cambiar nombre o correo electronico.',
+            'Actualizar la contrasena de acceso.',
+            'Mantener tu cuenta personal al dia.',
+        ],
     },
 ];
 
 function Section({ section }) {
-    const [open, setOpen] = useState(false);
+    const [open, setOpen] = useState(section.defaultOpen ?? false);
     const Icon = section.icon;
 
-    const renderContent = (text) => {
-        return text.split('\n').map((line, i) => {
-            if (line.startsWith('**') && line.endsWith('**')) {
-                return <p key={i} className="font-semibold text-gray-800 mt-3 mb-1">{line.slice(2, -2)}</p>;
-            }
-            if (line.startsWith('• ')) {
-                return <li key={i} className="ml-4 text-gray-600 text-sm">{line.slice(2)}</li>;
-            }
-            if (line === '') return <br key={i} />;
-            const parts = line.split(/\*\*(.*?)\*\*/g);
-            return (
-                <p key={i} className="text-gray-600 text-sm">
-                    {parts.map((p, j) => j % 2 === 1 ? <strong key={j}>{p}</strong> : p)}
-                </p>
-            );
-        });
-    };
-
     return (
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
             <button
-                onClick={() => setOpen(o => !o)}
-                className="w-full flex items-center gap-4 px-6 py-4 hover:bg-gray-50 transition-colors text-left"
+                type="button"
+                onClick={() => setOpen((value) => !value)}
+                className="flex w-full items-center gap-4 px-6 py-4 text-left transition-colors hover:bg-gray-50"
             >
-                <div className={`w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center flex-shrink-0`}>
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gray-100">
                     <Icon size={20} className={section.color} />
                 </div>
-                <span className="flex-1 font-semibold text-gray-900">{section.title}</span>
+                <div className="min-w-0 flex-1">
+                    <p className="font-semibold text-gray-900">{section.title}</p>
+                    <p className="mt-1 text-sm text-gray-500">{section.summary}</p>
+                </div>
                 {open ? <ChevronDown size={18} className="text-gray-400" /> : <ChevronRight size={18} className="text-gray-400" />}
             </button>
             {open && (
-                <div className="px-6 pb-5 pt-1 border-t border-gray-100">
-                    <ul className="space-y-1">
-                        {renderContent(section.content)}
+                <div className="border-t border-gray-100 px-6 pb-5 pt-2">
+                    <ul className="space-y-2">
+                        {section.bullets.map((bullet) => (
+                            <li key={bullet} className="flex gap-3 text-sm text-gray-600">
+                                <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-gray-300" />
+                                <span>{bullet}</span>
+                            </li>
+                        ))}
                     </ul>
                 </div>
             )}
@@ -266,38 +273,81 @@ function Section({ section }) {
     );
 }
 
-export default function HelpPage() {
+function HelpPage() {
     const [search, setSearch] = useState('');
-    const filtered = sections.filter(s =>
-        s.title.toLowerCase().includes(search.toLowerCase()) ||
-        s.content.toLowerCase().includes(search.toLowerCase())
-    );
+    const filtered = useMemo(() => {
+        const query = search.trim().toLowerCase();
+
+        if (!query) {
+            return sections;
+        }
+
+        return sections.filter((section) => {
+            const searchable = [section.title, section.summary, ...section.bullets].join(' ').toLowerCase();
+            return searchable.includes(query);
+        });
+    }, [search]);
 
     return (
-        <div className="p-6 max-w-4xl mx-auto">
+        <div className="mx-auto max-w-5xl p-6">
             <div className="mb-6">
-                <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-                    <BookOpen size={28} className="text-[#1a2a4a]" /> Centro de ayuda
-                </h1>
-                <p className="text-gray-500 mt-1">Guía de referencia para todos los módulos y funcionalidades del sistema</p>
+                <div className="flex items-center gap-3">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#1a2a4a] text-white shadow-sm">
+                        <BookOpen size={24} />
+                    </div>
+                    <div>
+                        <h1 className="text-3xl font-bold text-gray-900">Centro de ayuda</h1>
+                        <p className="mt-1 text-gray-600">
+                            Guia simple para aprender a usar el sistema por primera vez y ubicar cada modulo con rapidez.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div className="mb-6 grid gap-3 rounded-2xl border border-[#d7e1ef] bg-[#f5f8fc] p-4 text-sm text-slate-700 md:grid-cols-3">
+                <div className="rounded-xl bg-white px-4 py-3 shadow-sm">
+                    <p className="font-semibold text-slate-900">1. Busca al paciente</p>
+                    <p className="mt-1">Empieza por Pacientes si necesitas crear o revisar una ficha.</p>
+                </div>
+                <div className="rounded-xl bg-white px-4 py-3 shadow-sm">
+                    <p className="font-semibold text-slate-900">2. Registra la atencion</p>
+                    <p className="mt-1">Usa Consulta para dejar la informacion clinica organizada.</p>
+                </div>
+                <div className="rounded-xl bg-white px-4 py-3 shadow-sm">
+                    <p className="font-semibold text-slate-900">3. Revisa la operacion</p>
+                    <p className="mt-1">Apoyate en Agenda, Inventario, Ventas, Caja y Reportes para el trabajo diario.</p>
+                </div>
             </div>
 
             <div className="mb-6">
                 <input
                     type="text"
                     value={search}
-                    onChange={e => setSearch(e.target.value)}
-                    placeholder="Buscar en la ayuda..."
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] text-sm"
+                    onChange={(event) => setSearch(event.target.value)}
+                    placeholder="Buscar en la ayuda: pacientes, agenda, caja, inventario..."
+                    className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none transition focus:border-[#1a2a4a] focus:ring-2 focus:ring-[#1a2a4a]/20"
                 />
             </div>
 
             <div className="space-y-3">
-                {filtered.map(s => <Section key={s.title} section={s} />)}
+                {filtered.map((section, index) => (
+                    <Section
+                        key={section.title}
+                        section={{
+                            ...section,
+                            defaultOpen: index === 0 && !search.trim(),
+                        }}
+                    />
+                ))}
+
                 {filtered.length === 0 && (
-                    <div className="text-center py-12 text-gray-400">No se encontraron resultados para "{search}".</div>
+                    <div className="rounded-2xl border border-dashed border-gray-300 bg-white px-6 py-12 text-center text-gray-500">
+                        No se encontraron resultados para "{search}".
+                    </div>
                 )}
             </div>
         </div>
     );
 }
+
+export default HelpPage;

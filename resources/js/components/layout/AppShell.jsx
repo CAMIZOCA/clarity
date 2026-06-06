@@ -49,7 +49,7 @@ export default function AppShell() {
     return (
         <div className="flex min-h-[100dvh] bg-gray-50">
             <Sidebar mobileOpen={mobileMenuOpen} onClose={handleMobileMenuClose} />
-            <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+            <div className="flex min-w-0 min-h-0 flex-1 flex-col overflow-hidden lg:overflow-visible">
                 <header className="sticky top-0 z-30 border-b border-gray-200 bg-white/95 pt-[env(safe-area-inset-top)] backdrop-blur">
                     <div className="flex items-center gap-3 px-4 py-3 lg:px-6">
                         <button
@@ -67,7 +67,7 @@ export default function AppShell() {
                     </div>
                     <BranchSelector />
                 </header>
-                <main className="flex-1 overflow-y-auto overscroll-contain pb-[env(safe-area-inset-bottom)]">
+                <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[env(safe-area-inset-bottom)] lg:overflow-visible lg:overscroll-auto">
                     <Outlet />
                 </main>
             </div>
