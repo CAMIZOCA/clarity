@@ -31,7 +31,7 @@ export function LandingNavbar() {
     const linkClass = 'rounded-lg px-3 py-2 text-sm font-bold text-[var(--landing-muted)] transition hover:bg-[var(--landing-soft)] hover:text-[var(--landing-ink)] focus:outline-none focus:ring-2 focus:ring-[var(--landing-cyan)]';
 
     return (
-        <header className={`fixed inset-x-0 top-0 z-50 transition ${scrolled ? 'border-b border-[var(--landing-line)] bg-white/92 shadow-sm backdrop-blur-xl' : 'bg-transparent'}`}>
+        <header className={`fixed inset-x-0 top-0 z-50 pt-[env(safe-area-inset-top)] transition ${scrolled ? 'border-b border-[var(--landing-line)] bg-white/92 shadow-sm backdrop-blur-xl' : 'bg-transparent'}`}>
             <nav className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 lg:px-8" aria-label="Principal">
                 <Logo />
                 <div className="hidden items-center gap-1 lg:flex">

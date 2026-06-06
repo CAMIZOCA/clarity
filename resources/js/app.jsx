@@ -6,6 +6,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import { ToastProvider } from './components/ui/Toast';
 import { SettingsProvider } from './contexts/SettingsContext';
 import { BranchProvider } from './contexts/BranchContext';
+import PwaManager from './components/pwa/PwaManager';
 import { router } from './router/index';
 
 createRoot(document.getElementById('app')).render(
@@ -15,6 +16,7 @@ createRoot(document.getElementById('app')).render(
                 <BranchProvider>
                     <ToastProvider>
                         <RouterProvider router={router} />
+                        <PwaManager />
                     </ToastProvider>
                 </BranchProvider>
             </SettingsProvider>
