@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { Menu } from 'lucide-react';
 import Sidebar from './Sidebar';
@@ -35,20 +35,26 @@ export default function AppShell() {
     const location = useLocation();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const context = user ? { role: user.roles?.[0]?.name, name: user.name } : {};
+    const handleMobileMenuOpen = useCallback(() => {
+        setMobileMenuOpen(true);
+    }, []);
+    const handleMobileMenuClose = useCallback(() => {
+        setMobileMenuOpen(false);
+    }, []);
 
     useEffect(() => {
-        setMobileMenuOpen(false);
-    }, [location.pathname]);
+        handleMobileMenuClose();
+    }, [location.pathname, handleMobileMenuClose]);
 
     return (
         <div className="flex min-h-[100dvh] bg-gray-50">
-            <Sidebar mobileOpen={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
+            <Sidebar mobileOpen={mobileMenuOpen} onClose={handleMobileMenuClose} />
             <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
                 <header className="sticky top-0 z-30 border-b border-gray-200 bg-white/95 pt-[env(safe-area-inset-top)] backdrop-blur">
                     <div className="flex items-center gap-3 px-4 py-3 lg:px-6">
                         <button
                             type="button"
-                            onClick={() => setMobileMenuOpen(true)}
+                            onClick={handleMobileMenuOpen}
                             className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-700 shadow-sm transition hover:bg-gray-50 lg:hidden"
                             aria-label="Abrir menu"
                         >
