@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, User } from 'lucide-react';
 import client from '../../api/client';
 import Button from '../../components/ui/Button';
+import Input from '../../components/ui/Input';
 import { useToast } from '../../components/ui/Toast';
 
 export default function UserFormPage() {
@@ -21,20 +22,20 @@ export default function UserFormPage() {
     });
 
     useEffect(() => {
-        if (isEdit) {
-            client.get(`/users/${id}`).then(r => {
-                const u = r.data;
-                setForm({
-                    name: u.name || '',
-                    email: u.email || '',
-                    password: '',
-                    role: u.roles?.[0] || 'recepcionista',
-                    codigo: u.codigo || '',
-                    registro_senescyt: u.registro_senescyt || '',
-                });
-            }).catch(() => navigate('/usuarios'));
-        }
-    }, [id, isEdit]);
+        if (!isEdit) return;
+
+        client.get(`/users/${id}`).then(r => {
+            const u = r.data;
+            setForm({
+                name: u.name || '',
+                email: u.email || '',
+                password: '',
+                role: u.roles?.[0] || 'recepcionista',
+                codigo: u.codigo || '',
+                registro_senescyt: u.registro_senescyt || '',
+            });
+        }).catch(() => navigate('/usuarios'));
+    }, [id, isEdit, navigate]);
 
     const set = (field, value) => setForm(f => ({ ...f, [field]: value }));
 
@@ -65,7 +66,7 @@ export default function UserFormPage() {
     };
 
     return (
-        <div className="p-6 max-w-2xl mx-auto">
+        <div className="p-4 sm:p-6 max-w-2xl mx-auto pb-24">
             <div className="flex items-center gap-4 mb-6">
                 <button onClick={() => navigate(-1)} className="p-2 rounded-lg hover:bg-gray-100">
                     <ArrowLeft size={24} />
@@ -76,49 +77,71 @@ export default function UserFormPage() {
                 </h1>
             </div>
 
-            <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 space-y-5">
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Nombre completo <span className="text-red-500">*</span></label>
-                    <input type="text" value={form.name} onChange={e => set('name', e.target.value)} required
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]" />
-                </div>
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Correo electrónico <span className="text-red-500">*</span></label>
-                    <input type="email" value={form.email} onChange={e => set('email', e.target.value)} required
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]" />
-                </div>
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                        {isEdit ? 'Nueva contraseña (vacío = sin cambio)' : 'Contraseña'} {!isEdit && <span className="text-red-500">*</span>}
-                    </label>
-                    <input type="password" value={form.password} onChange={e => set('password', e.target.value)}
-                        required={!isEdit} minLength={8} placeholder={isEdit ? '••••••••' : 'Mínimo 8 caracteres'}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]" />
-                </div>
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Rol <span className="text-red-500">*</span></label>
-                    <select value={form.role} onChange={e => set('role', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]">
+            <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 sm:p-6 space-y-5">
+                <Input
+                    label="Nombre completo"
+                    required
+                    value={form.name}
+                    onChange={e => set('name', e.target.value)}
+                    nextFieldId="user-email"
+                />
+                <Input
+                    id="user-email"
+                    label="Correo electrónico"
+                    type="email"
+                    required
+                    value={form.email}
+                    onChange={e => set('email', e.target.value)}
+                    nextFieldId="user-password"
+                />
+                <Input
+                    id="user-password"
+                    label={isEdit ? 'Nueva contraseña (vacío = sin cambio)' : 'Contraseña'}
+                    type="password"
+                    required={!isEdit}
+                    minLength={8}
+                    value={form.password}
+                    onChange={e => set('password', e.target.value)}
+                    placeholder={isEdit ? '••••••••' : 'Mínimo 8 caracteres'}
+                    nextFieldId="user-role"
+                />
+                <div className="flex flex-col gap-1">
+                    <label className="text-sm font-medium text-gray-700">Rol <span className="text-red-500">*</span></label>
+                    <select
+                        id="user-role"
+                        value={form.role}
+                        onChange={e => set('role', e.target.value)}
+                        className="min-h-11 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm touch-manipulation focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]"
+                    >
                         <option value="recepcionista">Recepcionista</option>
                         <option value="optometra">Optómetra</option>
                         <option value="admin">Administrador</option>
                     </select>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Código interno</label>
-                        <input type="text" value={form.codigo} onChange={e => set('codigo', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]" />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Registro Senescyt</label>
-                        <input type="text" value={form.registro_senescyt} onChange={e => set('registro_senescyt', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]" />
-                    </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <Input
+                        label="Código interno"
+                        value={form.codigo}
+                        onChange={e => set('codigo', e.target.value)}
+                        nextFieldId="user-registro"
+                    />
+                    <Input
+                        id="user-registro"
+                        label="Registro Senescyt"
+                        value={form.registro_senescyt}
+                        onChange={e => set('registro_senescyt', e.target.value)}
+                    />
                 </div>
-                <div className="flex justify-end gap-3 pt-2 border-t border-gray-100">
-                    <Button variant="secondary" type="button" onClick={() => navigate(-1)}>Cancelar</Button>
-                    <Button type="submit" loading={saving}>{isEdit ? 'Guardar cambios' : 'Crear usuario'}</Button>
+
+                <div className="mobile-sticky-actions -mx-5 px-5 py-4 sm:-mx-6 sm:px-6">
+                    <div className="flex flex-col gap-3 sm:flex-row">
+                        <Button variant="secondary" type="button" onClick={() => navigate(-1)} className="w-full justify-center sm:flex-1">
+                            Cancelar
+                        </Button>
+                        <Button type="submit" loading={saving} className="w-full justify-center sm:flex-1">
+                            {isEdit ? 'Guardar cambios' : 'Crear usuario'}
+                        </Button>
+                    </div>
                 </div>
             </form>
         </div>

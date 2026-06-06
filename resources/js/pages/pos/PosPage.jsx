@@ -765,9 +765,11 @@ export default function PosPage() {
                                 <label className="text-sm text-gray-600 w-24">Recibido:</label>
                                 <input
                                     type="number" min={0} step="0.01"
+                                    inputMode="decimal"
+                                    enterKeyHint="next"
                                     value={cashReceived}
                                     onChange={e => setCashReceived(e.target.value)}
-                                    className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]"
+                                    className="flex-1 min-h-11 border border-gray-300 rounded-lg px-3 py-2 text-sm touch-manipulation focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]"
                                     placeholder={fmt(total)}
                                 />
                             </div>
@@ -790,9 +792,11 @@ export default function PosPage() {
                                     <label className="text-sm text-gray-600 w-24 capitalize">Ref. {method === 'card' ? 'tarjeta' : 'transf.'}:</label>
                                     <input
                                         type="text"
+                                        inputMode="text"
+                                        enterKeyHint="next"
                                         value={paymentRefs[method] || ''}
                                         onChange={e => setPaymentRefs(p => ({ ...p, [method]: e.target.value }))}
-                                        className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]"
+                                        className="flex-1 min-h-11 border border-gray-300 rounded-lg px-3 py-2 text-sm touch-manipulation focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]"
                                         placeholder="Número de referencia"
                                     />
                                 </div>
@@ -810,9 +814,11 @@ export default function PosPage() {
                         {isAbono && (
                             <input
                                 type="number" min={0} step="0.01"
+                                inputMode="decimal"
+                                enterKeyHint="done"
                                 value={abonoAmount}
                                 onChange={e => setAbonoAmount(e.target.value)}
-                                className="ml-auto w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                                className="ml-auto w-32 min-h-11 border border-gray-300 rounded-lg px-3 py-2 text-sm touch-manipulation"
                                 placeholder="Monto abono"
                             />
                         )}
@@ -869,9 +875,11 @@ export default function PosPage() {
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Cantidad</label>
                                 <input
                                     type="number" min={1}
+                                    inputMode="numeric"
+                                    enterKeyHint="next"
                                     value={addQty}
                                     onChange={e => setAddQty(Number(e.target.value))}
-                                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-center text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]"
+                                    className="w-full min-h-11 border border-gray-300 rounded-lg px-3 py-2 text-center text-lg font-semibold touch-manipulation focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]"
                                     autoFocus
                                 />
                             </div>
@@ -879,9 +887,11 @@ export default function PosPage() {
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Descuento %</label>
                                 <input
                                     type="number" min={0} max={100}
+                                    inputMode="decimal"
+                                    enterKeyHint="done"
                                     value={addDisc}
                                     onChange={e => setAddDisc(Number(e.target.value))}
-                                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-center text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]"
+                                    className="w-full min-h-11 border border-gray-300 rounded-lg px-3 py-2 text-center text-lg font-semibold touch-manipulation focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]"
                                 />
                             </div>
                         </div>

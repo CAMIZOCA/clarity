@@ -1,12 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
-import {
-    getProduct,
-    createProduct,
-    updateProduct,
-    getSuppliers,
-} from '../../api/inventory';
+import { getProduct, createProduct, updateProduct, getSuppliers } from '../../api/inventory';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import { useToast } from '../../components/ui/Toast';
@@ -24,7 +19,7 @@ function slugify(str) {
     return str
         .toLowerCase()
         .normalize('NFD')
-        .replace(/[̀-ͯ]/g, '')
+        .replace(/[\u0300-\u036f]/g, '')
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/^-|-$/g, '');
 }
@@ -61,33 +56,32 @@ export default function ProductFormPage() {
     useEffect(() => {
         getSuppliers().then(r => setSuppliers(getList(r))).catch(() => {});
 
-        if (isEdit) {
-            getProduct(id)
-                .then(r => {
-                    const p = getPayload(r);
-                    setForm({
-                        nombre: p.nombre ?? p.name ?? '',
-                        sku: p.sku ?? '',
-                        marca: p.marca ?? p.brand ?? '',
-                        categoria: p.categoria ?? p.category ?? '',
-                        subcategoria: p.subcategoria ?? p.subcategory ?? '',
-                        proveedor_id: p.proveedor_id ?? p.supplier_id ?? '',
-                        descripcion: p.descripcion ?? p.description ?? '',
-                        requiere_receta: Boolean(p.requiere_receta ?? p.requires_prescription),
-                        tiene_variantes: Boolean(p.tiene_variantes ?? p.has_variants ?? true),
-                        controlar_inventario: Boolean(p.controlar_inventario ?? p.track_inventory ?? true),
-                    });
-                })
-                .catch(() => addToast('Error al cargar el producto', 'error'))
-                .finally(() => setLoading(false));
-        }
-    }, [id, isEdit]);
+        if (!isEdit) return;
+
+        getProduct(id)
+            .then(r => {
+                const p = getPayload(r);
+                setForm({
+                    nombre: p.nombre ?? p.name ?? '',
+                    sku: p.sku ?? '',
+                    marca: p.marca ?? p.brand ?? '',
+                    categoria: p.categoria ?? p.category ?? '',
+                    subcategoria: p.subcategoria ?? p.subcategory ?? '',
+                    proveedor_id: p.proveedor_id ?? p.supplier_id ?? '',
+                    descripcion: p.descripcion ?? p.description ?? '',
+                    requiere_receta: Boolean(p.requiere_receta ?? p.requires_prescription),
+                    tiene_variantes: Boolean(p.tiene_variantes ?? p.has_variants ?? true),
+                    controlar_inventario: Boolean(p.controlar_inventario ?? p.track_inventory ?? true),
+                });
+            })
+            .catch(() => addToast('Error al cargar el producto', 'error'))
+            .finally(() => setLoading(false));
+    }, [id, isEdit, addToast]);
 
     const set = (field) => (e) => {
         const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
         setForm(prev => {
             const next = { ...prev, [field]: value };
-            // Auto-sugerir SKU si aún no fue editado manualmente
             if ((field === 'nombre' || field === 'marca') && !isEdit) {
                 next.sku = suggestSku(next.nombre, next.marca);
             }
@@ -140,8 +134,7 @@ export default function ProductFormPage() {
     }
 
     return (
-        <div className="p-6 max-w-3xl mx-auto">
-            {/* Header */}
+        <div className="p-4 sm:p-6 max-w-3xl mx-auto pb-24">
             <div className="flex items-center gap-4 mb-6">
                 <button
                     onClick={() => navigate('/inventario/productos')}
@@ -160,7 +153,7 @@ export default function ProductFormPage() {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 space-y-5">
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 sm:p-6 space-y-5">
                     <h2 className="text-base font-semibold text-gray-700 border-b pb-2">Información General</h2>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -171,20 +164,17 @@ export default function ProductFormPage() {
                             onChange={set('nombre')}
                             placeholder="Ej: Armazón Metalic Pro"
                         />
-                        <div className="flex flex-col gap-1">
-                            <Input
-                                label="SKU"
-                                value={form.sku}
-                                onChange={set('sku')}
-                                onBlur={() => {
-                                    // Validación visual básica
-                                    setSkuError(form.sku.length > 0 && form.sku.length < 3 ? 'El SKU debe tener al menos 3 caracteres' : '');
-                                }}
-                                error={skuError}
-                                placeholder="Ej: ARMAT-MET-PRO"
-                                hint="Se sugiere automáticamente basado en nombre y marca"
-                            />
-                        </div>
+                        <Input
+                            label="SKU"
+                            value={form.sku}
+                            onChange={set('sku')}
+                            onBlur={() => {
+                                setSkuError(form.sku.length > 0 && form.sku.length < 3 ? 'El SKU debe tener al menos 3 caracteres' : '');
+                            }}
+                            error={skuError}
+                            placeholder="Ej: ARMAT-MET-PRO"
+                            hint="Se sugiere automáticamente basado en nombre y marca"
+                        />
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -200,7 +190,7 @@ export default function ProductFormPage() {
                             <select
                                 value={form.categoria}
                                 onChange={set('categoria')}
-                                className="py-2.5 px-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] bg-white text-sm"
+                                className="min-h-11 py-2.5 px-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] bg-white text-sm touch-manipulation"
                             >
                                 <option value="">Seleccionar categoría...</option>
                                 {CATEGORIES.map(c => (
@@ -223,7 +213,7 @@ export default function ProductFormPage() {
                             <select
                                 value={form.proveedor_id}
                                 onChange={set('proveedor_id')}
-                                className="py-2.5 px-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] bg-white text-sm"
+                                className="min-h-11 py-2.5 px-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] bg-white text-sm touch-manipulation"
                             >
                                 <option value="">Sin proveedor asignado</option>
                                 {suppliers.map(s => (
@@ -240,13 +230,12 @@ export default function ProductFormPage() {
                             onChange={set('descripcion')}
                             placeholder="Descripción opcional del producto..."
                             rows={3}
-                            className="py-2.5 px-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] bg-white text-sm resize-none"
+                            className="min-h-11 py-2.5 px-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] bg-white text-sm resize-none touch-manipulation"
                         />
                     </div>
                 </div>
 
-                {/* Opciones */}
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 space-y-4">
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 sm:p-6 space-y-4">
                     <h2 className="text-base font-semibold text-gray-700 border-b pb-2">Opciones</h2>
 
                     {[
@@ -273,18 +262,20 @@ export default function ProductFormPage() {
                     ))}
                 </div>
 
-                {/* Acciones */}
-                <div className="flex justify-end gap-3">
-                    <Button
-                        type="button"
-                        variant="secondary"
-                        onClick={() => navigate('/inventario/productos')}
-                    >
-                        Cancelar
-                    </Button>
-                    <Button type="submit" loading={saving}>
-                        {isEdit ? 'Guardar cambios' : 'Crear producto'}
-                    </Button>
+                <div className="mobile-sticky-actions -mx-5 px-5 py-4 sm:-mx-6 sm:px-6">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={() => navigate('/inventario/productos')}
+                            className="w-full justify-center sm:w-auto"
+                        >
+                            Cancelar
+                        </Button>
+                        <Button type="submit" loading={saving} className="w-full justify-center sm:w-auto">
+                            {isEdit ? 'Guardar cambios' : 'Crear producto'}
+                        </Button>
+                    </div>
                 </div>
             </form>
         </div>

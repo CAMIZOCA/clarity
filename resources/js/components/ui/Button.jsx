@@ -24,7 +24,7 @@ export default function Button({
             disabled={disabled || loading}
             onClick={onClick}
             className={`inline-flex items-center gap-2 font-medium rounded-lg transition-colors
-                focus:outline-none focus:ring-2 focus:ring-offset-2
+                min-h-11 touch-manipulation focus:outline-none focus:ring-2 focus:ring-offset-2
                 disabled:opacity-50 disabled:cursor-not-allowed
                 ${variants[variant]} ${sizes[size]} ${className}`}
             {...props}

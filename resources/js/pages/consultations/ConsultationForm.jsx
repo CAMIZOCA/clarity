@@ -195,15 +195,40 @@ function fieldErrorClass(hasError) {
         : 'border-slate-300';
 }
 
-function FormInput({ label, register, name, type = 'text', ...props }) {
+function focusNextField(nextFieldId) {
+    if (!nextFieldId) {
+        return;
+    }
+
+    const nextField = document.getElementById(nextFieldId);
+    if (nextField && typeof nextField.focus === 'function') {
+        nextField.focus({ preventScroll: true });
+        if (typeof nextField.select === 'function') {
+            nextField.select();
+        }
+    }
+}
+
+function FormInput({ label, register, name, type = 'text', inputMode, enterKeyHint, nextFieldId, ...props }) {
     const errors = useContext(RequiredErrorsCtx);
     const err = errors.has(name);
+    const resolvedInputMode = inputMode ?? (type === 'number' ? 'decimal' : undefined);
+    const resolvedEnterKeyHint = enterKeyHint ?? (nextFieldId ? 'next' : 'done');
     return (
         <div className="flex flex-col gap-1">
             <label className={`text-sm font-medium ${err ? 'text-red-600' : 'text-slate-700'}`}>{label}{err && ' *'}</label>
             <input
+                id={name}
                 type={type}
-                className={`w-full rounded-xl border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 ${fieldErrorClass(err)}`}
+                inputMode={resolvedInputMode}
+                enterKeyHint={resolvedEnterKeyHint}
+                onKeyDown={(event) => {
+                    if (event.key === 'Enter' && nextFieldId && !event.isComposing) {
+                        event.preventDefault();
+                        focusNextField(nextFieldId);
+                    }
+                }}
+                className={`w-full min-h-11 rounded-xl border px-3 py-2.5 text-sm touch-manipulation focus:outline-none focus:ring-2 focus:ring-slate-900 ${fieldErrorClass(err)}`}
                 {...register(name)}
                 {...props}
             />
@@ -211,14 +236,22 @@ function FormInput({ label, register, name, type = 'text', ...props }) {
     );
 }
 
-function FormSelect({ label, register, name, options = [], placeholder = 'Seleccionar...' }) {
+function FormSelect({ label, register, name, options = [], placeholder = 'Seleccionar...', nextFieldId }) {
     const errors = useContext(RequiredErrorsCtx);
     const err = errors.has(name);
     return (
         <div className="flex flex-col gap-1">
             <label className={`text-sm font-medium ${err ? 'text-red-600' : 'text-slate-700'}`}>{label}{err && ' *'}</label>
             <select
-                className={`w-full rounded-xl border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 ${fieldErrorClass(err)}`}
+                id={name}
+                enterKeyHint={nextFieldId ? 'next' : 'done'}
+                onKeyDown={(event) => {
+                    if (event.key === 'Enter' && nextFieldId && !event.isComposing) {
+                        event.preventDefault();
+                        focusNextField(nextFieldId);
+                    }
+                }}
+                className={`w-full min-h-11 rounded-xl border px-3 py-2.5 text-sm touch-manipulation focus:outline-none focus:ring-2 focus:ring-slate-900 ${fieldErrorClass(err)}`}
                 {...register(name)}
             >
                 <option value="">{placeholder}</option>
@@ -239,9 +272,10 @@ function TextArea({ label, register, name, rows = 3, placeholder, ...props }) {
         <div className="flex flex-col gap-1">
             <label className={`text-sm font-medium ${err ? 'text-red-600' : 'text-slate-700'}`}>{label}{err && ' *'}</label>
             <textarea
+                id={name}
                 rows={rows}
                 placeholder={placeholder}
-                className={`w-full rounded-xl border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 ${fieldErrorClass(err)}`}
+                className={`w-full min-h-11 rounded-xl border px-3 py-2.5 text-sm touch-manipulation focus:outline-none focus:ring-2 focus:ring-slate-900 ${fieldErrorClass(err)}`}
                 {...register(name)}
                 {...props}
             />
@@ -412,7 +446,7 @@ export default function ConsultationForm({ patient, consultation, meta }) {
 
     return (
       <RequiredErrorsCtx.Provider value={requiredErrors}>
-        <form onSubmit={handleSubmit(onSubmit)}>
+        <form onSubmit={handleSubmit(onSubmit)} className="pb-24 lg:pb-8">
             <div className="sticky top-0 z-20 mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-3 shadow-sm">
                 <div className="flex flex-wrap items-center gap-2">
                     <InlineBadge label={`Paciente ${patient.codigo_interno || patient.id}`} />
@@ -424,7 +458,7 @@ export default function ConsultationForm({ patient, consultation, meta }) {
                         </span>
                     )}
                 </div>
-                <div className="flex flex-wrap items-center gap-3">
+                <div className="hidden flex-wrap items-center gap-3 lg:flex">
                     <Button type="button" variant="secondary" onClick={() => doSave(true)} loading={saving}>
                         <Clock size={18} /> Guardar borrador
                     </Button>
@@ -757,7 +791,21 @@ export default function ConsultationForm({ patient, consultation, meta }) {
                 </div>
             </Section>
 
-            <div className="flex flex-wrap justify-end gap-3 pb-8">
+            <div className="mobile-sticky-actions -mx-4 px-4 py-4 lg:hidden">
+                <div className="grid grid-cols-3 gap-2">
+                    <Button type="button" variant="secondary" className="justify-center" onClick={() => doSave(true)}>
+                        <Clock size={18} /> Guardar
+                    </Button>
+                    <Button type="button" variant="secondary" className="justify-center" onClick={handleGeneratePdf}>
+                        <FileText size={18} /> Vista previa
+                    </Button>
+                    <Button type="submit" className="justify-center" loading={saving}>
+                        <Save size={18} /> Completar
+                    </Button>
+                </div>
+            </div>
+
+            <div className="hidden flex-wrap justify-end gap-3 pb-8 lg:flex">
                 <Button type="button" variant="secondary" onClick={() => doSave(true)}>
                     <Clock size={20} /> Guardar borrador
                 </Button>

@@ -2,8 +2,36 @@ import React, { forwardRef } from 'react';
 
 const Input = forwardRef(function Input({
     label, error, className = '', type = 'text',
-    prefix, suffix, hint, required, ...props
+    prefix, suffix, hint, required,
+    inputMode,
+    enterKeyHint,
+    nextFieldId,
+    autoAdvanceOnEnter = false,
+    id,
+    onKeyDown,
+    ...props
 }, ref) {
+    const resolvedId = id ?? props.name;
+    const resolvedInputMode =
+        inputMode ?? (type === 'number' ? 'decimal' : type === 'tel' ? 'tel' : undefined);
+    const resolvedEnterKeyHint =
+        enterKeyHint ?? (nextFieldId || autoAdvanceOnEnter ? 'next' : undefined);
+
+    const handleKeyDown = (event) => {
+        if (event.key === 'Enter' && !event.isComposing && nextFieldId) {
+            const nextField = document.getElementById(nextFieldId);
+            if (nextField && typeof nextField.focus === 'function') {
+                event.preventDefault();
+                nextField.focus({ preventScroll: true });
+                if (typeof nextField.select === 'function') {
+                    nextField.select();
+                }
+            }
+        }
+
+        onKeyDown?.(event);
+    };
+
     return (
         <div className={`flex flex-col gap-1 ${className}`}>
             {label && (
@@ -17,9 +45,13 @@ const Input = forwardRef(function Input({
                 )}
                 <input
                     ref={ref}
+                    id={resolvedId}
                     type={type}
+                    inputMode={resolvedInputMode}
+                    enterKeyHint={resolvedEnterKeyHint}
+                    onKeyDown={handleKeyDown}
                     className={`w-full rounded-lg border text-base py-2.5 transition-colors
-                        focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] focus:border-transparent
+                        min-h-11 touch-manipulation focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] focus:border-transparent
                         focus:bg-[#fef08a]/20
                         ${error ? 'border-red-400 bg-red-50' : 'border-gray-300 bg-white'}
                         ${prefix ? 'pl-8' : 'pl-3'}

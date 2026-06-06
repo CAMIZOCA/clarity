@@ -43,17 +43,50 @@ function SpecGroup({ title, children }) {
     );
 }
 
-function Field({ label, name, value, onChange, type = 'text', placeholder = '' }) {
+function focusNextField(nextFieldId) {
+    if (!nextFieldId) {
+        return;
+    }
+
+    const nextField = document.getElementById(nextFieldId);
+    if (nextField && typeof nextField.focus === 'function') {
+        nextField.focus({ preventScroll: true });
+        if (typeof nextField.select === 'function') {
+            nextField.select();
+        }
+    }
+}
+
+function Field({
+    label,
+    name,
+    value,
+    onChange,
+    type = 'text',
+    placeholder = '',
+    inputMode,
+    enterKeyHint,
+    nextFieldId,
+}) {
     return (
         <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1">{label}</label>
             <input
+                id={name}
                 type={type}
                 name={name}
                 value={value || ''}
                 onChange={e => onChange(name, e.target.value)}
                 placeholder={placeholder}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]"
+                inputMode={inputMode ?? (type === 'number' ? 'decimal' : undefined)}
+                enterKeyHint={enterKeyHint ?? (nextFieldId ? 'next' : 'done')}
+                onKeyDown={(event) => {
+                    if (event.key === 'Enter' && nextFieldId && !event.isComposing) {
+                        event.preventDefault();
+                        focusNextField(nextFieldId);
+                    }
+                }}
+                className="w-full min-h-11 border border-gray-300 rounded-lg px-3 py-2 text-sm touch-manipulation focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]"
             />
         </div>
     );
@@ -123,7 +156,6 @@ export default function OrdenTrabajoPage() {
                     dr: c.optometrista?.name || '',
                 }));
 
-                // Auto-seleccionar specs si hay datos de luna
                 if (c.luna_material || c.luna_espesor || c.luna_proteccion) {
                     const mat = (c.luna_material || '').toLowerCase();
                     const esp = (c.luna_espesor || '').toLowerCase();
@@ -163,8 +195,7 @@ export default function OrdenTrabajoPage() {
     const ordenConSpecs = { ...orden, specs };
 
     return (
-        <div className="max-w-5xl mx-auto px-4 py-6">
-            {/* Encabezado */}
+        <div className="max-w-5xl mx-auto px-4 py-6 pb-24">
             <div className="flex items-center gap-3 mb-6">
                 <div className="w-10 h-10 bg-[#1a2a4a] rounded-xl flex items-center justify-center">
                     <ClipboardList size={20} className="text-white" />
@@ -175,7 +206,6 @@ export default function OrdenTrabajoPage() {
                 </div>
             </div>
 
-            {/* Selector de paciente */}
             <div className="bg-white rounded-2xl shadow-sm border p-6 mb-6">
                 <h2 className="text-base font-semibold text-gray-800 mb-3 flex items-center gap-2">
                     <span className="w-6 h-6 bg-[#1a2a4a] text-white rounded-full flex items-center justify-center text-xs font-bold">1</span>
@@ -205,33 +235,29 @@ export default function OrdenTrabajoPage() {
                 )}
             </div>
 
-            {/* Formulario de la orden */}
             <div className="bg-white rounded-2xl shadow-sm border p-6 mb-6">
                 <h2 className="text-base font-semibold text-gray-800 mb-4 flex items-center gap-2">
                     <span className="w-6 h-6 bg-[#1a2a4a] text-white rounded-full flex items-center justify-center text-xs font-bold">2</span>
                     Datos de la orden
                 </h2>
 
-                {/* Fila: Número, Fecha, Cliente, Teléfono */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                    <Field label="N° Orden" name="numero" value={orden.numero} onChange={handleOrdenChange} />
-                    <Field label="Fecha" name="fecha" value={orden.fecha} onChange={handleOrdenChange} />
-                    <Field label="Cliente" name="cliente" value={orden.cliente} onChange={handleOrdenChange} />
-                    <Field label="Teléfono" name="telefono" value={orden.telefono} onChange={handleOrdenChange} />
+                    <Field label="N° Orden" name="numero" value={orden.numero} onChange={handleOrdenChange} nextFieldId="fecha" />
+                    <Field label="Fecha" name="fecha" value={orden.fecha} onChange={handleOrdenChange} nextFieldId="cliente" />
+                    <Field label="Cliente" name="cliente" value={orden.cliente} onChange={handleOrdenChange} nextFieldId="telefono" />
+                    <Field label="Teléfono" name="telefono" value={orden.telefono} onChange={handleOrdenChange} type="tel" inputMode="tel" nextFieldId="rx_od" />
                 </div>
 
-                {/* RX */}
                 <h3 className="text-sm font-bold text-gray-700 mb-3 border-b pb-1">Prescripción</h3>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
-                    <Field label="O.D." name="rx_od" value={orden.rx_od} onChange={handleOrdenChange} placeholder="Ej: -3.50 -1.25 x12°" />
-                    <Field label="ADD O.D." name="add_od" value={orden.add_od} onChange={handleOrdenChange} placeholder="+2.50" />
-                    <Field label="AV C.C. O.D." name="avcc_od" value={orden.avcc_od} onChange={handleOrdenChange} placeholder="20/20" />
-                    <Field label="O.I." name="rx_oi" value={orden.rx_oi} onChange={handleOrdenChange} placeholder="Ej: +0.25 -2.75 x10°" />
-                    <Field label="ADD O.I." name="add_oi" value={orden.add_oi} onChange={handleOrdenChange} placeholder="+2.50" />
-                    <Field label="AV C.C. O.I." name="avcc_oi" value={orden.avcc_oi} onChange={handleOrdenChange} placeholder="20/20" />
+                    <Field label="O.D." name="rx_od" value={orden.rx_od} onChange={handleOrdenChange} placeholder="Ej: -3.50 -1.25 x12°" nextFieldId="add_od" />
+                    <Field label="ADD O.D." name="add_od" value={orden.add_od} onChange={handleOrdenChange} placeholder="+2.50" inputMode="decimal" nextFieldId="avcc_od" />
+                    <Field label="AV C.C. O.D." name="avcc_od" value={orden.avcc_od} onChange={handleOrdenChange} placeholder="20/20" nextFieldId="rx_oi" />
+                    <Field label="O.I." name="rx_oi" value={orden.rx_oi} onChange={handleOrdenChange} placeholder="Ej: +0.25 -2.75 x10°" nextFieldId="add_oi" />
+                    <Field label="ADD O.I." name="add_oi" value={orden.add_oi} onChange={handleOrdenChange} placeholder="+2.50" inputMode="decimal" nextFieldId="avcc_oi" />
+                    <Field label="AV C.C. O.I." name="avcc_oi" value={orden.avcc_oi} onChange={handleOrdenChange} placeholder="20/20" nextFieldId="especif" />
                 </div>
 
-                {/* Especificaciones de lentes */}
                 <h3 className="text-sm font-bold text-gray-700 mb-3 border-b pb-1">Especificaciones de Lentes</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
                     <SpecGroup title="Material">
@@ -247,7 +273,7 @@ export default function OrdenTrabajoPage() {
                         <SpecCheckbox label="COLORM." name="colorm" checked={specs.colorm} onChange={handleSpecChange} />
                         <SpecCheckbox label="FOTOC." name="fotoc" checked={specs.fotoc} onChange={handleSpecChange} />
                         <SpecCheckbox label="GRIS" name="gris" checked={specs.gris} onChange={handleSpecChange} />
-                        <SpecCheckbox label="CAFÉ" name="cafe" checked={specs.cafe} onChange={handleSpecChange} />
+                        <SpecCheckbox label="CAFE" name="cafe" checked={specs.cafe} onChange={handleSpecChange} />
                         <SpecCheckbox label="VERDE" name="verde" checked={specs.verde} onChange={handleSpecChange} />
                     </SpecGroup>
                     <SpecGroup title="Tratamiento / Protección">
@@ -287,36 +313,35 @@ export default function OrdenTrabajoPage() {
                     </SpecGroup>
                 </div>
 
-                {/* OTRO/ESPECIF */}
                 <div className="mb-6">
                     <label className="block text-xs font-semibold text-gray-600 mb-1">OTRO / ESPECIF.</label>
                     <input
+                        id="especif"
                         type="text"
                         value={orden.especif || ''}
                         onChange={e => handleOrdenChange('especif', e.target.value)}
                         placeholder="Ej: CR. Fotocromáticos Gris AR"
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]"
+                        className="w-full min-h-11 border border-gray-300 rounded-lg px-3 py-2 text-sm touch-manipulation focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]"
                     />
                 </div>
 
-                {/* Datos del laboratorio y financieros */}
                 <h3 className="text-sm font-bold text-gray-700 mb-3 border-b pb-1">Laboratorio y Logística</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                    <Field label="LAB" name="lab" value={orden.lab} onChange={handleOrdenChange} placeholder="Nombre laboratorio" />
-                    <Field label="ALT." name="alt" value={orden.alt} onChange={handleOrdenChange} placeholder="24" />
-                    <Field label="D.P." name="dnp" value={orden.dnp} onChange={handleOrdenChange} placeholder="32/33" />
-                    <Field label="DR." name="dr" value={orden.dr} onChange={handleOrdenChange} />
+                    <Field label="LAB" name="lab" value={orden.lab} onChange={handleOrdenChange} placeholder="Nombre laboratorio" nextFieldId="alt" />
+                    <Field label="ALT." name="alt" value={orden.alt} onChange={handleOrdenChange} type="number" inputMode="numeric" placeholder="24" nextFieldId="dnp" />
+                    <Field label="D.P." name="dnp" value={orden.dnp} onChange={handleOrdenChange} placeholder="32/33" nextFieldId="dr" />
+                    <Field label="DR." name="dr" value={orden.dr} onChange={handleOrdenChange} nextFieldId="armazon" />
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                     <div className="md:col-span-2">
-                        <Field label="ARMAZÓN" name="armazon" value={orden.armazon} onChange={handleOrdenChange} placeholder="Descripción del armazón" />
+                        <Field label="ARMAZÓN" name="armazon" value={orden.armazon} onChange={handleOrdenChange} placeholder="Descripción del armazón" nextFieldId="fac" />
                     </div>
-                    <Field label="FAC." name="fac" value={orden.fac} onChange={handleOrdenChange} />
-                    <Field label="R.C." name="rc" value={orden.rc} onChange={handleOrdenChange} />
+                    <Field label="FAC." name="fac" value={orden.fac} onChange={handleOrdenChange} nextFieldId="rc" />
+                    <Field label="R.C." name="rc" value={orden.rc} onChange={handleOrdenChange} nextFieldId="entrega" />
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                     <div className="md:col-span-2">
-                        <Field label="ENTREGA" name="entrega" value={orden.entrega} onChange={handleOrdenChange} placeholder="Ej: Martes URG." />
+                        <Field label="ENTREGA" name="entrega" value={orden.entrega} onChange={handleOrdenChange} placeholder="Ej: Martes URG." nextFieldId="valor" />
                     </div>
                 </div>
                 <div className="mb-4">
@@ -331,25 +356,23 @@ export default function OrdenTrabajoPage() {
 
                 <h3 className="text-sm font-bold text-gray-700 mb-3 border-b pb-1">Información Financiera</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <Field label="VALOR ($)" name="valor" value={orden.valor} onChange={handleOrdenChange} type="number" placeholder="0.00" />
-                    <Field label="ABONO ($)" name="abono" value={orden.abono} onChange={handleOrdenChange} type="number" placeholder="0.00" />
-                    <Field label="SALDO ($)" name="saldo" value={orden.saldo} onChange={handleOrdenChange} type="number" placeholder="0.00" />
+                    <Field label="VALOR ($)" name="valor" value={orden.valor} onChange={handleOrdenChange} type="number" inputMode="decimal" placeholder="0.00" nextFieldId="abono" />
+                    <Field label="ABONO ($)" name="abono" value={orden.abono} onChange={handleOrdenChange} type="number" inputMode="decimal" placeholder="0.00" nextFieldId="saldo" />
+                    <Field label="SALDO ($)" name="saldo" value={orden.saldo} onChange={handleOrdenChange} type="number" inputMode="decimal" placeholder="0.00" nextFieldId="forma_pago" />
                     <Field label="Forma de Pago" name="forma_pago" value={orden.forma_pago} onChange={handleOrdenChange} placeholder="EFECTIVO / VISA" />
                 </div>
             </div>
 
-            {/* Botón generar */}
-            <div className="flex justify-end">
+            <div className="mobile-sticky-actions -mx-4 px-4 py-4 md:static md:mx-0 md:px-0 md:py-0 md:bg-transparent md:border-0 md:backdrop-blur-0 md:shadow-none">
                 <button
                     onClick={() => setShowPdf(true)}
-                    className="flex items-center gap-2 px-6 py-3 bg-[#1a2a4a] text-white rounded-xl hover:bg-[#243a6a] transition-colors font-semibold text-base shadow-lg"
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#1a2a4a] px-6 py-3 text-base font-semibold text-white shadow-lg transition-colors hover:bg-[#243a6a] md:w-auto"
                 >
                     <Eye size={18} />
                     Vista Previa e Imprimir
                 </button>
             </div>
 
-            {/* Modal PDF */}
             {showPdf && (
                 <OrdenTrabajoPdf
                     orden={ordenConSpecs}

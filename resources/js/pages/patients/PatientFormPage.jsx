@@ -20,7 +20,7 @@ export default function PatientFormPage() {
         if (isEdit) {
             client.get(`/patients/${id}`).then(r => reset(r.data));
         }
-    }, [id]);
+    }, [id, isEdit, reset]);
 
     const onSubmit = async (data) => {
         setLoading(true);
@@ -44,7 +44,7 @@ export default function PatientFormPage() {
     };
 
     return (
-        <div className="p-6 max-w-4xl mx-auto">
+        <div className="p-4 sm:p-6 max-w-4xl mx-auto pb-24">
             <div className="flex items-center gap-4 mb-6">
                 <button onClick={() => navigate(-1)} className="p-2 rounded-lg hover:bg-gray-100">
                     <ArrowLeft size={24} />
@@ -57,61 +57,83 @@ export default function PatientFormPage() {
                 </div>
             </div>
 
-            <form onSubmit={handleSubmit(onSubmit)} className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 space-y-6">
+            <form onSubmit={handleSubmit(onSubmit)} className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 sm:p-8 space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <Input
                         label="Nombre completo"
                         required
                         error={errors.nombre?.message}
+                        nextFieldId="cedula"
                         {...register('nombre', { required: 'Requerido' })}
                     />
                     <Input
-                        label="Cédula / RUC"
+                        label="CÃ©dula / RUC"
                         required
                         error={errors.cedula?.message}
+                        inputMode="numeric"
+                        nextFieldId="fecha_nacimiento"
                         {...register('cedula', { required: 'Requerido' })}
                     />
                     <Input
+                        id="fecha_nacimiento"
                         label="Fecha de nacimiento"
                         type="date"
                         required
                         error={errors.fecha_nacimiento?.message}
+                        nextFieldId="ocupacion"
                         {...register('fecha_nacimiento', { required: 'Requerido' })}
                     />
                     <Input
-                        label="Ocupación"
+                        label="OcupaciÃ³n"
+                        nextFieldId="telefono"
                         {...register('ocupacion')}
                     />
                     <Input
-                        label="Teléfono"
+                        label="TelÃ©fono"
                         type="tel"
+                        nextFieldId="email"
                         {...register('telefono')}
                     />
                     <Input
                         label="Email"
                         type="email"
+                        nextFieldId="direccion"
                         {...register('email')}
                     />
                     <div className="md:col-span-2">
                         <Input
-                            label="Dirección"
+                            label="DirecciÃ³n"
+                            nextFieldId="antecedentes"
                             {...register('direccion')}
                         />
                     </div>
                     <div className="md:col-span-2">
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Antecedentes médicos oculares
+                            Antecedentes mÃ©dicos oculares
                         </label>
                         <textarea
+                            id="antecedentes"
                             rows={4}
                             className="w-full px-3 py-2.5 text-base rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] focus:bg-[#fef08a]/20 resize-none"
-                            placeholder="Historial de enfermedades oculares, cirugías, alergias..."
+                            placeholder="Historial de enfermedades oculares, cirugÃ­as, alergias..."
                             {...register('antecedentes')}
                         />
                     </div>
                 </div>
 
-                <div className="flex gap-3 pt-4 border-t border-gray-100">
+                <div className="mobile-sticky-actions -mx-5 px-5 py-4 sm:-mx-8 sm:px-8">
+                    <div className="flex flex-col gap-3 sm:flex-row">
+                        <Button type="submit" size="lg" loading={loading} className="w-full justify-center sm:flex-1">
+                            <Save size={20} />
+                            {isEdit ? 'Actualizar' : 'Registrar Paciente'}
+                        </Button>
+                        <Button type="button" variant="secondary" size="lg" onClick={() => navigate(-1)} className="w-full justify-center sm:flex-1">
+                            Cancelar
+                        </Button>
+                    </div>
+                </div>
+
+                <div className="hidden gap-3 pt-4 border-t border-gray-100 sm:flex">
                     <Button type="submit" size="lg" loading={loading}>
                         <Save size={20} />
                         {isEdit ? 'Actualizar' : 'Registrar Paciente'}

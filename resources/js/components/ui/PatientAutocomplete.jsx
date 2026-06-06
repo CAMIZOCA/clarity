@@ -33,10 +33,12 @@ export default function PatientAutocomplete({ onSelect, placeholder = 'Buscar pa
                 <Search className="absolute left-3 text-gray-400" size={18} />
                 <input
                     type="text"
+                    inputMode="search"
+                    enterKeyHint="search"
                     value={query}
                     onChange={e => setQuery(e.target.value)}
                     placeholder={placeholder}
-                    className="w-full pl-10 pr-4 py-3 text-lg rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] focus:bg-[#fef08a]/20"
+                    className="w-full min-h-11 pl-10 pr-4 py-3 text-lg rounded-xl border border-gray-300 touch-manipulation focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] focus:bg-[#fef08a]/20"
                 />
                 {loading && (
                     <div className="absolute right-3 animate-spin text-gray-400">
