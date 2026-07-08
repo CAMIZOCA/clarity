@@ -26,6 +26,7 @@ class ImportOpticaAndinaSqlite extends Command
                             {--replace : Actualiza registros importados existentes}
                             {--reset-placeholder-import : Elimina consultas/pacientes placeholder de importaciones anteriores antes de importar}
                             {--prune-placeholders : Elimina placeholders importados que queden sin consultas}
+                            {--json-summary= : Ruta opcional para escribir resumen JSON estructurado}
                             {--dry-run : Solo reportar, no guardar en BD}';
 
     protected $description = 'Importa clientes, medicos e historias desde el backup SQLite de Optica Andina';
@@ -129,6 +130,7 @@ class ImportOpticaAndinaSqlite extends Command
         }
 
         $this->printSummary();
+        $this->writeJsonSummary();
 
         return $this->stats['errors'] > 0 ? Command::FAILURE : Command::SUCCESS;
     }
@@ -148,6 +150,7 @@ class ImportOpticaAndinaSqlite extends Command
                 $name = $this->limit($this->v($row, 'MED_NOMBRE APELLIDOS'), 255);
                 if ($name === null) {
                     $this->stats['users_skipped']++;
+
                     continue;
                 }
 
@@ -159,6 +162,7 @@ class ImportOpticaAndinaSqlite extends Command
                     User::where('email', $email)->orWhere('codigo', $code)->exists()
                         ? $this->stats['users_updated']++
                         : $this->stats['users_created']++;
+
                     continue;
                 }
 
@@ -173,11 +177,13 @@ class ImportOpticaAndinaSqlite extends Command
                         'registro_senescyt' => $registration,
                     ]);
                     $this->stats['users_created']++;
+
                     continue;
                 }
 
                 if (! $this->replace) {
                     $this->stats['users_skipped']++;
+
                     continue;
                 }
 
@@ -212,6 +218,7 @@ class ImportOpticaAndinaSqlite extends Command
                 $legacyId = $this->v($row, 'Id');
                 if ($legacyId === null) {
                     $this->stats['patients_skipped']++;
+
                     continue;
                 }
 
@@ -219,6 +226,7 @@ class ImportOpticaAndinaSqlite extends Command
                     Patient::where('legacy_id', $legacyId)->exists()
                         ? $this->stats['patients_updated']++
                         : $this->stats['patients_created']++;
+
                     continue;
                 }
 
@@ -249,6 +257,7 @@ class ImportOpticaAndinaSqlite extends Command
                 $legacyId = $this->v($row, 'Id');
                 if ($legacyId === null) {
                     $this->stats['consultations_skipped']++;
+
                     continue;
                 }
 
@@ -256,6 +265,7 @@ class ImportOpticaAndinaSqlite extends Command
                     Consultation::where('legacy_id', $legacyId)->exists()
                         ? $this->stats['consultations_updated']++
                         : $this->stats['consultations_created']++;
+
                     continue;
                 }
 
@@ -283,7 +293,7 @@ class ImportOpticaAndinaSqlite extends Command
         }
 
         $isNew = ! $patient;
-        $patient ??= new Patient();
+        $patient ??= new Patient;
 
         $cedula = $this->uniqueCedula(
             $this->usableCedula($originalCedula) ? $originalCedula : null,
@@ -343,7 +353,7 @@ class ImportOpticaAndinaSqlite extends Command
             return $consultation;
         }
 
-        $consultation ??= new Consultation();
+        $consultation ??= new Consultation;
         $patient = $this->patientForConsultation($row, $legacyId);
         $optometristId = $this->optometristId($this->v($row, 'MEDICO_RESPONSABLE'));
 
@@ -1138,5 +1148,26 @@ class ImportOpticaAndinaSqlite extends Command
                 $this->line(' - '.$error);
             }
         }
+    }
+
+    private function writeJsonSummary(): void
+    {
+        $path = $this->option('json-summary');
+        if (! is_string($path) || trim($path) === '') {
+            return;
+        }
+
+        $directory = dirname($path);
+        if (! is_dir($directory)) {
+            mkdir($directory, 0755, true);
+        }
+
+        file_put_contents($path, json_encode([
+            'stats' => $this->stats,
+            'errors' => $this->errors,
+            'dry_run' => $this->dryRun,
+            'replace' => $this->replace,
+            'generated_at' => now()->toIso8601String(),
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
     }
 }

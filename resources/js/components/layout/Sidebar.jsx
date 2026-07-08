@@ -166,6 +166,7 @@ function SidebarContent({ onNavigate, onLogout, isAdmin, pendingAppointments, us
                     <Section title="Administracion" icon={Settings} defaultOpen={false}>
                         <NavItem to="/admin/sucursales" icon={Building2} label="Sucursales" onNavigate={onNavigate} />
                         <NavItem to="/admin/bodegas" icon={Warehouse} label="Bodegas" onNavigate={onNavigate} />
+                        <NavItem to="/admin/mantenimiento" icon={Database} label="Backups" onNavigate={onNavigate} />
                         <NavItem to="/usuarios" icon={User} label="Usuarios" onNavigate={onNavigate} />
                         <NavItem to="/catalogos" icon={Database} label="Catalogos" onNavigate={onNavigate} />
                         <NavItem to="/configuracion" icon={Settings} label="Configuracion" onNavigate={onNavigate} />

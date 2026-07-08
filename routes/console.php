@@ -1,5 +1,6 @@
 <?php
 
+use App\Console\Commands\PruneMaintenanceOperations;
 use App\Console\Commands\SendDailyReminders;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
@@ -11,3 +12,4 @@ Artisan::command('inspire', function () {
 
 // ─── CRM: recordatorios diarios ───────────────────────────────────────────────
 Schedule::command(SendDailyReminders::class)->dailyAt('08:00');
+Schedule::command(PruneMaintenanceOperations::class, ['--days' => 7])->dailyAt('02:30');

@@ -43,6 +43,7 @@ const TemplatePage = lazy(() => import('../pages/crm/TemplatePage'));
 const RemindersPage = lazy(() => import('../pages/crm/RemindersPage'));
 const BranchesPage = lazy(() => import('../pages/admin/BranchesPage'));
 const WarehousesPage = lazy(() => import('../pages/admin/WarehousesPage'));
+const MaintenancePage = lazy(() => import('../pages/admin/MaintenancePage'));
 
 const Loader = () => (
     <div className="flex items-center justify-center h-64">
@@ -158,6 +159,7 @@ export const router = createBrowserRouter([
             { path: 'crm/recordatorios', element: wrap(RemindersPage) },
             { path: 'admin/sucursales', element: wrap(BranchesPage) },
             { path: 'admin/bodegas', element: wrap(WarehousesPage) },
+            { path: 'admin/mantenimiento', element: wrap(MaintenancePage) },
         ],
     },
     { path: '*', element: <Navigate to="/dashboard" replace /> },

@@ -28,6 +28,7 @@ use App\Http\Controllers\Api\CrmController;
 use App\Http\Controllers\Api\InvoiceController;
 use App\Http\Controllers\Api\AuditController;
 use App\Http\Controllers\Api\AiController;
+use App\Http\Controllers\Api\SystemMaintenanceController;
 
 Route::middleware('auth:sanctum')->group(function () {
 
@@ -194,5 +195,15 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/generate-message', [AiController::class, 'generateMessage']);
         Route::post('/predict-stockouts', [AiController::class, 'predictStockouts']);
         Route::post('/chat', [AiController::class, 'chat']);
+    });
+
+    Route::prefix('admin/maintenance')->group(function () {
+        Route::get('/backups', [SystemMaintenanceController::class, 'backups']);
+        Route::post('/backups', [SystemMaintenanceController::class, 'createBackup']);
+        Route::get('/backups/{operation}/download', [SystemMaintenanceController::class, 'downloadBackup']);
+        Route::post('/imports/upload', [SystemMaintenanceController::class, 'uploadImport']);
+        Route::post('/imports/{operation}/analyze', [SystemMaintenanceController::class, 'analyzeImport']);
+        Route::post('/imports/{operation}/run', [SystemMaintenanceController::class, 'runImport']);
+        Route::get('/imports/{operation}', [SystemMaintenanceController::class, 'showImport']);
     });
 });

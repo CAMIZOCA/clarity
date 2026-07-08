@@ -90,6 +90,7 @@ enum Permission: string
     case USERS_DELETE    = 'users.delete';
     case AUDIT_VIEW      = 'audit.view';                   // Ver logs de auditoría
     case BRANCHES_MANAGE = 'branches.manage';
+    case SYSTEM_MAINTENANCE = 'system.maintenance';
 
     // ─── BRIGADAS Y MÓDULOS ESPECIALES ────────────────────
     case BRIGADES_VIEW    = 'brigades.view';
