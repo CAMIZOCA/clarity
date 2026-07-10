@@ -21,16 +21,26 @@ class LegacyImportService
 
         $required = ['CLIENTES', 'HISTORIAL OPTAMOLOGIA', 'MEDICOS'];
         $counts = [];
+        $missing = [];
 
         foreach ($required as $table) {
             $statement = $pdo->prepare("select count(*) from sqlite_master where type = 'table' and name = ?");
             $statement->execute([$table]);
             if ((int) $statement->fetchColumn() === 0) {
-                throw new RuntimeException("La tabla requerida no existe en el backup: {$table}");
+                $missing[] = $table;
+
+                continue;
             }
 
             $quoted = '"'.str_replace('"', '""', $table).'"';
             $counts[$table] = (int) $pdo->query("select count(*) from {$quoted}")->fetchColumn();
+        }
+
+        if ($missing !== []) {
+            throw new RuntimeException(
+                'El archivo SQLite no corresponde al backup del sistema anterior Optica Andina. '
+                .'Faltan tablas requeridas: '.implode(', ', $missing).'.'
+            );
         }
 
         return $counts;

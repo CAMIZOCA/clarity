@@ -22,5 +22,8 @@ export const analyzeLegacyImport = (id) =>
 export const runLegacyImport = (id, data) =>
     client.post(`/admin/maintenance/imports/${id}/run`, data);
 
+export const restoreSystemBackup = (id, data) =>
+    client.post(`/admin/maintenance/imports/${id}/restore`, data);
+
 export const getLegacyImport = (id) =>
     client.get(`/admin/maintenance/imports/${id}`);

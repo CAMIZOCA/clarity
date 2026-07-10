@@ -1,34 +1,33 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Api\AuthController;
-use App\Http\Controllers\Api\PatientController;
-use App\Http\Controllers\Api\ConsultationController;
-use App\Http\Controllers\Api\AppointmentController;
-use App\Http\Controllers\Api\BrigadeController;
-use App\Http\Controllers\Api\SpecialContactLensController;
-use App\Http\Controllers\Api\OphthalmologyReferenceController;
-use App\Http\Controllers\Api\UserController;
-use App\Http\Controllers\Api\ReportController;
-use App\Http\Controllers\Api\Cie10Controller;
-use App\Http\Controllers\Api\ConsultationMetaController;
-use App\Http\Controllers\Api\GuaranteeReportController;
-use App\Http\Controllers\Api\SettingController;
-use App\Http\Controllers\Api\CatalogController;
-use App\Http\Controllers\Api\SaleController;
-use App\Http\Controllers\Api\CashRegisterController;
-use App\Http\Controllers\Api\LabOrderController;
-use App\Http\Controllers\Api\ProductController;
-use App\Http\Controllers\Api\InventoryController;
-use App\Http\Controllers\Api\SupplierController;
-use App\Http\Controllers\Api\BranchController;
-use App\Http\Controllers\Api\WarehouseController;
-use App\Http\Controllers\Api\ExportController;
-use App\Http\Controllers\Api\CrmController;
-use App\Http\Controllers\Api\InvoiceController;
-use App\Http\Controllers\Api\AuditController;
 use App\Http\Controllers\Api\AiController;
+use App\Http\Controllers\Api\AppointmentController;
+use App\Http\Controllers\Api\AuditController;
+use App\Http\Controllers\Api\BranchController;
+use App\Http\Controllers\Api\BrigadeController;
+use App\Http\Controllers\Api\CashRegisterController;
+use App\Http\Controllers\Api\CatalogController;
+use App\Http\Controllers\Api\Cie10Controller;
+use App\Http\Controllers\Api\ConsultationController;
+use App\Http\Controllers\Api\ConsultationMetaController;
+use App\Http\Controllers\Api\CrmController;
+use App\Http\Controllers\Api\ExportController;
+use App\Http\Controllers\Api\GuaranteeReportController;
+use App\Http\Controllers\Api\InventoryController;
+use App\Http\Controllers\Api\InvoiceController;
+use App\Http\Controllers\Api\LabOrderController;
+use App\Http\Controllers\Api\OphthalmologyReferenceController;
+use App\Http\Controllers\Api\PatientController;
+use App\Http\Controllers\Api\ProductController;
+use App\Http\Controllers\Api\ReportController;
+use App\Http\Controllers\Api\SaleController;
+use App\Http\Controllers\Api\SettingController;
+use App\Http\Controllers\Api\SpecialContactLensController;
+use App\Http\Controllers\Api\SupplierController;
 use App\Http\Controllers\Api\SystemMaintenanceController;
+use App\Http\Controllers\Api\UserController;
+use App\Http\Controllers\Api\WarehouseController;
+use Illuminate\Support\Facades\Route;
 
 Route::middleware('auth:sanctum')->group(function () {
 
@@ -204,6 +203,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/imports/upload', [SystemMaintenanceController::class, 'uploadImport']);
         Route::post('/imports/{operation}/analyze', [SystemMaintenanceController::class, 'analyzeImport']);
         Route::post('/imports/{operation}/run', [SystemMaintenanceController::class, 'runImport']);
+        Route::post('/imports/{operation}/restore', [SystemMaintenanceController::class, 'restoreSystemBackup']);
         Route::get('/imports/{operation}', [SystemMaintenanceController::class, 'showImport']);
     });
 });

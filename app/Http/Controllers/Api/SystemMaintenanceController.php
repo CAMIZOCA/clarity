@@ -11,6 +11,7 @@ use App\Jobs\RunLegacyImportJob;
 use App\Models\MaintenanceOperation;
 use App\Services\DatabaseBackupService;
 use App\Services\LegacyImportService;
+use App\Services\SystemRestoreService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -101,7 +102,7 @@ class SystemMaintenanceController extends Controller
         );
     }
 
-    public function uploadImport(Request $request, LegacyImportService $imports): JsonResponse
+    public function uploadImport(Request $request, LegacyImportService $imports, SystemRestoreService $restores): JsonResponse
     {
         if (! $this->allowed($request)) {
             return $this->forbidden();
@@ -125,12 +126,12 @@ class SystemMaintenanceController extends Controller
 
         try {
             if (str_ends_with(strtolower($originalFilename), '.gz')) {
-                $this->storeDecompressedGzip($file->getRealPath(), $absolutePath);
+                $this->storeDecompressedGzip($file->getPathname(), $absolutePath);
             } else {
                 $file->storeAs('imports', $filename, 'local');
             }
 
-            $counts = $imports->validateSqlite($absolutePath);
+            [$type, $summary] = $this->classifyImportFile($absolutePath, $imports, $restores);
         } catch (Throwable $e) {
             Storage::disk('local')->delete($path);
 
@@ -138,7 +139,7 @@ class SystemMaintenanceController extends Controller
         }
 
         $operation = MaintenanceOperation::create([
-            'type' => 'legacy_import',
+            'type' => $type,
             'status' => 'uploaded',
             'user_id' => $request->user()->id,
             'disk' => 'local',
@@ -146,16 +147,35 @@ class SystemMaintenanceController extends Controller
             'original_filename' => $originalFilename,
             'file_size' => filesize($absolutePath) ?: $file->getSize(),
             'sha256' => hash_file('sha256', $absolutePath),
-            'summary' => [
-                'source_counts' => $counts,
+            'summary' => array_merge($summary, [
                 'source_compressed' => str_ends_with(strtolower($originalFilename), '.gz'),
-            ],
+            ]),
             'expires_at' => now()->addDays(7),
         ]);
 
-        $this->audit($operation, 'Archivo legacy subido');
+        $this->audit($operation, $type === 'system_restore' ? 'Backup del sistema subido' : 'Archivo legacy subido');
 
         return $this->created($this->operationPayload($operation), 'Archivo validado y cargado.');
+    }
+
+    private function classifyImportFile(string $absolutePath, LegacyImportService $imports, SystemRestoreService $restores): array
+    {
+        try {
+            $systemSummary = $restores->inspectSqlite($absolutePath);
+
+            return ['system_restore', $systemSummary];
+        } catch (Throwable $systemException) {
+            try {
+                $counts = $imports->validateSqlite($absolutePath);
+
+                return ['legacy_import', [
+                    'source_type' => 'legacy_optica_andina',
+                    'source_counts' => $counts,
+                ]];
+            } catch (Throwable $legacyException) {
+                throw new \RuntimeException($legacyException->getMessage().' '.$systemException->getMessage());
+            }
+        }
     }
 
     private function sqliteImportExtension(string $filename): ?string
@@ -177,6 +197,10 @@ class SystemMaintenanceController extends Controller
 
     private function storeDecompressedGzip(string $sourcePath, string $destinationPath): void
     {
+        if ($sourcePath === '' || ! is_file($sourcePath)) {
+            throw new \RuntimeException('No se pudo leer el archivo temporal subido.');
+        }
+
         $source = gzopen($sourcePath, 'rb');
         if ($source === false) {
             throw new \RuntimeException('No se pudo leer el archivo comprimido.');
@@ -250,13 +274,48 @@ class SystemMaintenanceController extends Controller
         return $this->ok(['data' => $this->operationPayload($operation->fresh())], 'Importacion en cola.');
     }
 
+    public function restoreSystemBackup(Request $request, MaintenanceOperation $operation, SystemRestoreService $restores): JsonResponse
+    {
+        if (! $this->allowed($request)) {
+            return $this->forbidden();
+        }
+
+        $request->validate([
+            'confirm_restore' => ['accepted'],
+        ]);
+
+        if ($operation->type !== 'system_restore' || ! $operation->fileExists()) {
+            return $this->notFound('Restauracion no disponible.');
+        }
+
+        try {
+            $summary = $restores->restore($operation);
+        } catch (Throwable $e) {
+            $operation->update([
+                'status' => 'failed',
+                'error_message' => $e->getMessage(),
+                'finished_at' => now(),
+            ]);
+
+            return $this->error($e->getMessage(), 500);
+        }
+
+        $payload = $this->operationPayload($operation->forceFill([
+            'status' => 'completed',
+            'summary' => array_merge($operation->summary ?? [], $summary),
+            'finished_at' => now(),
+        ]));
+
+        return $this->ok(['data' => $payload], 'Backup restaurado. Es posible que deba iniciar sesion nuevamente.');
+    }
+
     public function showImport(Request $request, MaintenanceOperation $operation): JsonResponse
     {
         if (! $this->allowed($request)) {
             return $this->forbidden();
         }
 
-        if ($operation->type !== 'legacy_import') {
+        if (! in_array($operation->type, ['legacy_import', 'system_restore'], true)) {
             return $this->notFound('Operacion no encontrada.');
         }
 

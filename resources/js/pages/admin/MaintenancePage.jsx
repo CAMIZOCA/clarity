@@ -18,11 +18,12 @@ import {
     downloadBackup,
     getBackups,
     getLegacyImport,
+    restoreSystemBackup,
     runLegacyImport,
     uploadLegacyImport,
 } from '../../api/maintenance';
 
-const ACTIVE_STATUSES = new Set(['pending', 'processing', 'queued_analysis', 'analyzing', 'queued_import', 'importing']);
+const ACTIVE_STATUSES = new Set(['pending', 'processing', 'queued_analysis', 'analyzing', 'queued_import', 'importing', 'restoring']);
 const DOWNLOADABLE_STATUSES = new Set(['completed']);
 
 function formatDate(value) {
@@ -69,15 +70,23 @@ export default function MaintenancePage() {
     const [uploading, setUploading] = useState(false);
     const [analyzing, setAnalyzing] = useState(false);
     const [importing, setImporting] = useState(false);
+    const [restoring, setRestoring] = useState(false);
     const [rewriteLegacy, setRewriteLegacy] = useState(true);
     const [confirmBackup, setConfirmBackup] = useState(false);
+    const [confirmRestore, setConfirmRestore] = useState(false);
 
     const summary = importOperation?.summary || {};
     const stats = summary.stats || {};
     const sourceCounts = summary.source_counts || {};
+    const isSystemRestore = importOperation?.type === 'system_restore';
+    const isLegacyImport = importOperation?.type === 'legacy_import';
     const canRunImport = importOperation?.status === 'analyzed'
+        && isLegacyImport
         && Number(stats.errors || 0) === 0
         && confirmBackup;
+    const canRestoreSystem = isSystemRestore
+        && importOperation?.status === 'uploaded'
+        && confirmRestore;
 
     const activeImport = importOperation && ACTIVE_STATUSES.has(importOperation.status);
     const activeBackup = useMemo(() => backups.some((backup) => ACTIVE_STATUSES.has(backup.status)), [backups]);
@@ -145,7 +154,8 @@ export default function MaintenancePage() {
             const response = await uploadLegacyImport(file);
             setImportOperation(response.data.data);
             setConfirmBackup(false);
-            addToast('Archivo SQLite validado', 'success');
+            setConfirmRestore(false);
+            addToast(response.data.data?.type === 'system_restore' ? 'Backup del sistema validado' : 'Archivo legacy validado', 'success');
         } catch (error) {
             addToast(error.response?.data?.message || 'Archivo invalido', 'error');
         } finally {
@@ -185,6 +195,22 @@ export default function MaintenancePage() {
         }
     };
 
+    const handleRestoreSystem = async () => {
+        if (!importOperation?.id) return;
+        setRestoring(true);
+        try {
+            const response = await restoreSystemBackup(importOperation.id, {
+                confirm_restore: confirmRestore,
+            });
+            setImportOperation(response.data.data);
+            addToast('Backup restaurado', 'success');
+        } catch (error) {
+            addToast(error.response?.data?.message || 'No se pudo restaurar', 'error');
+        } finally {
+            setRestoring(false);
+        }
+    };
+
     return (
         <div className="min-h-full bg-slate-50 p-6">
             <div className="mx-auto max-w-6xl space-y-8">
@@ -193,7 +219,7 @@ export default function MaintenancePage() {
                         <p className="text-sm font-semibold uppercase tracking-wide text-slate-500">Administracion</p>
                         <h1 className="mt-2 text-3xl font-bold text-slate-950">Backups e importacion</h1>
                         <p className="mt-2 max-w-2xl text-sm text-slate-600">
-                            Genera respaldos privados de la base actual y ejecuta importaciones legacy con analisis previo obligatorio.
+                            Genera respaldos privados, restaura ambientes desde backups del sistema y ejecuta importaciones legacy con analisis previo.
                         </p>
                     </div>
                     <Button onClick={handleCreateBackup} loading={backupBusy || activeBackup}>
@@ -253,8 +279,8 @@ export default function MaintenancePage() {
                     <div className="rounded-lg border border-slate-200 bg-white p-5">
                         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                             <div>
-                                <h2 className="text-lg font-semibold text-slate-950">Importar sistema anterior</h2>
-                                <p className="mt-1 text-sm text-slate-500">Acepta archivos .sqlite, .sqlite3, .db o versiones .gz del backup Optica Andina.</p>
+                                <h2 className="text-lg font-semibold text-slate-950">Importar o restaurar backup</h2>
+                                <p className="mt-1 text-sm text-slate-500">Acepta backups del sistema actual y archivos legacy Optica Andina en .sqlite, .db o .gz.</p>
                             </div>
                             <input ref={fileRef} type="file" accept=".sqlite,.sqlite3,.db,.sqlite.gz,.sqlite3.gz,.db.gz,.gz" onChange={handleUpload} className="hidden" />
                             <Button variant="secondary" onClick={() => fileRef.current?.click()} loading={uploading}>
@@ -267,6 +293,9 @@ export default function MaintenancePage() {
                                 <div className="rounded-lg bg-slate-50 p-4">
                                     <div className="flex flex-wrap items-center gap-3">
                                         <StatusPill status={importOperation.status} />
+                                        <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-600">
+                                            {isSystemRestore ? 'Backup del sistema' : 'Legacy Optica Andina'}
+                                        </span>
                                         <p className="text-sm font-medium text-slate-900">{importOperation.original_filename}</p>
                                         <p className="text-sm text-slate-500">{formatBytes(importOperation.file_size)}</p>
                                     </div>
@@ -275,53 +304,85 @@ export default function MaintenancePage() {
                                     )}
                                 </div>
 
-                                <div className="grid gap-4 sm:grid-cols-3">
-                                    <Stat label="Pacientes crear" value={stats.patients_created} />
-                                    <Stat label="Historias crear" value={stats.consultations_created} />
-                                    <Stat label="Placeholders" value={stats.placeholder_patients_created} />
-                                </div>
+                                {isSystemRestore ? (
+                                    <div className="space-y-5">
+                                        <div className="grid gap-4 sm:grid-cols-3">
+                                            <Stat label="Tablas backup" value={summary.tables} />
+                                            <Stat label="Pacientes backup" value={summary.patients} />
+                                            <Stat label="Historias backup" value={summary.consultations} />
+                                        </div>
 
-                                {stats.errors > 0 && (
-                                    <div className="flex gap-3 rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
-                                        <AlertTriangle size={18} className="shrink-0" />
-                                        El dry-run reporto errores. Revisa el log antes de intentar importar.
+                                        <div className="flex gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                                            <AlertTriangle size={18} className="shrink-0" />
+                                            Esta accion reemplaza toda la base de datos actual por el backup subido. Antes de restaurar se generara un backup de seguridad del ambiente actual.
+                                        </div>
+
+                                        <div className="space-y-3 border-t border-slate-100 pt-5">
+                                            <label className="flex items-start gap-3 text-sm text-slate-700">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={confirmRestore}
+                                                    onChange={(event) => setConfirmRestore(event.target.checked)}
+                                                    className="mt-1 h-4 w-4 accent-[#1a2a4a]"
+                                                />
+                                                <span>Entiendo que se reemplazara toda la base de datos actual con este backup.</span>
+                                            </label>
+                                            <Button onClick={handleRestoreSystem} disabled={!canRestoreSystem} loading={restoring || importOperation.status === 'restoring'}>
+                                                <Database size={18} /> Restaurar sistema
+                                            </Button>
+                                        </div>
                                     </div>
+                                ) : (
+                                    <>
+                                        <div className="grid gap-4 sm:grid-cols-3">
+                                            <Stat label="Pacientes crear" value={stats.patients_created} />
+                                            <Stat label="Historias crear" value={stats.consultations_created} />
+                                            <Stat label="Placeholders" value={stats.placeholder_patients_created} />
+                                        </div>
+
+                                        {stats.errors > 0 && (
+                                            <div className="flex gap-3 rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+                                                <AlertTriangle size={18} className="shrink-0" />
+                                                El dry-run reporto errores. Revisa el log antes de intentar importar.
+                                            </div>
+                                        )}
+
+                                        <div className="flex flex-wrap gap-3">
+                                            <Button variant="secondary" onClick={handleAnalyze} loading={analyzing || ['queued_analysis', 'analyzing'].includes(importOperation.status)}>
+                                                <Loader2 size={18} /> Analizar dry-run
+                                            </Button>
+                                        </div>
+
+                                        <div className="space-y-3 border-t border-slate-100 pt-5">
+                                            <label className="flex items-start gap-3 text-sm text-slate-700">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={rewriteLegacy}
+                                                    onChange={(event) => setRewriteLegacy(event.target.checked)}
+                                                    className="mt-1 h-4 w-4 accent-[#1a2a4a]"
+                                                />
+                                                <span>Reescribir datos legacy importados anteriormente y podar placeholders vacios.</span>
+                                            </label>
+                                            <label className="flex items-start gap-3 text-sm text-slate-700">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={confirmBackup}
+                                                    onChange={(event) => setConfirmBackup(event.target.checked)}
+                                                    className="mt-1 h-4 w-4 accent-[#1a2a4a]"
+                                                />
+                                                <span>Entiendo que se reemplazaran datos legacy y que el sistema generara un backup previo automatico.</span>
+                                            </label>
+                                            <Button onClick={handleRunImport} disabled={!canRunImport} loading={importing || ['queued_import', 'importing'].includes(importOperation.status)}>
+                                                <Play size={18} /> Importar ahora
+                                            </Button>
+                                        </div>
+                                    </>
                                 )}
-
-                                <div className="flex flex-wrap gap-3">
-                                    <Button variant="secondary" onClick={handleAnalyze} loading={analyzing || ['queued_analysis', 'analyzing'].includes(importOperation.status)}>
-                                        <Loader2 size={18} /> Analizar dry-run
-                                    </Button>
-                                </div>
-
-                                <div className="space-y-3 border-t border-slate-100 pt-5">
-                                    <label className="flex items-start gap-3 text-sm text-slate-700">
-                                        <input
-                                            type="checkbox"
-                                            checked={rewriteLegacy}
-                                            onChange={(event) => setRewriteLegacy(event.target.checked)}
-                                            className="mt-1 h-4 w-4 accent-[#1a2a4a]"
-                                        />
-                                        <span>Reescribir datos legacy importados anteriormente y podar placeholders vacios.</span>
-                                    </label>
-                                    <label className="flex items-start gap-3 text-sm text-slate-700">
-                                        <input
-                                            type="checkbox"
-                                            checked={confirmBackup}
-                                            onChange={(event) => setConfirmBackup(event.target.checked)}
-                                            className="mt-1 h-4 w-4 accent-[#1a2a4a]"
-                                        />
-                                        <span>Entiendo que se reemplazaran datos legacy y que el sistema generara un backup previo automatico.</span>
-                                    </label>
-                                    <Button onClick={handleRunImport} disabled={!canRunImport} loading={importing || ['queued_import', 'importing'].includes(importOperation.status)}>
-                                        <Play size={18} /> Importar ahora
-                                    </Button>
-                                </div>
 
                                 {importOperation.status === 'completed' && (
                                     <div className="flex gap-3 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700">
                                         <CheckCircle2 size={18} className="shrink-0" />
-                                        Importacion completada. Se genero backup previo #{importOperation.backup_operation_id}.
+                                        {isSystemRestore ? 'Restauracion completada.' : `Importacion completada. Se genero backup previo #${importOperation.backup_operation_id}.`}
                                     </div>
                                 )}
 
@@ -335,8 +396,8 @@ export default function MaintenancePage() {
                         ) : (
                             <div className="mt-6 rounded-lg border border-dashed border-slate-300 p-8 text-center">
                                 <Upload className="mx-auto text-slate-400" size={30} />
-                                <p className="mt-3 text-sm font-medium text-slate-800">Sube el backup SQLite del sistema anterior</p>
-                                <p className="mt-1 text-sm text-slate-500">El sistema validara tablas antes de permitir el dry-run.</p>
+                                <p className="mt-3 text-sm font-medium text-slate-800">Sube un backup SQLite</p>
+                                <p className="mt-1 text-sm text-slate-500">El sistema detectara si es restauracion completa o importacion legacy.</p>
                             </div>
                         )}
                     </div>

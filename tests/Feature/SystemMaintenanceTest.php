@@ -111,6 +111,42 @@ class SystemMaintenanceTest extends TestCase
         $this->assertStringEndsWith('.sqlite', $operation->path);
     }
 
+    public function test_upload_detects_system_backup_sqlite_gzip(): void
+    {
+        Storage::fake('local');
+        Sanctum::actingAs($this->adminUser());
+
+        $this->postJson('/api/admin/maintenance/imports/upload', [
+            'file' => $this->systemSqliteGzipUpload(),
+        ])->assertCreated()
+            ->assertJsonPath('data.type', 'system_restore')
+            ->assertJsonPath('data.status', 'uploaded')
+            ->assertJsonPath('data.summary.source_type', 'system_backup')
+            ->assertJsonPath('data.summary.source_compressed', true);
+
+        $operation = MaintenanceOperation::where('type', 'system_restore')->latest()->first();
+
+        Storage::disk('local')->assertExists($operation->path);
+        $this->assertStringEndsWith('.sqlite', $operation->path);
+    }
+
+    public function test_system_restore_requires_confirmation(): void
+    {
+        Storage::fake('local');
+        Sanctum::actingAs($this->adminUser());
+        Storage::disk('local')->put('imports/system.sqlite', 'placeholder');
+
+        $operation = MaintenanceOperation::create([
+            'type' => 'system_restore',
+            'status' => 'uploaded',
+            'disk' => 'local',
+            'path' => 'imports/system.sqlite',
+        ]);
+
+        $this->postJson("/api/admin/maintenance/imports/{$operation->id}/restore")
+            ->assertUnprocessable();
+    }
+
     public function test_import_requires_successful_dry_run(): void
     {
         Storage::fake('local');
@@ -157,6 +193,16 @@ class SystemMaintenanceTest extends TestCase
         return new UploadedFile($gzipPath, 'optica_andina.sqlite.gz', 'application/gzip', null, true);
     }
 
+    private function systemSqliteGzipUpload(): UploadedFile
+    {
+        $sqlitePath = $this->systemSqlitePath();
+        $gzipPath = tempnam(sys_get_temp_dir(), 'system-backup-').'.sqlite.gz';
+        file_put_contents($gzipPath, gzencode((string) file_get_contents($sqlitePath), 9));
+        @unlink($sqlitePath);
+
+        return new UploadedFile($gzipPath, 'backup-system.sqlite.gz', 'application/gzip', null, true);
+    }
+
     private function legacySqlitePath(): string
     {
         $path = tempnam(sys_get_temp_dir(), 'legacy-import-').'.sqlite';
@@ -164,6 +210,22 @@ class SystemMaintenanceTest extends TestCase
         $pdo->exec('create table CLIENTES (Id text)');
         $pdo->exec('create table "HISTORIAL OPTAMOLOGIA" (Id text)');
         $pdo->exec('create table MEDICOS (Id text)');
+
+        return $path;
+    }
+
+    private function systemSqlitePath(): string
+    {
+        $path = tempnam(sys_get_temp_dir(), 'system-backup-').'.sqlite';
+        $pdo = new PDO('sqlite:'.$path);
+        $pdo->exec('create table migrations (id integer primary key, migration text, batch integer)');
+        $pdo->exec('create table users (id integer primary key)');
+        $pdo->exec('create table patients (id integer primary key)');
+        $pdo->exec('create table consultations (id integer primary key)');
+        $pdo->exec("insert into migrations (migration, batch) values ('0001_01_01_000000_create_users_table', 1)");
+        $pdo->exec('insert into users (id) values (1)');
+        $pdo->exec('insert into patients (id) values (1), (2)');
+        $pdo->exec('insert into consultations (id) values (1)');
 
         return $path;
     }

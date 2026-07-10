@@ -33,7 +33,7 @@ class LegacyImportServiceTest extends TestCase
         $pdo->exec('create table CLIENTES (Id text)');
 
         $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('La tabla requerida no existe en el backup: HISTORIAL OPTAMOLOGIA');
+        $this->expectExceptionMessage('El archivo SQLite no corresponde al backup del sistema anterior Optica Andina. Faltan tablas requeridas: HISTORIAL OPTAMOLOGIA, MEDICOS.');
 
         (new LegacyImportService)->validateSqlite($path);
     }
