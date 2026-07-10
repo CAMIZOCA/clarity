@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Settings, Upload, Save, Database, CheckSquare } from 'lucide-react';
+import { Settings, Upload, Save, CheckSquare, Menu } from 'lucide-react';
 import client from '../../api/client';
 import Button from '../../components/ui/Button';
 import { useToast } from '../../components/ui/Toast';
@@ -18,6 +18,34 @@ const REQUIRED_FIELD_OPTIONS = [
     { key: 'observaciones', label: 'Observaciones clínicas' },
     { key: 'print_template_key', label: 'Plantilla de impresión' },
     { key: 'doctor_license', label: 'Registro / Licencia del doctor' },
+];
+
+const MENU_SECTION_OPTIONS = [
+    {
+        key: 'atencion_clinica',
+        label: 'Atencion clinica',
+        description: 'Pacientes, consulta, agenda, ordenes, lentes especiales, oftalmologia y brigadas.',
+    },
+    {
+        key: 'operacion_diaria',
+        label: 'Operacion diaria',
+        description: 'Ventas / POS, historial de ventas, caja y laboratorio.',
+    },
+    {
+        key: 'inventario',
+        label: 'Inventario',
+        description: 'Productos, stock y movimientos.',
+    },
+    {
+        key: 'comercial',
+        label: 'Comercial',
+        description: 'Campanas, plantillas y recordatorios.',
+    },
+    {
+        key: 'reportes',
+        label: 'Reportes',
+        description: 'Reportes clinicos, comerciales y dashboard gerencial.',
+    },
 ];
 
 function Tab({ active, onClick, icon: Icon, label }) {
@@ -43,6 +71,7 @@ export default function SettingsPage() {
         clinic_address: '',
         clinic_phone: '',
         required_fields: [],
+        menu_visible_sections: MENU_SECTION_OPTIONS.map(({ key }) => key),
     });
 
     useEffect(() => {
@@ -52,6 +81,9 @@ export default function SettingsPage() {
             clinic_address: settings.clinic_address || '',
             clinic_phone: settings.clinic_phone || '',
             required_fields: Array.isArray(settings.required_fields) ? settings.required_fields : [],
+            menu_visible_sections: Array.isArray(settings.menu_visible_sections)
+                ? settings.menu_visible_sections
+                : MENU_SECTION_OPTIONS.map(({ key }) => key),
         });
     }, [settings]);
 
@@ -63,6 +95,15 @@ export default function SettingsPage() {
             required_fields: f.required_fields.includes(key)
                 ? f.required_fields.filter(k => k !== key)
                 : [...f.required_fields, key],
+        }));
+    };
+
+    const toggleMenuSection = (key) => {
+        setForm(f => ({
+            ...f,
+            menu_visible_sections: f.menu_visible_sections.includes(key)
+                ? f.menu_visible_sections.filter(k => k !== key)
+                : [...f.menu_visible_sections, key],
         }));
     };
 
@@ -103,6 +144,7 @@ export default function SettingsPage() {
             <div className="flex border-b border-gray-200 mb-6">
                 <Tab active={tab === 'general'} onClick={() => setTab('general')} icon={Settings} label="General" />
                 <Tab active={tab === 'required'} onClick={() => setTab('required')} icon={CheckSquare} label="Campos obligatorios" />
+                <Tab active={tab === 'menu'} onClick={() => setTab('menu')} icon={Menu} label="Menu principal" />
             </div>
 
             {tab === 'general' && (
@@ -186,6 +228,40 @@ export default function SettingsPage() {
                     <div className="flex justify-end mt-6">
                         <Button onClick={handleSave} loading={saving} size="lg">
                             <Save size={18} /> Guardar configuración
+                        </Button>
+                    </div>
+                </div>
+            )}
+
+            {tab === 'menu' && (
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+                    <h2 className="font-semibold text-gray-900 mb-2">Secciones visibles del menu principal</h2>
+                    <p className="text-sm text-gray-500 mb-6">
+                        Activa las secciones que deben aparecer en el menu lateral para todos los usuarios.
+                        Los permisos de acceso se mantienen separados.
+                    </p>
+                    <div className="grid grid-cols-1 gap-3">
+                        {MENU_SECTION_OPTIONS.map(({ key, label, description }) => (
+                            <label key={key} className={`flex items-start gap-3 p-4 rounded-xl border cursor-pointer transition-colors ${form.menu_visible_sections.includes(key) ? 'border-[#1a2a4a] bg-[#1a2a4a]/5' : 'border-gray-200 hover:bg-gray-50'}`}>
+                                <input
+                                    type="checkbox"
+                                    checked={form.menu_visible_sections.includes(key)}
+                                    onChange={() => toggleMenuSection(key)}
+                                    className="mt-1 w-4 h-4 accent-[#1a2a4a]"
+                                />
+                                <span>
+                                    <span className="block text-sm font-semibold text-gray-900">{label}</span>
+                                    <span className="mt-1 block text-sm text-gray-500">{description}</span>
+                                </span>
+                            </label>
+                        ))}
+                    </div>
+                    <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                        Inicio y Administracion permanecen visibles para conservar la navegacion basica y el acceso a configuracion.
+                    </div>
+                    <div className="flex justify-end mt-6">
+                        <Button onClick={handleSave} loading={saving} size="lg">
+                            <Save size={18} /> Guardar configuraciÃ³n
                         </Button>
                     </div>
                 </div>

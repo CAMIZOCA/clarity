@@ -35,10 +35,19 @@ import {
 } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { useSettings } from '../../contexts/SettingsContext';
 import client from '../../api/client';
 
 const primaryLinkClass =
     'flex items-center gap-3 rounded-xl px-4 py-3 text-[15px] font-medium transition-colors';
+
+const DEFAULT_MENU_VISIBLE_SECTIONS = [
+    'atencion_clinica',
+    'operacion_diaria',
+    'inventario',
+    'comercial',
+    'reportes',
+];
 
 function NavItem({ to, icon: Icon, label, badge, compact = false, onNavigate }) {
     return (
@@ -87,12 +96,18 @@ function Section({ title, icon: Icon, children, defaultOpen = true }) {
     );
 }
 
-function SidebarContent({ onNavigate, onLogout, isAdmin, pendingAppointments, userName, userRole }) {
+function SidebarContent({ onNavigate, onLogout, isAdmin, pendingAppointments, userName, userRole, visibleMenuSections }) {
+    const visibleSections = Array.isArray(visibleMenuSections)
+        ? visibleMenuSections
+        : DEFAULT_MENU_VISIBLE_SECTIONS;
+    const isMenuSectionVisible = (section) => visibleSections.includes(section);
+
     const quickActions = [
-        { to: '/consulta', label: 'Nueva consulta', icon: Stethoscope },
-        { to: '/pacientes/nuevo', label: 'Nuevo paciente', icon: Plus },
-        { to: '/pos', label: 'Nueva venta', icon: ShoppingCart },
+        { to: '/consulta', label: 'Nueva consulta', icon: Stethoscope, section: 'atencion_clinica' },
+        { to: '/pacientes/nuevo', label: 'Nuevo paciente', icon: Plus, section: 'atencion_clinica' },
+        { to: '/pos', label: 'Nueva venta', icon: ShoppingCart, section: 'operacion_diaria' },
     ];
+    const visibleQuickActions = quickActions.filter((action) => isMenuSectionVisible(action.section));
 
     return (
         <>
@@ -108,7 +123,7 @@ function SidebarContent({ onNavigate, onLogout, isAdmin, pendingAppointments, us
                 </div>
 
                 <div className="mt-4 grid grid-cols-1 gap-2">
-                    {quickActions.map((action) => (
+                    {visibleQuickActions.map((action) => (
                         <NavItem
                             key={action.to}
                             to={action.to}
@@ -127,40 +142,50 @@ function SidebarContent({ onNavigate, onLogout, isAdmin, pendingAppointments, us
                     <NavItem to="/ayuda" icon={BookOpen} label="Ayuda" onNavigate={onNavigate} />
                 </Section>
 
-                <Section title="Atencion clinica" icon={Stethoscope} defaultOpen>
-                    <NavItem to="/pacientes" icon={Users} label="Pacientes" onNavigate={onNavigate} />
-                    <NavItem to="/consulta" icon={Stethoscope} label="Consulta" onNavigate={onNavigate} />
-                    <NavItem to="/agenda" icon={Calendar} label="Agenda" badge={pendingAppointments} onNavigate={onNavigate} />
-                    <NavItem to="/ordenes-trabajo" icon={ClipboardList} label="Ordenes de trabajo" onNavigate={onNavigate} />
-                    <NavItem to="/lentes-especiales" icon={Eye} label="Lentes especiales" onNavigate={onNavigate} />
-                    <NavItem to="/referencias" icon={FileText} label="Oftalmologia" onNavigate={onNavigate} />
-                    <NavItem to="/brigadas" icon={Shield} label="Brigadas" onNavigate={onNavigate} />
-                </Section>
+                {isMenuSectionVisible('atencion_clinica') && (
+                    <Section title="Atencion clinica" icon={Stethoscope} defaultOpen>
+                        <NavItem to="/pacientes" icon={Users} label="Pacientes" onNavigate={onNavigate} />
+                        <NavItem to="/consulta" icon={Stethoscope} label="Consulta" onNavigate={onNavigate} />
+                        <NavItem to="/agenda" icon={Calendar} label="Agenda" badge={pendingAppointments} onNavigate={onNavigate} />
+                        <NavItem to="/ordenes-trabajo" icon={ClipboardList} label="Ordenes de trabajo" onNavigate={onNavigate} />
+                        <NavItem to="/lentes-especiales" icon={Eye} label="Lentes especiales" onNavigate={onNavigate} />
+                        <NavItem to="/referencias" icon={FileText} label="Oftalmologia" onNavigate={onNavigate} />
+                        <NavItem to="/brigadas" icon={Shield} label="Brigadas" onNavigate={onNavigate} />
+                    </Section>
+                )}
 
-                <Section title="Operacion diaria" icon={ShoppingCart} defaultOpen>
-                    <NavItem to="/pos" icon={ShoppingCart} label="Ventas / POS" onNavigate={onNavigate} />
-                    <NavItem to="/ventas" icon={History} label="Historial de ventas" onNavigate={onNavigate} />
-                    <NavItem to="/caja" icon={DollarSign} label="Caja" onNavigate={onNavigate} />
-                    <NavItem to="/laboratorio" icon={FlaskConical} label="Laboratorio" onNavigate={onNavigate} />
-                </Section>
+                {isMenuSectionVisible('operacion_diaria') && (
+                    <Section title="Operacion diaria" icon={ShoppingCart} defaultOpen>
+                        <NavItem to="/pos" icon={ShoppingCart} label="Ventas / POS" onNavigate={onNavigate} />
+                        <NavItem to="/ventas" icon={History} label="Historial de ventas" onNavigate={onNavigate} />
+                        <NavItem to="/caja" icon={DollarSign} label="Caja" onNavigate={onNavigate} />
+                        <NavItem to="/laboratorio" icon={FlaskConical} label="Laboratorio" onNavigate={onNavigate} />
+                    </Section>
+                )}
 
-                <Section title="Inventario" icon={Warehouse} defaultOpen>
-                    <NavItem to="/inventario/productos" icon={Package} label="Productos" onNavigate={onNavigate} />
-                    <NavItem to="/inventario/stock" icon={Warehouse} label="Stock" onNavigate={onNavigate} />
-                    <NavItem to="/inventario/movimientos" icon={RefreshCw} label="Movimientos" onNavigate={onNavigate} />
-                </Section>
+                {isMenuSectionVisible('inventario') && (
+                    <Section title="Inventario" icon={Warehouse} defaultOpen>
+                        <NavItem to="/inventario/productos" icon={Package} label="Productos" onNavigate={onNavigate} />
+                        <NavItem to="/inventario/stock" icon={Warehouse} label="Stock" onNavigate={onNavigate} />
+                        <NavItem to="/inventario/movimientos" icon={RefreshCw} label="Movimientos" onNavigate={onNavigate} />
+                    </Section>
+                )}
 
-                <Section title="Comercial" icon={Megaphone} defaultOpen>
-                    <NavItem to="/crm/campanas" icon={Megaphone} label="Campanas" onNavigate={onNavigate} />
-                    <NavItem to="/crm/plantillas" icon={FileText} label="Plantillas" onNavigate={onNavigate} />
-                    <NavItem to="/crm/recordatorios" icon={Bell} label="Recordatorios" onNavigate={onNavigate} />
-                </Section>
+                {isMenuSectionVisible('comercial') && (
+                    <Section title="Comercial" icon={Megaphone} defaultOpen>
+                        <NavItem to="/crm/campanas" icon={Megaphone} label="Campanas" onNavigate={onNavigate} />
+                        <NavItem to="/crm/plantillas" icon={FileText} label="Plantillas" onNavigate={onNavigate} />
+                        <NavItem to="/crm/recordatorios" icon={Bell} label="Recordatorios" onNavigate={onNavigate} />
+                    </Section>
+                )}
 
-                <Section title="Reportes" icon={BarChart2} defaultOpen>
-                    <NavItem to="/reportes" icon={BarChart2} label="Reportes clinicos" onNavigate={onNavigate} />
-                    <NavItem to="/reportes-comerciales" icon={FileSpreadsheet} label="Reportes comerciales" onNavigate={onNavigate} />
-                    {isAdmin && <NavItem to="/dashboard-gerencial" icon={BarChart3} label="Dashboard gerencial" onNavigate={onNavigate} />}
-                </Section>
+                {isMenuSectionVisible('reportes') && (
+                    <Section title="Reportes" icon={BarChart2} defaultOpen>
+                        <NavItem to="/reportes" icon={BarChart2} label="Reportes clinicos" onNavigate={onNavigate} />
+                        <NavItem to="/reportes-comerciales" icon={FileSpreadsheet} label="Reportes comerciales" onNavigate={onNavigate} />
+                        {isAdmin && <NavItem to="/dashboard-gerencial" icon={BarChart3} label="Dashboard gerencial" onNavigate={onNavigate} />}
+                    </Section>
+                )}
 
                 {isAdmin && (
                     <Section title="Administracion" icon={Settings} defaultOpen={false}>
@@ -210,6 +235,7 @@ function SidebarContent({ onNavigate, onLogout, isAdmin, pendingAppointments, us
 
 export default function Sidebar({ mobileOpen = false, onClose }) {
     const { user, logout, isAdmin } = useAuth();
+    const { settings } = useSettings();
     const [pendingAppointments, setPendingAppointments] = useState(0);
     const location = useLocation();
 
@@ -256,6 +282,7 @@ export default function Sidebar({ mobileOpen = false, onClose }) {
                 pendingAppointments={pendingAppointments}
                 userName={userMeta.userName}
                 userRole={userMeta.userRole}
+                visibleMenuSections={settings.menu_visible_sections}
             />
         </div>
     );

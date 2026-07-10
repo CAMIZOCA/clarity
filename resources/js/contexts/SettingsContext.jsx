@@ -3,6 +3,25 @@ import client from '../api/client';
 
 const SettingsContext = createContext({});
 
+const DEFAULT_MENU_VISIBLE_SECTIONS = [
+    'atencion_clinica',
+    'operacion_diaria',
+    'inventario',
+    'comercial',
+    'reportes',
+];
+
+function parseJsonArray(value, fallback = []) {
+    if (Array.isArray(value)) return value;
+
+    try {
+        const parsed = JSON.parse(value || '[]');
+        return Array.isArray(parsed) ? parsed : fallback;
+    } catch {
+        return fallback;
+    }
+}
+
 export function SettingsProvider({ children }) {
     const [settings, setSettings] = useState({
         clinic_name: 'Clínica Optométrica',
@@ -11,6 +30,7 @@ export function SettingsProvider({ children }) {
         clinic_phone: '',
         clinic_logo: '',
         required_fields: [],
+        menu_visible_sections: DEFAULT_MENU_VISIBLE_SECTIONS,
     });
 
     useEffect(() => {
@@ -19,10 +39,8 @@ export function SettingsProvider({ children }) {
             setSettings(prev => ({
                 ...prev,
                 ...data,
-                required_fields: (() => {
-                    try { return JSON.parse(data.required_fields || '[]'); }
-                    catch { return []; }
-                })(),
+                required_fields: parseJsonArray(data.required_fields),
+                menu_visible_sections: parseJsonArray(data.menu_visible_sections, DEFAULT_MENU_VISIBLE_SECTIONS),
             }));
         }).catch(() => {});
     }, []);
@@ -33,10 +51,8 @@ export function SettingsProvider({ children }) {
             setSettings(prev => ({
                 ...prev,
                 ...data,
-                required_fields: (() => {
-                    try { return JSON.parse(data.required_fields || '[]'); }
-                    catch { return []; }
-                })(),
+                required_fields: parseJsonArray(data.required_fields),
+                menu_visible_sections: parseJsonArray(data.menu_visible_sections, DEFAULT_MENU_VISIBLE_SECTIONS),
             }));
         }).catch(() => {});
     };
