@@ -189,7 +189,7 @@ class SystemRestoreService
 
                 foreach ($copyTables as $table) {
                     $columns = $this->sourceColumns($source, $table);
-                    $targetColumns = array_fill_keys($this->targetColumns($target, $table), true);
+                    $targetColumns = $this->targetColumnDefinitions($target, $table);
                     $columns = array_values(array_filter($columns, fn (string $column): bool => isset($targetColumns[$column])));
 
                     if ($columns === []) {
@@ -207,6 +207,11 @@ class SystemRestoreService
                         if ($rows === []) {
                             break;
                         }
+
+                        $rows = array_map(
+                            fn (array $row): array => $this->normalizeRowForTarget($row, $targetColumns),
+                            $rows
+                        );
 
                         $target->table($table)->insert($rows);
                         $count = count($rows);
@@ -327,21 +332,289 @@ class SystemRestoreService
         );
     }
 
-    private function targetColumns(Connection $target, string $table): array
+    private function targetColumnDefinitions(Connection $target, string $table): array
     {
         $driver = $target->getDriverName();
 
         if (in_array($driver, ['mysql', 'mariadb'], true)) {
-            return array_map(
-                fn (object $row): string => (string) $row->Field,
-                $target->select('show columns from '.$this->quoteMysqlIdentifier($table))
-            );
+            return collect($target->select('show full columns from '.$this->quoteMysqlIdentifier($table)))
+                ->mapWithKeys(
+                    fn (object $row): array => [
+                        (string) $row->Field => $this->columnDefinition(
+                            (string) $row->Field,
+                            (string) $row->Type,
+                            (string) $row->Null === 'YES',
+                            $row->Default ?? null
+                        ),
+                    ]
+                )
+                ->all();
         }
 
+        return collect($target->select('pragma table_info('.$this->quoteSqliteIdentifier($table).')'))
+            ->mapWithKeys(
+                fn (object $row): array => [
+                    (string) $row->name => $this->columnDefinition(
+                        (string) $row->name,
+                        (string) $row->type,
+                        (int) $row->notnull === 0,
+                        $row->dflt_value ?? null
+                    ),
+                ]
+            )
+            ->all();
+    }
+
+    private function columnDefinition(string $name, string $type, bool $nullable, mixed $default): array
+    {
+        $normalizedType = strtolower($type);
+
+        return [
+            'name' => $name,
+            'type' => $normalizedType,
+            'nullable' => $nullable,
+            'default' => $this->normalizeDefault($default),
+            'length' => $this->columnLength($normalizedType),
+            'enum_values' => $this->enumValues($normalizedType),
+        ];
+    }
+
+    private function normalizeRowForTarget(array $row, array $targetColumns): array
+    {
+        foreach ($row as $column => $value) {
+            $row[$column] = $this->normalizeValueForTarget($value, $targetColumns[$column]);
+        }
+
+        return $row;
+    }
+
+    private function normalizeValueForTarget(mixed $value, array $column): mixed
+    {
+        if ($value === null) {
+            return $this->fallbackValue($column);
+        }
+
+        $type = $column['type'];
+
+        if ($column['enum_values'] !== []) {
+            $value = (string) $value;
+
+            if (in_array($value, $column['enum_values'], true)) {
+                return $value;
+            }
+
+            return $this->fallbackValue($column, $column['enum_values'][0] ?? null);
+        }
+
+        if ($this->isIntegerType($type)) {
+            if (is_numeric($value)) {
+                $integer = (int) $value;
+
+                return str_contains($type, 'unsigned') ? max(0, $integer) : $integer;
+            }
+
+            return $this->fallbackValue($column, 0);
+        }
+
+        if ($this->isDecimalType($type)) {
+            if (is_numeric($value)) {
+                return (string) $value;
+            }
+
+            return $this->fallbackValue($column, '0');
+        }
+
+        if ($this->isDateTimeType($type)) {
+            return $this->normalizeDateTimeValue($value, $column);
+        }
+
+        if ($this->isDateType($type)) {
+            return $this->normalizeDateValue($value, $column);
+        }
+
+        if ($this->isStringType($type)) {
+            $value = (string) $value;
+
+            if ($column['length'] !== null && mb_strlen($value) > $column['length']) {
+                return mb_substr($value, 0, $column['length']);
+            }
+
+            return $value;
+        }
+
+        return $value;
+    }
+
+    private function normalizeDateValue(mixed $value, array $column): ?string
+    {
+        $date = $this->parseDateString($value);
+
+        if ($date !== null) {
+            return substr($date, 0, 10);
+        }
+
+        return $this->fallbackValue($column, '1900-01-01');
+    }
+
+    private function normalizeDateTimeValue(mixed $value, array $column): ?string
+    {
+        $date = $this->parseDateString($value);
+
+        if ($date !== null) {
+            return $date;
+        }
+
+        return $this->fallbackValue($column, '1900-01-01 00:00:00');
+    }
+
+    private function parseDateString(mixed $value): ?string
+    {
+        if ($value instanceof \DateTimeInterface) {
+            return $value->format('Y-m-d H:i:s');
+        }
+
+        if (is_int($value) || (is_string($value) && ctype_digit($value))) {
+            $timestamp = (int) $value;
+
+            return $timestamp > 0 ? date('Y-m-d H:i:s', $timestamp) : null;
+        }
+
+        $value = trim((string) $value);
+        if ($value === '' || str_starts_with($value, '0000-00-00')) {
+            return null;
+        }
+
+        if (preg_match('/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?/', $value, $matches) === 1) {
+            $year = (int) $matches[1];
+            $month = (int) $matches[2];
+            $day = (int) $matches[3];
+
+            if ($year > 0 && checkdate($month, $day, $year)) {
+                return sprintf(
+                    '%04d-%02d-%02d %02d:%02d:%02d',
+                    $year,
+                    $month,
+                    $day,
+                    (int) ($matches[4] ?? 0),
+                    (int) ($matches[5] ?? 0),
+                    (int) ($matches[6] ?? 0)
+                );
+            }
+        }
+
+        $timestamp = strtotime($value);
+
+        return $timestamp === false ? null : date('Y-m-d H:i:s', $timestamp);
+    }
+
+    private function fallbackValue(array $column, mixed $default = null): mixed
+    {
+        if ($column['nullable']) {
+            return null;
+        }
+
+        if ($column['default'] !== null && ! $this->isCurrentTimestampDefault($column['default'])) {
+            return $column['default'];
+        }
+
+        if ($default !== null) {
+            return $default;
+        }
+
+        $type = $column['type'];
+
+        if ($this->isIntegerType($type)) {
+            return 0;
+        }
+
+        if ($this->isDecimalType($type)) {
+            return '0';
+        }
+
+        if ($this->isDateTimeType($type)) {
+            return '1900-01-01 00:00:00';
+        }
+
+        if ($this->isDateType($type)) {
+            return '1900-01-01';
+        }
+
+        if ($this->isStringType($type)) {
+            return '';
+        }
+
+        return null;
+    }
+
+    private function normalizeDefault(mixed $default): mixed
+    {
+        if ($default === null) {
+            return null;
+        }
+
+        $default = (string) $default;
+
+        if (
+            (str_starts_with($default, "'") && str_ends_with($default, "'"))
+            || (str_starts_with($default, '"') && str_ends_with($default, '"'))
+        ) {
+            return substr($default, 1, -1);
+        }
+
+        return $default;
+    }
+
+    private function columnLength(string $type): ?int
+    {
+        if (preg_match('/^(?:var)?char\((\d+)\)/', $type, $matches) === 1) {
+            return (int) $matches[1];
+        }
+
+        return null;
+    }
+
+    private function enumValues(string $type): array
+    {
+        if (! str_starts_with($type, 'enum(')) {
+            return [];
+        }
+
+        preg_match_all("/'((?:[^'\\\\]|\\\\.)*)'/", $type, $matches);
+
         return array_map(
-            fn (object $row): string => (string) $row->name,
-            $target->select('pragma table_info('.$this->quoteSqliteIdentifier($table).')')
+            fn (string $value): string => str_replace(["\\'", '\\\\'], ["'", '\\'], $value),
+            $matches[1]
         );
+    }
+
+    private function isIntegerType(string $type): bool
+    {
+        return preg_match('/\b(?:tinyint|smallint|mediumint|int|integer|bigint)\b/', $type) === 1;
+    }
+
+    private function isDecimalType(string $type): bool
+    {
+        return preg_match('/\b(?:decimal|numeric|float|double|real)\b/', $type) === 1;
+    }
+
+    private function isDateType(string $type): bool
+    {
+        return preg_match('/\bdate\b/', $type) === 1 && ! $this->isDateTimeType($type);
+    }
+
+    private function isDateTimeType(string $type): bool
+    {
+        return preg_match('/\b(?:datetime|timestamp)\b/', $type) === 1;
+    }
+
+    private function isStringType(string $type): bool
+    {
+        return preg_match('/\b(?:char|varchar|text|tinytext|mediumtext|longtext)\b/', $type) === 1;
+    }
+
+    private function isCurrentTimestampDefault(string $default): bool
+    {
+        return str_starts_with(strtolower($default), 'current_timestamp');
     }
 
     private function sourceRows(PDO $source, string $table, array $columns, int $limit, int $offset): array

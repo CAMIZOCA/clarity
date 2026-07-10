@@ -96,6 +96,31 @@ class SystemRestoreServiceTest extends TestCase
         $this->assertSame(0, $connection->table('target_only')->count());
     }
 
+    public function test_it_normalizes_rows_to_target_column_types_before_copying(): void
+    {
+        $connection = DB::connection();
+        $connection->statement('drop table if exists restore_casts');
+        $connection->statement('create table restore_casts (id integer primary key, name varchar(5), qty integer null, amount numeric null, born_on date null, happened_at datetime null)');
+
+        $path = tempnam(sys_get_temp_dir(), 'restore-casts-').'.sqlite';
+        $source = new PDO('sqlite:'.$path);
+        $source->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        $source->exec('create table restore_casts (id integer primary key, name text, qty text, amount text, born_on text, happened_at text)');
+        $source->exec("insert into restore_casts (id, name, qty, amount, born_on, happened_at) values (1, 'abcdefghi', 'not-number', '12.50', '0000-00-00', '2026-07-10T12:13:14')");
+
+        (new SystemRestoreService($this->createStub(DatabaseBackupService::class)))
+            ->copySqliteTablesToConnection($source, $connection, ['restore_casts'], ['restore_casts'], 10);
+
+        $row = (array) $connection->table('restore_casts')->first();
+
+        $this->assertSame(1, $row['id']);
+        $this->assertSame('abcde', $row['name']);
+        $this->assertNull($row['qty']);
+        $this->assertSame(12.5, (float) $row['amount']);
+        $this->assertNull($row['born_on']);
+        $this->assertSame('2026-07-10 12:13:14', $row['happened_at']);
+    }
+
     private function systemSqlitePath(): string
     {
         $path = tempnam(sys_get_temp_dir(), 'system-service-').'.sqlite';

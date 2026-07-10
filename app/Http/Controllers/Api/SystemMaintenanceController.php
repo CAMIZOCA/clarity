@@ -297,18 +297,19 @@ class SystemMaintenanceController extends Controller
             $summary = $restores->restore($operation);
         } catch (Throwable $e) {
             report($e);
+            $message = $this->safeExceptionMessage($e);
 
             try {
                 $operation->update([
                     'status' => 'failed',
-                    'error_message' => $e->getMessage(),
+                    'error_message' => $message,
                     'finished_at' => now(),
                 ]);
             } catch (Throwable) {
                 // El restore puede tocar tablas operativas; aun asi devolvemos el error original.
             }
 
-            return $this->error($e->getMessage(), 500);
+            return $this->error($message, 500);
         }
 
         $operation->forceFill([
@@ -382,5 +383,14 @@ class SystemMaintenanceController extends Controller
                 ])
                 ->log($message);
         }
+    }
+
+    private function safeExceptionMessage(Throwable $e): string
+    {
+        $message = $e->getMessage() ?: 'No se pudo restaurar el backup.';
+        $message = preg_replace('/ \(Connection:.*$/s', '', $message) ?: $message;
+        $message = preg_replace('/ \(SQL:.*$/s', '', $message) ?: $message;
+
+        return Str::limit($message, 500);
     }
 }
