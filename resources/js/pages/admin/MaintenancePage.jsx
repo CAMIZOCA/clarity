@@ -288,7 +288,7 @@ export default function MaintenancePage() {
                         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                             <div>
                                 <h2 className="text-lg font-semibold text-slate-950">Importar o restaurar backup</h2>
-                                <p className="mt-1 text-sm text-slate-500">Acepta backups del sistema actual y archivos legacy Optica Andina en .sqlite, .db o .gz.</p>
+                                <p className="mt-1 text-sm text-slate-500">Acepta backups del sistema .sqlite.gz restaurables en SQLite/MySQL/MariaDB y archivos legacy Optica Andina.</p>
                             </div>
                             <input ref={fileRef} type="file" accept=".sqlite,.sqlite3,.db,.sqlite.gz,.sqlite3.gz,.db.gz,.gz" onChange={handleUpload} className="hidden" />
                             <Button variant="secondary" onClick={() => fileRef.current?.click()} loading={uploading}>
