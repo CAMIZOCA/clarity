@@ -376,6 +376,7 @@ class SystemRestoreService
             'default' => $this->normalizeDefault($default),
             'length' => $this->columnLength($normalizedType),
             'enum_values' => $this->enumValues($normalizedType),
+            'decimal' => $this->decimalPrecision($normalizedType),
         ];
     }
 
@@ -418,6 +419,16 @@ class SystemRestoreService
 
         if ($this->isDecimalType($type)) {
             if (is_numeric($value)) {
+                $decimal = (float) $value;
+
+                if (! $this->decimalFitsColumn($decimal, $column)) {
+                    return $this->fallbackValue($column);
+                }
+
+                if ($column['decimal'] !== null) {
+                    return number_format($decimal, $column['decimal']['scale'], '.', '');
+                }
+
                 return (string) $value;
             }
 
@@ -573,6 +584,33 @@ class SystemRestoreService
         }
 
         return null;
+    }
+
+    private function decimalPrecision(string $type): ?array
+    {
+        if (preg_match('/^(?:decimal|numeric)\((\d+),(\d+)\)/', $type, $matches) !== 1) {
+            return null;
+        }
+
+        return [
+            'precision' => (int) $matches[1],
+            'scale' => (int) $matches[2],
+        ];
+    }
+
+    private function decimalFitsColumn(float $value, array $column): bool
+    {
+        if ($column['decimal'] === null) {
+            return true;
+        }
+
+        $precision = $column['decimal']['precision'];
+        $scale = $column['decimal']['scale'];
+        $integerDigits = $precision - $scale;
+        $max = (10 ** $integerDigits) - (1 / (10 ** $scale));
+        $min = str_contains($column['type'], 'unsigned') ? 0 : -$max;
+
+        return $value >= $min && $value <= $max;
     }
 
     private function enumValues(string $type): array

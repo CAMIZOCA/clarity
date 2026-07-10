@@ -100,13 +100,13 @@ class SystemRestoreServiceTest extends TestCase
     {
         $connection = DB::connection();
         $connection->statement('drop table if exists restore_casts');
-        $connection->statement('create table restore_casts (id integer primary key, name varchar(5), qty integer null, amount numeric null, born_on date null, happened_at datetime null)');
+        $connection->statement('create table restore_casts (id integer primary key, name varchar(5), qty integer null, amount decimal(5,2) null, rx_final_add_oi decimal(5,2) null, born_on date null, happened_at datetime null)');
 
         $path = tempnam(sys_get_temp_dir(), 'restore-casts-').'.sqlite';
         $source = new PDO('sqlite:'.$path);
         $source->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-        $source->exec('create table restore_casts (id integer primary key, name text, qty text, amount text, born_on text, happened_at text)');
-        $source->exec("insert into restore_casts (id, name, qty, amount, born_on, happened_at) values (1, 'abcdefghi', 'not-number', '12.50', '0000-00-00', '0027-12-18 19:09:00')");
+        $source->exec('create table restore_casts (id integer primary key, name text, qty text, amount text, rx_final_add_oi text, born_on text, happened_at text)');
+        $source->exec("insert into restore_casts (id, name, qty, amount, rx_final_add_oi, born_on, happened_at) values (1, 'abcdefghi', 'not-number', '12.50', '2258', '0000-00-00', '0027-12-18 19:09:00')");
 
         (new SystemRestoreService($this->createStub(DatabaseBackupService::class)))
             ->copySqliteTablesToConnection($source, $connection, ['restore_casts'], ['restore_casts'], 10);
@@ -117,6 +117,7 @@ class SystemRestoreServiceTest extends TestCase
         $this->assertSame('abcde', $row['name']);
         $this->assertNull($row['qty']);
         $this->assertSame(12.5, (float) $row['amount']);
+        $this->assertNull($row['rx_final_add_oi']);
         $this->assertNull($row['born_on']);
         $this->assertNull($row['happened_at']);
     }
