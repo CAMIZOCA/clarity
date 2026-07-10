@@ -7,6 +7,7 @@
     <title>Clarity | Sistema de gestion para opticas</title>
     <meta name="description" content="Clarity centraliza pacientes, consultas, recetas, ventas, inventario, laboratorio, caja, CRM, sucursales y reportes para opticas.">
     <meta name="theme-color" content="#1a2a4a">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Clarity">

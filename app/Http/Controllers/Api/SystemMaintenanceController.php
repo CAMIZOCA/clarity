@@ -109,7 +109,7 @@ class SystemMaintenanceController extends Controller
         }
 
         $request->validate([
-            'file' => ['required', 'file', 'max:204800'],
+            'file' => ['required', 'file', 'max:'.$this->importMaxKilobytes()],
         ]);
 
         $file = $request->file('file');
@@ -193,6 +193,11 @@ class SystemMaintenanceController extends Controller
         }
 
         return null;
+    }
+
+    private function importMaxKilobytes(): int
+    {
+        return max(1, (int) config('maintenance.import_max_megabytes', 1024)) * 1024;
     }
 
     private function storeDecompressedGzip(string $sourcePath, string $destinationPath): void

@@ -37,6 +37,14 @@ function formatBytes(value) {
     return `${(value / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function uploadErrorMessage(error) {
+    if (error.response?.status === 413) {
+        return 'El servidor rechazo el archivo por tamano. Aumenta client_max_body_size en Forge/Nginx y upload_max_filesize/post_max_size en PHP.';
+    }
+
+    return error.response?.data?.message || 'Archivo invalido';
+}
+
 function StatusPill({ status }) {
     const styles = {
         completed: 'bg-emerald-50 text-emerald-700 border-emerald-200',
@@ -157,7 +165,7 @@ export default function MaintenancePage() {
             setConfirmRestore(false);
             addToast(response.data.data?.type === 'system_restore' ? 'Backup del sistema validado' : 'Archivo legacy validado', 'success');
         } catch (error) {
-            addToast(error.response?.data?.message || 'Archivo invalido', 'error');
+            addToast(uploadErrorMessage(error), 'error');
         } finally {
             setUploading(false);
             event.target.value = '';
