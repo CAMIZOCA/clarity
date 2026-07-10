@@ -14,6 +14,18 @@ class SystemRestoreService
 {
     private const REQUIRED_SQLITE_TABLES = ['migrations', 'users', 'patients', 'consultations'];
 
+    private const PRESERVED_RESTORE_TABLES = ['maintenance_operations'];
+
+    private const CLEARED_RUNTIME_TABLES = [
+        'cache',
+        'cache_locks',
+        'failed_jobs',
+        'job_batches',
+        'jobs',
+        'personal_access_tokens',
+        'sessions',
+    ];
+
     public function __construct(private readonly DatabaseBackupService $backups) {}
 
     public function inspectSqlite(string $absolutePath): array
@@ -128,6 +140,12 @@ class SystemRestoreService
         $skippedTables = [];
 
         foreach ($sourceTables as $table) {
+            if ($this->isRuntimeTable($table)) {
+                $skippedTables[] = $table;
+
+                continue;
+            }
+
             if (isset($targetLookup[$table])) {
                 $copyTables[] = $table;
             } else {
@@ -247,11 +265,15 @@ class SystemRestoreService
         $sourcePdo = $this->openSqlite($source);
         $targetTables = $this->targetTableNames($target);
         $plan = $this->planSqliteRestoreTables($sourcePdo, $targetTables);
+        $deleteTables = array_values(array_filter(
+            $targetTables,
+            fn (string $table): bool => ! in_array($table, self::PRESERVED_RESTORE_TABLES, true)
+        ));
         $copy = $this->copySqliteTablesToConnection(
             $sourcePdo,
             $target,
             $plan['copy_tables'],
-            $targetTables
+            $deleteTables
         );
 
         return [
@@ -380,6 +402,11 @@ class SystemRestoreService
                 $connection->statement('pragma foreign_keys = on');
             }
         }
+    }
+
+    private function isRuntimeTable(string $table): bool
+    {
+        return in_array($table, [...self::PRESERVED_RESTORE_TABLES, ...self::CLEARED_RUNTIME_TABLES], true);
     }
 
     private function quoteSqliteIdentifier(string $identifier): string

@@ -54,12 +54,14 @@ class SystemRestoreServiceTest extends TestCase
         $pdo->exec('create table patients (id integer primary key)');
         $pdo->exec('create table consultations (id integer primary key)');
         $pdo->exec('create table source_only (id integer primary key)');
+        $pdo->exec('create table sessions (id text primary key)');
+        $pdo->exec('create table maintenance_operations (id integer primary key)');
 
         $plan = (new SystemRestoreService($this->createStub(DatabaseBackupService::class)))
-            ->planSqliteRestoreTables($pdo, ['patients', 'consultations']);
+            ->planSqliteRestoreTables($pdo, ['patients', 'consultations', 'sessions', 'maintenance_operations']);
 
         $this->assertSame(['patients', 'consultations'], $plan['copy_tables']);
-        $this->assertSame(['source_only'], $plan['skipped_tables']);
+        $this->assertSame(['source_only', 'sessions', 'maintenance_operations'], $plan['skipped_tables']);
     }
 
     public function test_it_copies_sqlite_rows_by_chunks_and_preserves_ids(): void

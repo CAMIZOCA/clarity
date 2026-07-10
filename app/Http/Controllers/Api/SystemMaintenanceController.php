@@ -296,22 +296,28 @@ class SystemMaintenanceController extends Controller
         try {
             $summary = $restores->restore($operation);
         } catch (Throwable $e) {
-            $operation->update([
-                'status' => 'failed',
-                'error_message' => $e->getMessage(),
-                'finished_at' => now(),
-            ]);
+            report($e);
+
+            try {
+                $operation->update([
+                    'status' => 'failed',
+                    'error_message' => $e->getMessage(),
+                    'finished_at' => now(),
+                ]);
+            } catch (Throwable) {
+                // El restore puede tocar tablas operativas; aun asi devolvemos el error original.
+            }
 
             return $this->error($e->getMessage(), 500);
         }
 
-        $payload = $this->operationPayload($operation->forceFill([
+        $operation->forceFill([
             'status' => 'completed',
             'summary' => array_merge($operation->summary ?? [], $summary),
             'finished_at' => now(),
-        ]));
+        ])->save();
 
-        return $this->ok(['data' => $payload], 'Backup restaurado. Es posible que deba iniciar sesion nuevamente.');
+        return $this->ok(['data' => $this->operationPayload($operation)], 'Backup restaurado. Es posible que deba iniciar sesion nuevamente.');
     }
 
     public function showImport(Request $request, MaintenanceOperation $operation): JsonResponse
