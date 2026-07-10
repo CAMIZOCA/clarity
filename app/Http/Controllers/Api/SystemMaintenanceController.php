@@ -9,12 +9,15 @@ use App\Jobs\AnalyzeLegacyImportJob;
 use App\Jobs\GenerateDatabaseBackupJob;
 use App\Jobs\RunLegacyImportJob;
 use App\Models\MaintenanceOperation;
+use App\Services\DatabaseBackupService;
 use App\Services\LegacyImportService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Throwable;
 
 class SystemMaintenanceController extends Controller
 {
@@ -36,7 +39,7 @@ class SystemMaintenanceController extends Controller
         ]);
     }
 
-    public function createBackup(Request $request): JsonResponse
+    public function createBackup(Request $request, DatabaseBackupService $backups): JsonResponse
     {
         if (! $this->allowed($request)) {
             return $this->forbidden();
@@ -50,9 +53,36 @@ class SystemMaintenanceController extends Controller
             'expires_at' => now()->addDays(7),
         ]);
 
+        if ($this->shouldGenerateImmediately()) {
+            try {
+                $backups->generate($operation, 'manual');
+            } catch (Throwable $e) {
+                $operation->update([
+                    'status' => 'failed',
+                    'error_message' => $e->getMessage(),
+                    'finished_at' => now(),
+                ]);
+
+                return $this->error($e->getMessage() ?: 'No se pudo generar el backup.', 500);
+            }
+
+            return $this->created($this->operationPayload($operation->fresh()), 'Backup generado.');
+        }
+
         GenerateDatabaseBackupJob::dispatch($operation->id, 'manual');
 
         return $this->created($this->operationPayload($operation), 'Backup en cola.');
+    }
+
+    private function shouldGenerateImmediately(): bool
+    {
+        if (DB::connection()->getDriverName() !== 'sqlite') {
+            return false;
+        }
+
+        $database = config('database.connections.'.config('database.default').'.database');
+
+        return is_string($database) && $database !== ':memory:';
     }
 
     public function downloadBackup(Request $request, MaintenanceOperation $operation): BinaryFileResponse|JsonResponse
@@ -82,18 +112,26 @@ class SystemMaintenanceController extends Controller
         ]);
 
         $file = $request->file('file');
-        $extension = strtolower($file->getClientOriginalExtension());
-        if (! in_array($extension, ['sqlite', 'sqlite3', 'db'], true)) {
-            return $this->error('Solo se permiten archivos SQLite (.sqlite, .sqlite3, .db).');
+        $originalFilename = $file->getClientOriginalName();
+        $extension = $this->sqliteImportExtension($originalFilename);
+
+        if ($extension === null) {
+            return $this->error('Solo se permiten archivos SQLite (.sqlite, .sqlite3, .db, .sqlite.gz, .sqlite3.gz, .db.gz).');
         }
 
         $filename = 'legacy-import-'.now()->format('Ymd-His').'-'.Str::uuid().'.'.$extension;
-        $path = $file->storeAs('imports', $filename, 'local');
+        $path = 'imports/'.$filename;
         $absolutePath = Storage::disk('local')->path($path);
 
         try {
+            if (str_ends_with(strtolower($originalFilename), '.gz')) {
+                $this->storeDecompressedGzip($file->getRealPath(), $absolutePath);
+            } else {
+                $file->storeAs('imports', $filename, 'local');
+            }
+
             $counts = $imports->validateSqlite($absolutePath);
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             Storage::disk('local')->delete($path);
 
             return $this->error($e->getMessage());
@@ -105,16 +143,65 @@ class SystemMaintenanceController extends Controller
             'user_id' => $request->user()->id,
             'disk' => 'local',
             'path' => $path,
-            'original_filename' => $file->getClientOriginalName(),
-            'file_size' => $file->getSize(),
+            'original_filename' => $originalFilename,
+            'file_size' => filesize($absolutePath) ?: $file->getSize(),
             'sha256' => hash_file('sha256', $absolutePath),
-            'summary' => ['source_counts' => $counts],
+            'summary' => [
+                'source_counts' => $counts,
+                'source_compressed' => str_ends_with(strtolower($originalFilename), '.gz'),
+            ],
             'expires_at' => now()->addDays(7),
         ]);
 
         $this->audit($operation, 'Archivo legacy subido');
 
         return $this->created($this->operationPayload($operation), 'Archivo validado y cargado.');
+    }
+
+    private function sqliteImportExtension(string $filename): ?string
+    {
+        $lower = strtolower($filename);
+
+        foreach (['sqlite', 'sqlite3', 'db'] as $extension) {
+            if (str_ends_with($lower, '.'.$extension)) {
+                return $extension;
+            }
+
+            if (str_ends_with($lower, '.'.$extension.'.gz')) {
+                return $extension;
+            }
+        }
+
+        return null;
+    }
+
+    private function storeDecompressedGzip(string $sourcePath, string $destinationPath): void
+    {
+        $source = gzopen($sourcePath, 'rb');
+        if ($source === false) {
+            throw new \RuntimeException('No se pudo leer el archivo comprimido.');
+        }
+
+        $directory = dirname($destinationPath);
+        if (! is_dir($directory)) {
+            mkdir($directory, 0755, true);
+        }
+
+        $destination = fopen($destinationPath, 'wb');
+        if ($destination === false) {
+            gzclose($source);
+
+            throw new \RuntimeException('No se pudo guardar el SQLite descomprimido.');
+        }
+
+        try {
+            while (! gzeof($source)) {
+                fwrite($destination, gzread($source, 1024 * 1024));
+            }
+        } finally {
+            fclose($destination);
+            gzclose($source);
+        }
     }
 
     public function analyzeImport(Request $request, MaintenanceOperation $operation): JsonResponse

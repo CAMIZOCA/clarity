@@ -23,6 +23,7 @@ import {
 } from '../../api/maintenance';
 
 const ACTIVE_STATUSES = new Set(['pending', 'processing', 'queued_analysis', 'analyzing', 'queued_import', 'importing']);
+const DOWNLOADABLE_STATUSES = new Set(['completed']);
 
 function formatDate(value) {
     if (!value) return 'Pendiente';
@@ -111,9 +112,9 @@ export default function MaintenancePage() {
     const handleCreateBackup = async () => {
         setBackupBusy(true);
         try {
-            await createBackup();
+            const response = await createBackup();
             await loadBackups();
-            addToast('Backup en cola', 'success');
+            addToast(response.data.data?.status === 'completed' ? 'Backup listo para descargar' : 'Backup en cola', 'success');
         } catch {
             addToast('No se pudo generar el backup', 'error');
         } finally {
@@ -237,8 +238,9 @@ export default function MaintenancePage() {
                                     <StatusPill status={backup.status} />
                                     <button
                                         type="button"
-                                        disabled={backup.status !== 'completed'}
+                                        disabled={!DOWNLOADABLE_STATUSES.has(backup.status)}
                                         onClick={() => handleDownloadBackup(backup)}
+                                        title={DOWNLOADABLE_STATUSES.has(backup.status) ? 'Descargar backup' : 'Disponible cuando el backup termine'}
                                         className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-40"
                                     >
                                         <Download size={17} />
@@ -252,9 +254,9 @@ export default function MaintenancePage() {
                         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                             <div>
                                 <h2 className="text-lg font-semibold text-slate-950">Importar sistema anterior</h2>
-                                <p className="mt-1 text-sm text-slate-500">Acepta archivos .sqlite, .sqlite3 o .db del backup Optica Andina.</p>
+                                <p className="mt-1 text-sm text-slate-500">Acepta archivos .sqlite, .sqlite3, .db o versiones .gz del backup Optica Andina.</p>
                             </div>
-                            <input ref={fileRef} type="file" accept=".sqlite,.sqlite3,.db" onChange={handleUpload} className="hidden" />
+                            <input ref={fileRef} type="file" accept=".sqlite,.sqlite3,.db,.sqlite.gz,.sqlite3.gz,.db.gz,.gz" onChange={handleUpload} className="hidden" />
                             <Button variant="secondary" onClick={() => fileRef.current?.click()} loading={uploading}>
                                 <Upload size={18} /> Subir SQLite
                             </Button>

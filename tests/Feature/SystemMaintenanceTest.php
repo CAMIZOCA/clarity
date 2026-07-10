@@ -19,7 +19,7 @@ class SystemMaintenanceTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_admin_can_queue_backup_and_download_completed_backup(): void
+    public function test_admin_can_queue_memory_sqlite_backup_and_download_completed_backup(): void
     {
         Queue::fake();
         Storage::fake('local');
@@ -68,7 +68,7 @@ class SystemMaintenanceTest extends TestCase
         $this->postJson('/api/admin/maintenance/imports/upload', [
             'file' => UploadedFile::fake()->create('backup.txt', 2, 'text/plain'),
         ])->assertUnprocessable()
-            ->assertJsonPath('message', 'Solo se permiten archivos SQLite (.sqlite, .sqlite3, .db).');
+            ->assertJsonPath('message', 'Solo se permiten archivos SQLite (.sqlite, .sqlite3, .db, .sqlite.gz, .sqlite3.gz, .db.gz).');
     }
 
     public function test_upload_accepts_valid_legacy_sqlite_and_queues_analysis(): void
@@ -91,6 +91,24 @@ class SystemMaintenanceTest extends TestCase
             ->assertJsonPath('message', 'Analisis en cola.');
 
         Queue::assertPushed(AnalyzeLegacyImportJob::class);
+    }
+
+    public function test_upload_accepts_valid_legacy_sqlite_gzip(): void
+    {
+        Storage::fake('local');
+        Sanctum::actingAs($this->adminUser());
+
+        $this->postJson('/api/admin/maintenance/imports/upload', [
+            'file' => $this->legacySqliteGzipUpload(),
+        ])->assertCreated()
+            ->assertJsonPath('data.status', 'uploaded')
+            ->assertJsonPath('data.original_filename', 'optica_andina.sqlite.gz')
+            ->assertJsonPath('data.summary.source_compressed', true);
+
+        $operation = MaintenanceOperation::where('type', 'legacy_import')->latest()->first();
+
+        Storage::disk('local')->assertExists($operation->path);
+        $this->assertStringEndsWith('.sqlite', $operation->path);
     }
 
     public function test_import_requires_successful_dry_run(): void
@@ -124,12 +142,29 @@ class SystemMaintenanceTest extends TestCase
 
     private function legacySqliteUpload(): UploadedFile
     {
+        $path = $this->legacySqlitePath();
+
+        return new UploadedFile($path, 'optica_andina.sqlite', 'application/octet-stream', null, true);
+    }
+
+    private function legacySqliteGzipUpload(): UploadedFile
+    {
+        $sqlitePath = $this->legacySqlitePath();
+        $gzipPath = tempnam(sys_get_temp_dir(), 'legacy-import-').'.sqlite.gz';
+        file_put_contents($gzipPath, gzencode((string) file_get_contents($sqlitePath), 9));
+        @unlink($sqlitePath);
+
+        return new UploadedFile($gzipPath, 'optica_andina.sqlite.gz', 'application/gzip', null, true);
+    }
+
+    private function legacySqlitePath(): string
+    {
         $path = tempnam(sys_get_temp_dir(), 'legacy-import-').'.sqlite';
         $pdo = new PDO('sqlite:'.$path);
         $pdo->exec('create table CLIENTES (Id text)');
         $pdo->exec('create table "HISTORIAL OPTAMOLOGIA" (Id text)');
         $pdo->exec('create table MEDICOS (Id text)');
 
-        return new UploadedFile($path, 'optica_andina.sqlite', 'application/octet-stream', null, true);
+        return $path;
     }
 }
