@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Users, Stethoscope, Calendar, FileText, ArrowRight, TrendingUp, BarChart2 } from 'lucide-react';
+import { Users, Stethoscope, Calendar, FileText, ArrowRight, TrendingUp, BarChart2, Settings } from 'lucide-react';
 import client from '../../api/client';
 import { cached } from '../../api/cache';
 import Badge from '../../components/ui/Badge';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useAuth } from '../../contexts/AuthContext';
+import { DEFAULT_MENU_VISIBLE_ITEMS, DEFAULT_MENU_VISIBLE_SECTIONS } from '../../data/menuOptions';
+import { useSettings } from '../../contexts/SettingsContext';
 
 function StatCard({ icon: Icon, label, value, color, to }) {
     const inner = (
@@ -24,7 +26,8 @@ function StatCard({ icon: Icon, label, value, color, to }) {
 }
 
 export default function DashboardPage() {
-    const { user, isAdmin } = useAuth();
+    const { user, isAdmin, can } = useAuth();
+    const { settings } = useSettings();
     const [data, setData] = useState(null);
 
     useEffect(() => {
@@ -35,6 +38,16 @@ export default function DashboardPage() {
 
     const hora = new Date().getHours();
     const saludo = hora < 12 ? 'Buenos días' : hora < 18 ? 'Buenas tardes' : 'Buenas noches';
+
+    const visibleMenuSections = Array.isArray(settings.menu_visible_sections) && settings.menu_visible_sections.length > 0
+        ? settings.menu_visible_sections
+        : DEFAULT_MENU_VISIBLE_SECTIONS;
+    const visibleMenuItems = Array.isArray(settings.menu_visible_items) && settings.menu_visible_items.length > 0
+        ? settings.menu_visible_items
+        : DEFAULT_MENU_VISIBLE_ITEMS;
+    const isMenuSectionVisible = (section) => visibleMenuSections.includes(section);
+    const isMenuItemVisible = (item) => visibleMenuItems.includes(item);
+    const canManageSettings = can('settings.edit');
 
     return (
         <div className="p-6 max-w-7xl mx-auto">
@@ -126,26 +139,41 @@ export default function DashboardPage() {
             <div className="mt-6 bg-[#1a2a4a] rounded-2xl p-6 text-white">
                 <h2 className="font-semibold mb-4 flex items-center gap-2"><TrendingUp size={18} /> Acciones rápidas</h2>
                 <div className="flex flex-wrap gap-3">
-                    <Link to="/consulta">
-                        <button className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
-                            <Stethoscope size={16} /> Nueva consulta
-                        </button>
-                    </Link>
-                    <Link to="/pacientes/nuevo">
-                        <button className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
-                            <Users size={16} /> Nuevo paciente
-                        </button>
-                    </Link>
-                    <Link to="/agenda">
-                        <button className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
-                            <Calendar size={16} /> Agendar cita
-                        </button>
-                    </Link>
-                    <Link to="/reportes">
-                        <button className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
-                            <FileText size={16} /> Ver reportes
-                        </button>
-                    </Link>
+                    {isMenuItemVisible('consulta') && (
+                        <Link to="/consulta">
+                            <button className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
+                                <Stethoscope size={16} /> Nueva consulta
+                            </button>
+                        </Link>
+                    )}
+                    {isMenuItemVisible('pacientes') && (
+                        <Link to="/pacientes/nuevo">
+                            <button className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
+                                <Users size={16} /> Nuevo paciente
+                            </button>
+                        </Link>
+                    )}
+                    {isMenuItemVisible('agenda') && (
+                        <Link to="/agenda">
+                            <button className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
+                                <Calendar size={16} /> Agendar cita
+                            </button>
+                        </Link>
+                    )}
+                    {isMenuSectionVisible('reportes') && isMenuItemVisible('reportes_clinicos') && (
+                        <Link to="/reportes">
+                            <button className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
+                                <FileText size={16} /> Ver reportes
+                            </button>
+                        </Link>
+                    )}
+                    {canManageSettings && (
+                        <Link to="/configuracion">
+                            <button className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
+                                <Settings size={16} /> Configurar menu
+                            </button>
+                        </Link>
+                    )}
                 </div>
             </div>
         </div>

@@ -14,8 +14,6 @@ return new class extends Migration
                     'atencion_clinica',
                     'operacion_diaria',
                     'inventario',
-                    'comercial',
-                    'reportes',
                 ]),
                 'created_at' => now(),
                 'updated_at' => now(),

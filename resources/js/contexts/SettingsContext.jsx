@@ -1,21 +1,18 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import client from '../api/client';
+import { DEFAULT_MENU_VISIBLE_ITEMS, DEFAULT_MENU_VISIBLE_SECTIONS } from '../data/menuOptions';
 
 const SettingsContext = createContext({});
 
-const DEFAULT_MENU_VISIBLE_SECTIONS = [
-    'atencion_clinica',
-    'operacion_diaria',
-    'inventario',
-    'comercial',
-    'reportes',
-];
-
-function parseJsonArray(value, fallback = []) {
+function parseJsonArray(value, fallback = [], fallbackWhenEmpty = false) {
     if (Array.isArray(value)) return value;
 
     try {
         const parsed = JSON.parse(value || '[]');
+        if (fallbackWhenEmpty && Array.isArray(parsed) && parsed.length === 0) {
+            return fallback;
+        }
+
         return Array.isArray(parsed) ? parsed : fallback;
     } catch {
         return fallback;
@@ -31,6 +28,7 @@ export function SettingsProvider({ children }) {
         clinic_logo: '',
         required_fields: [],
         menu_visible_sections: DEFAULT_MENU_VISIBLE_SECTIONS,
+        menu_visible_items: DEFAULT_MENU_VISIBLE_ITEMS,
     });
 
     useEffect(() => {
@@ -40,7 +38,8 @@ export function SettingsProvider({ children }) {
                 ...prev,
                 ...data,
                 required_fields: parseJsonArray(data.required_fields),
-                menu_visible_sections: parseJsonArray(data.menu_visible_sections, DEFAULT_MENU_VISIBLE_SECTIONS),
+                menu_visible_sections: parseJsonArray(data.menu_visible_sections, DEFAULT_MENU_VISIBLE_SECTIONS, true),
+                menu_visible_items: parseJsonArray(data.menu_visible_items, DEFAULT_MENU_VISIBLE_ITEMS, true),
             }));
         }).catch(() => {});
     }, []);
@@ -52,7 +51,8 @@ export function SettingsProvider({ children }) {
                 ...prev,
                 ...data,
                 required_fields: parseJsonArray(data.required_fields),
-                menu_visible_sections: parseJsonArray(data.menu_visible_sections, DEFAULT_MENU_VISIBLE_SECTIONS),
+                menu_visible_sections: parseJsonArray(data.menu_visible_sections, DEFAULT_MENU_VISIBLE_SECTIONS, true),
+                menu_visible_items: parseJsonArray(data.menu_visible_items, DEFAULT_MENU_VISIBLE_ITEMS, true),
             }));
         }).catch(() => {});
     };

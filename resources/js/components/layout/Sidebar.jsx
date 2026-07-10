@@ -36,18 +36,9 @@ import {
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSettings } from '../../contexts/SettingsContext';
+import { DEFAULT_MENU_VISIBLE_ITEMS, DEFAULT_MENU_VISIBLE_SECTIONS, MENU_ITEM_OPTIONS_BY_SECTION } from '../../data/menuOptions';
 import client from '../../api/client';
-
-const primaryLinkClass =
-    'flex items-center gap-3 rounded-xl px-4 py-3 text-[15px] font-medium transition-colors';
-
-const DEFAULT_MENU_VISIBLE_SECTIONS = [
-    'atencion_clinica',
-    'operacion_diaria',
-    'inventario',
-    'comercial',
-    'reportes',
-];
+const primaryLinkClass = 'flex items-center gap-3 rounded-xl px-4 py-3 text-[15px] font-medium transition-colors';
 
 function NavItem({ to, icon: Icon, label, badge, compact = false, onNavigate }) {
     return (
@@ -96,18 +87,25 @@ function Section({ title, icon: Icon, children, defaultOpen = true }) {
     );
 }
 
-function SidebarContent({ onNavigate, onLogout, isAdmin, pendingAppointments, userName, userRole, visibleMenuSections }) {
-    const visibleSections = Array.isArray(visibleMenuSections)
+function SidebarContent({ onNavigate, onLogout, isAdmin, canManageSettings, pendingAppointments, userName, userRole, visibleMenuSections, visibleMenuItems }) {
+    const visibleSections = Array.isArray(visibleMenuSections) && visibleMenuSections.length > 0
         ? visibleMenuSections
         : DEFAULT_MENU_VISIBLE_SECTIONS;
+    const visibleItems = Array.isArray(visibleMenuItems) && visibleMenuItems.length > 0
+        ? visibleMenuItems
+        : DEFAULT_MENU_VISIBLE_ITEMS;
     const isMenuSectionVisible = (section) => visibleSections.includes(section);
+    const isMenuItemVisible = (item) => visibleItems.includes(item);
+    const hasVisibleItemsInSection = (section) =>
+        MENU_ITEM_OPTIONS_BY_SECTION[section]?.some((item) => isMenuItemVisible(item.key));
+    const shouldShowSection = (section) => isMenuSectionVisible(section) && hasVisibleItemsInSection(section);
 
     const quickActions = [
-        { to: '/consulta', label: 'Nueva consulta', icon: Stethoscope, section: 'atencion_clinica' },
-        { to: '/pacientes/nuevo', label: 'Nuevo paciente', icon: Plus, section: 'atencion_clinica' },
-        { to: '/pos', label: 'Nueva venta', icon: ShoppingCart, section: 'operacion_diaria' },
+        { to: '/consulta', label: 'Nueva consulta', icon: Stethoscope, section: 'atencion_clinica', item: 'consulta' },
+        { to: '/pacientes/nuevo', label: 'Nuevo paciente', icon: Plus, section: 'atencion_clinica', item: 'pacientes' },
+        { to: '/pos', label: 'Nueva venta', icon: ShoppingCart, section: 'operacion_diaria', item: 'pos' },
     ];
-    const visibleQuickActions = quickActions.filter((action) => isMenuSectionVisible(action.section));
+    const visibleQuickActions = quickActions.filter((action) => shouldShowSection(action.section) && isMenuItemVisible(action.item));
 
     return (
         <>
@@ -140,50 +138,51 @@ function SidebarContent({ onNavigate, onLogout, isAdmin, pendingAppointments, us
                 <Section title="Inicio" icon={Sparkles} defaultOpen>
                     <NavItem to="/dashboard" icon={LayoutDashboard} label="Resumen" onNavigate={onNavigate} />
                     <NavItem to="/ayuda" icon={BookOpen} label="Ayuda" onNavigate={onNavigate} />
+                    {canManageSettings && <NavItem to="/configuracion" icon={Settings} label="Configuracion" onNavigate={onNavigate} />}
                 </Section>
 
-                {isMenuSectionVisible('atencion_clinica') && (
+                {shouldShowSection('atencion_clinica') && (
                     <Section title="Atencion clinica" icon={Stethoscope} defaultOpen>
-                        <NavItem to="/pacientes" icon={Users} label="Pacientes" onNavigate={onNavigate} />
-                        <NavItem to="/consulta" icon={Stethoscope} label="Consulta" onNavigate={onNavigate} />
-                        <NavItem to="/agenda" icon={Calendar} label="Agenda" badge={pendingAppointments} onNavigate={onNavigate} />
-                        <NavItem to="/ordenes-trabajo" icon={ClipboardList} label="Ordenes de trabajo" onNavigate={onNavigate} />
-                        <NavItem to="/lentes-especiales" icon={Eye} label="Lentes especiales" onNavigate={onNavigate} />
-                        <NavItem to="/referencias" icon={FileText} label="Oftalmologia" onNavigate={onNavigate} />
-                        <NavItem to="/brigadas" icon={Shield} label="Brigadas" onNavigate={onNavigate} />
+                        {isMenuItemVisible('pacientes') && <NavItem to="/pacientes" icon={Users} label="Pacientes" onNavigate={onNavigate} />}
+                        {isMenuItemVisible('consulta') && <NavItem to="/consulta" icon={Stethoscope} label="Consulta" onNavigate={onNavigate} />}
+                        {isMenuItemVisible('agenda') && <NavItem to="/agenda" icon={Calendar} label="Agenda" badge={pendingAppointments} onNavigate={onNavigate} />}
+                        {isMenuItemVisible('ordenes_trabajo') && <NavItem to="/ordenes-trabajo" icon={ClipboardList} label="Ordenes de trabajo" onNavigate={onNavigate} />}
+                        {isMenuItemVisible('lentes_especiales') && <NavItem to="/lentes-especiales" icon={Eye} label="Lentes especiales" onNavigate={onNavigate} />}
+                        {isMenuItemVisible('referencias') && <NavItem to="/referencias" icon={FileText} label="Oftalmologia" onNavigate={onNavigate} />}
+                        {isMenuItemVisible('brigadas') && <NavItem to="/brigadas" icon={Shield} label="Brigadas" onNavigate={onNavigate} />}
                     </Section>
                 )}
 
-                {isMenuSectionVisible('operacion_diaria') && (
+                {shouldShowSection('operacion_diaria') && (
                     <Section title="Operacion diaria" icon={ShoppingCart} defaultOpen>
-                        <NavItem to="/pos" icon={ShoppingCart} label="Ventas / POS" onNavigate={onNavigate} />
-                        <NavItem to="/ventas" icon={History} label="Historial de ventas" onNavigate={onNavigate} />
-                        <NavItem to="/caja" icon={DollarSign} label="Caja" onNavigate={onNavigate} />
-                        <NavItem to="/laboratorio" icon={FlaskConical} label="Laboratorio" onNavigate={onNavigate} />
+                        {isMenuItemVisible('pos') && <NavItem to="/pos" icon={ShoppingCart} label="Ventas / POS" onNavigate={onNavigate} />}
+                        {isMenuItemVisible('ventas') && <NavItem to="/ventas" icon={History} label="Historial de ventas" onNavigate={onNavigate} />}
+                        {isMenuItemVisible('caja') && <NavItem to="/caja" icon={DollarSign} label="Caja" onNavigate={onNavigate} />}
+                        {isMenuItemVisible('laboratorio') && <NavItem to="/laboratorio" icon={FlaskConical} label="Laboratorio" onNavigate={onNavigate} />}
                     </Section>
                 )}
 
-                {isMenuSectionVisible('inventario') && (
+                {shouldShowSection('inventario') && (
                     <Section title="Inventario" icon={Warehouse} defaultOpen>
-                        <NavItem to="/inventario/productos" icon={Package} label="Productos" onNavigate={onNavigate} />
-                        <NavItem to="/inventario/stock" icon={Warehouse} label="Stock" onNavigate={onNavigate} />
-                        <NavItem to="/inventario/movimientos" icon={RefreshCw} label="Movimientos" onNavigate={onNavigate} />
+                        {isMenuItemVisible('inventario_productos') && <NavItem to="/inventario/productos" icon={Package} label="Productos" onNavigate={onNavigate} />}
+                        {isMenuItemVisible('inventario_stock') && <NavItem to="/inventario/stock" icon={Warehouse} label="Stock" onNavigate={onNavigate} />}
+                        {isMenuItemVisible('inventario_movimientos') && <NavItem to="/inventario/movimientos" icon={RefreshCw} label="Movimientos" onNavigate={onNavigate} />}
                     </Section>
                 )}
 
-                {isMenuSectionVisible('comercial') && (
+                {shouldShowSection('comercial') && (
                     <Section title="Comercial" icon={Megaphone} defaultOpen>
-                        <NavItem to="/crm/campanas" icon={Megaphone} label="Campanas" onNavigate={onNavigate} />
-                        <NavItem to="/crm/plantillas" icon={FileText} label="Plantillas" onNavigate={onNavigate} />
-                        <NavItem to="/crm/recordatorios" icon={Bell} label="Recordatorios" onNavigate={onNavigate} />
+                        {isMenuItemVisible('crm_campanas') && <NavItem to="/crm/campanas" icon={Megaphone} label="Campanas" onNavigate={onNavigate} />}
+                        {isMenuItemVisible('crm_plantillas') && <NavItem to="/crm/plantillas" icon={FileText} label="Plantillas" onNavigate={onNavigate} />}
+                        {isMenuItemVisible('crm_recordatorios') && <NavItem to="/crm/recordatorios" icon={Bell} label="Recordatorios" onNavigate={onNavigate} />}
                     </Section>
                 )}
 
-                {isMenuSectionVisible('reportes') && (
+                {shouldShowSection('reportes') && (
                     <Section title="Reportes" icon={BarChart2} defaultOpen>
-                        <NavItem to="/reportes" icon={BarChart2} label="Reportes clinicos" onNavigate={onNavigate} />
-                        <NavItem to="/reportes-comerciales" icon={FileSpreadsheet} label="Reportes comerciales" onNavigate={onNavigate} />
-                        {isAdmin && <NavItem to="/dashboard-gerencial" icon={BarChart3} label="Dashboard gerencial" onNavigate={onNavigate} />}
+                        {isMenuItemVisible('reportes_clinicos') && <NavItem to="/reportes" icon={BarChart2} label="Reportes clinicos" onNavigate={onNavigate} />}
+                        {isMenuItemVisible('reportes_comerciales') && <NavItem to="/reportes-comerciales" icon={FileSpreadsheet} label="Reportes comerciales" onNavigate={onNavigate} />}
+                        {isAdmin && isMenuItemVisible('dashboard_gerencial') && <NavItem to="/dashboard-gerencial" icon={BarChart3} label="Dashboard gerencial" onNavigate={onNavigate} />}
                     </Section>
                 )}
 
@@ -194,7 +193,6 @@ function SidebarContent({ onNavigate, onLogout, isAdmin, pendingAppointments, us
                         <NavItem to="/admin/mantenimiento" icon={Database} label="Backups" onNavigate={onNavigate} />
                         <NavItem to="/usuarios" icon={User} label="Usuarios" onNavigate={onNavigate} />
                         <NavItem to="/catalogos" icon={Database} label="Catalogos" onNavigate={onNavigate} />
-                        <NavItem to="/configuracion" icon={Settings} label="Configuracion" onNavigate={onNavigate} />
                     </Section>
                 )}
             </nav>
@@ -234,7 +232,7 @@ function SidebarContent({ onNavigate, onLogout, isAdmin, pendingAppointments, us
 }
 
 export default function Sidebar({ mobileOpen = false, onClose }) {
-    const { user, logout, isAdmin } = useAuth();
+    const { user, logout, isAdmin, can } = useAuth();
     const { settings } = useSettings();
     const [pendingAppointments, setPendingAppointments] = useState(0);
     const location = useLocation();
@@ -279,10 +277,12 @@ export default function Sidebar({ mobileOpen = false, onClose }) {
                 onNavigate={handleNavigate}
                 onLogout={handleLogout}
                 isAdmin={isAdmin()}
+                canManageSettings={can('settings.edit')}
                 pendingAppointments={pendingAppointments}
                 userName={userMeta.userName}
                 userRole={userMeta.userRole}
                 visibleMenuSections={settings.menu_visible_sections}
+                visibleMenuItems={settings.menu_visible_items}
             />
         </div>
     );

@@ -27,7 +27,7 @@ class SettingController extends Controller
             'clinic_address' => 'sometimes|nullable|string|max:500',
             'clinic_phone' => 'sometimes|nullable|string|max:100',
             'required_fields' => 'sometimes|array',
-            'menu_visible_sections' => 'sometimes|array',
+            'menu_visible_sections' => 'sometimes|array|min:1',
             'menu_visible_sections.*' => [
                 'string',
                 Rule::in([
@@ -38,10 +38,36 @@ class SettingController extends Controller
                     'reportes',
                 ]),
             ],
+            'menu_visible_items' => 'sometimes|array|min:1',
+            'menu_visible_items.*' => [
+                'string',
+                Rule::in([
+                    'pacientes',
+                    'consulta',
+                    'agenda',
+                    'ordenes_trabajo',
+                    'lentes_especiales',
+                    'referencias',
+                    'brigadas',
+                    'pos',
+                    'ventas',
+                    'caja',
+                    'laboratorio',
+                    'inventario_productos',
+                    'inventario_stock',
+                    'inventario_movimientos',
+                    'crm_campanas',
+                    'crm_plantillas',
+                    'crm_recordatorios',
+                    'reportes_clinicos',
+                    'reportes_comerciales',
+                    'dashboard_gerencial',
+                ]),
+            ],
         ]);
 
         foreach ($data as $key => $value) {
-            if (in_array($key, ['required_fields', 'menu_visible_sections'], true)) {
+            if (in_array($key, ['required_fields', 'menu_visible_sections', 'menu_visible_items'], true)) {
                 Setting::set($key, json_encode($value));
             } else {
                 Setting::set($key, $value);

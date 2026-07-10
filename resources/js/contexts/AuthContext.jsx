@@ -49,9 +49,10 @@ export function AuthProvider({ children }) {
 
     const isAdmin = () => user?.roles?.includes('admin');
     const isOptometra = () => user?.roles?.includes('optometra') || user?.roles?.includes('admin');
+    const can = (permission) => isAdmin() || user?.permissions?.includes(permission);
 
     return (
-        <AuthContext.Provider value={{ user, loading, login, logout, isAdmin, isOptometra }}>
+        <AuthContext.Provider value={{ user, loading, login, logout, isAdmin, isOptometra, can }}>
             {children}
         </AuthContext.Provider>
     );

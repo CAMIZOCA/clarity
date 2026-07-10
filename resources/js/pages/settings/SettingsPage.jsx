@@ -4,6 +4,7 @@ import client from '../../api/client';
 import Button from '../../components/ui/Button';
 import { useToast } from '../../components/ui/Toast';
 import { useSettings } from '../../contexts/SettingsContext';
+import { DEFAULT_MENU_VISIBLE_ITEMS, DEFAULT_MENU_VISIBLE_SECTIONS, MENU_ITEM_OPTIONS_BY_SECTION, MENU_SECTION_OPTIONS } from '../../data/menuOptions';
 
 const REQUIRED_FIELD_OPTIONS = [
     { key: 'optometrista_id', label: 'Médico / Optometrista' },
@@ -18,34 +19,6 @@ const REQUIRED_FIELD_OPTIONS = [
     { key: 'observaciones', label: 'Observaciones clínicas' },
     { key: 'print_template_key', label: 'Plantilla de impresión' },
     { key: 'doctor_license', label: 'Registro / Licencia del doctor' },
-];
-
-const MENU_SECTION_OPTIONS = [
-    {
-        key: 'atencion_clinica',
-        label: 'Atencion clinica',
-        description: 'Pacientes, consulta, agenda, ordenes, lentes especiales, oftalmologia y brigadas.',
-    },
-    {
-        key: 'operacion_diaria',
-        label: 'Operacion diaria',
-        description: 'Ventas / POS, historial de ventas, caja y laboratorio.',
-    },
-    {
-        key: 'inventario',
-        label: 'Inventario',
-        description: 'Productos, stock y movimientos.',
-    },
-    {
-        key: 'comercial',
-        label: 'Comercial',
-        description: 'Campanas, plantillas y recordatorios.',
-    },
-    {
-        key: 'reportes',
-        label: 'Reportes',
-        description: 'Reportes clinicos, comerciales y dashboard gerencial.',
-    },
 ];
 
 function Tab({ active, onClick, icon: Icon, label }) {
@@ -71,7 +44,8 @@ export default function SettingsPage() {
         clinic_address: '',
         clinic_phone: '',
         required_fields: [],
-        menu_visible_sections: MENU_SECTION_OPTIONS.map(({ key }) => key),
+        menu_visible_sections: DEFAULT_MENU_VISIBLE_SECTIONS,
+        menu_visible_items: DEFAULT_MENU_VISIBLE_ITEMS,
     });
 
     useEffect(() => {
@@ -81,9 +55,12 @@ export default function SettingsPage() {
             clinic_address: settings.clinic_address || '',
             clinic_phone: settings.clinic_phone || '',
             required_fields: Array.isArray(settings.required_fields) ? settings.required_fields : [],
-            menu_visible_sections: Array.isArray(settings.menu_visible_sections)
+            menu_visible_sections: Array.isArray(settings.menu_visible_sections) && settings.menu_visible_sections.length > 0
                 ? settings.menu_visible_sections
-                : MENU_SECTION_OPTIONS.map(({ key }) => key),
+                : DEFAULT_MENU_VISIBLE_SECTIONS,
+            menu_visible_items: Array.isArray(settings.menu_visible_items) && settings.menu_visible_items.length > 0
+                ? settings.menu_visible_items
+                : DEFAULT_MENU_VISIBLE_ITEMS,
         });
     }, [settings]);
 
@@ -101,9 +78,18 @@ export default function SettingsPage() {
     const toggleMenuSection = (key) => {
         setForm(f => ({
             ...f,
-            menu_visible_sections: f.menu_visible_sections.includes(key)
+            menu_visible_sections: f.menu_visible_sections.includes(key) && f.menu_visible_sections.length > 1
                 ? f.menu_visible_sections.filter(k => k !== key)
                 : [...f.menu_visible_sections, key],
+        }));
+    };
+
+    const toggleMenuItem = (key) => {
+        setForm(f => ({
+            ...f,
+            menu_visible_items: f.menu_visible_items.includes(key) && f.menu_visible_items.length > 1
+                ? f.menu_visible_items.filter(itemKey => itemKey !== key)
+                : [...f.menu_visible_items, key],
         }));
     };
 
@@ -242,22 +228,38 @@ export default function SettingsPage() {
                     </p>
                     <div className="grid grid-cols-1 gap-3">
                         {MENU_SECTION_OPTIONS.map(({ key, label, description }) => (
-                            <label key={key} className={`flex items-start gap-3 p-4 rounded-xl border cursor-pointer transition-colors ${form.menu_visible_sections.includes(key) ? 'border-[#1a2a4a] bg-[#1a2a4a]/5' : 'border-gray-200 hover:bg-gray-50'}`}>
-                                <input
-                                    type="checkbox"
-                                    checked={form.menu_visible_sections.includes(key)}
-                                    onChange={() => toggleMenuSection(key)}
-                                    className="mt-1 w-4 h-4 accent-[#1a2a4a]"
-                                />
-                                <span>
-                                    <span className="block text-sm font-semibold text-gray-900">{label}</span>
-                                    <span className="mt-1 block text-sm text-gray-500">{description}</span>
-                                </span>
-                            </label>
+                            <div key={key} className={`rounded-xl border p-4 transition-colors ${form.menu_visible_sections.includes(key) ? 'border-[#1a2a4a] bg-[#1a2a4a]/5' : 'border-gray-200'}`}>
+                                <label className="flex items-start gap-3 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={form.menu_visible_sections.includes(key)}
+                                        onChange={() => toggleMenuSection(key)}
+                                        className="mt-1 w-4 h-4 accent-[#1a2a4a]"
+                                    />
+                                    <span>
+                                        <span className="block text-sm font-semibold text-gray-900">{label}</span>
+                                        <span className="mt-1 block text-sm text-gray-500">{description}</span>
+                                    </span>
+                                </label>
+
+                                <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                    {MENU_ITEM_OPTIONS_BY_SECTION[key].map(({ key: itemKey, label: itemLabel }) => (
+                                        <label key={itemKey} className={`flex items-center gap-3 rounded-lg border px-3 py-2 cursor-pointer transition-colors ${form.menu_visible_items.includes(itemKey) ? 'border-[#1a2a4a] bg-white' : 'border-gray-200 bg-gray-50'}`}>
+                                            <input
+                                                type="checkbox"
+                                                checked={form.menu_visible_items.includes(itemKey)}
+                                                onChange={() => toggleMenuItem(itemKey)}
+                                                className="w-4 h-4 accent-[#1a2a4a]"
+                                            />
+                                            <span className="text-sm text-gray-800">{itemLabel}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
                         ))}
                     </div>
                     <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                        Inicio y Administracion permanecen visibles para conservar la navegacion basica y el acceso a configuracion.
+                        Inicio y Configuracion permanecen visibles para administradores. Las secciones y sus submenus se pueden ajustar por separado.
                     </div>
                     <div className="flex justify-end mt-6">
                         <Button onClick={handleSave} loading={saving} size="lg">
