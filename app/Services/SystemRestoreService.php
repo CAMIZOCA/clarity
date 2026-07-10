@@ -489,7 +489,7 @@ class SystemRestoreService
             $month = (int) $matches[2];
             $day = (int) $matches[3];
 
-            if ($year > 0 && checkdate($month, $day, $year)) {
+            if ($year >= 1000 && checkdate($month, $day, $year)) {
                 return sprintf(
                     '%04d-%02d-%02d %02d:%02d:%02d',
                     $year,
@@ -500,6 +500,8 @@ class SystemRestoreService
                     (int) ($matches[6] ?? 0)
                 );
             }
+
+            return null;
         }
 
         $timestamp = strtotime($value);

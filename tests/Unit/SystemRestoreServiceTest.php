@@ -106,7 +106,7 @@ class SystemRestoreServiceTest extends TestCase
         $source = new PDO('sqlite:'.$path);
         $source->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $source->exec('create table restore_casts (id integer primary key, name text, qty text, amount text, born_on text, happened_at text)');
-        $source->exec("insert into restore_casts (id, name, qty, amount, born_on, happened_at) values (1, 'abcdefghi', 'not-number', '12.50', '0000-00-00', '2026-07-10T12:13:14')");
+        $source->exec("insert into restore_casts (id, name, qty, amount, born_on, happened_at) values (1, 'abcdefghi', 'not-number', '12.50', '0000-00-00', '0027-12-18 19:09:00')");
 
         (new SystemRestoreService($this->createStub(DatabaseBackupService::class)))
             ->copySqliteTablesToConnection($source, $connection, ['restore_casts'], ['restore_casts'], 10);
@@ -118,7 +118,7 @@ class SystemRestoreServiceTest extends TestCase
         $this->assertNull($row['qty']);
         $this->assertSame(12.5, (float) $row['amount']);
         $this->assertNull($row['born_on']);
-        $this->assertSame('2026-07-10 12:13:14', $row['happened_at']);
+        $this->assertNull($row['happened_at']);
     }
 
     private function systemSqlitePath(): string
