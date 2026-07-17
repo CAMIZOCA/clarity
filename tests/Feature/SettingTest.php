@@ -112,4 +112,48 @@ class SettingTest extends TestCase
             'menu_visible_sections' => ['reportes'],
         ])->assertForbidden();
     }
+
+    public function test_advanced_form_fields_can_be_updated(): void
+    {
+        $user = User::factory()->create();
+        SpatiePermission::firstOrCreate([
+            'name' => Permission::SETTINGS_EDIT->value,
+            'guard_name' => 'web',
+        ]);
+        $user->givePermissionTo(Permission::SETTINGS_EDIT->value);
+        Sanctum::actingAs($user);
+
+        $this->postJson('/api/settings', [
+            'advanced_form_fields' => [
+                'consulta:sec_tratamiento',
+                'paciente:antecedentes',
+            ],
+        ])->assertOk()
+            ->assertJsonPath('advanced_form_fields', json_encode([
+                'consulta:sec_tratamiento',
+                'paciente:antecedentes',
+            ]));
+
+        $this->assertSame(
+            ['consulta:sec_tratamiento', 'paciente:antecedentes'],
+            json_decode(Setting::get('advanced_form_fields'), true)
+        );
+    }
+
+    public function test_advanced_form_fields_can_be_emptied(): void
+    {
+        $user = User::factory()->create();
+        SpatiePermission::firstOrCreate([
+            'name' => Permission::SETTINGS_EDIT->value,
+            'guard_name' => 'web',
+        ]);
+        $user->givePermissionTo(Permission::SETTINGS_EDIT->value);
+        Sanctum::actingAs($user);
+
+        $this->postJson('/api/settings', [
+            'advanced_form_fields' => [],
+        ])->assertOk();
+
+        $this->assertSame([], json_decode(Setting::get('advanced_form_fields'), true));
+    }
 }

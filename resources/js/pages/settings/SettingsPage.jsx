@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Settings, Upload, Save, CheckSquare, Menu } from 'lucide-react';
+import { Settings, Upload, Save, CheckSquare, Menu, SlidersHorizontal } from 'lucide-react';
 import client from '../../api/client';
 import Button from '../../components/ui/Button';
 import { useToast } from '../../components/ui/Toast';
 import { useSettings } from '../../contexts/SettingsContext';
 import { DEFAULT_MENU_VISIBLE_ITEMS, DEFAULT_MENU_VISIBLE_SECTIONS, MENU_ITEM_OPTIONS_BY_SECTION, MENU_SECTION_OPTIONS } from '../../data/menuOptions';
+import { DEFAULT_ADVANCED_FORM_FIELDS, FORM_ADVANCED_OPTIONS } from '../../data/formFieldsOptions';
 
 const REQUIRED_FIELD_OPTIONS = [
     { key: 'optometrista_id', label: 'Médico / Optometrista' },
@@ -44,6 +45,7 @@ export default function SettingsPage() {
         clinic_address: '',
         clinic_phone: '',
         required_fields: [],
+        advanced_form_fields: DEFAULT_ADVANCED_FORM_FIELDS,
         menu_visible_sections: DEFAULT_MENU_VISIBLE_SECTIONS,
         menu_visible_items: DEFAULT_MENU_VISIBLE_ITEMS,
     });
@@ -55,6 +57,7 @@ export default function SettingsPage() {
             clinic_address: settings.clinic_address || '',
             clinic_phone: settings.clinic_phone || '',
             required_fields: Array.isArray(settings.required_fields) ? settings.required_fields : [],
+            advanced_form_fields: Array.isArray(settings.advanced_form_fields) ? settings.advanced_form_fields : DEFAULT_ADVANCED_FORM_FIELDS,
             menu_visible_sections: Array.isArray(settings.menu_visible_sections) && settings.menu_visible_sections.length > 0
                 ? settings.menu_visible_sections
                 : DEFAULT_MENU_VISIBLE_SECTIONS,
@@ -72,6 +75,15 @@ export default function SettingsPage() {
             required_fields: f.required_fields.includes(key)
                 ? f.required_fields.filter(k => k !== key)
                 : [...f.required_fields, key],
+        }));
+    };
+
+    const toggleAdvancedField = (key) => {
+        setForm(f => ({
+            ...f,
+            advanced_form_fields: f.advanced_form_fields.includes(key)
+                ? f.advanced_form_fields.filter(k => k !== key)
+                : [...f.advanced_form_fields, key],
         }));
     };
 
@@ -130,6 +142,7 @@ export default function SettingsPage() {
             <div className="flex border-b border-gray-200 mb-6">
                 <Tab active={tab === 'general'} onClick={() => setTab('general')} icon={Settings} label="General" />
                 <Tab active={tab === 'required'} onClick={() => setTab('required')} icon={CheckSquare} label="Campos obligatorios" />
+                <Tab active={tab === 'advanced'} onClick={() => setTab('advanced')} icon={SlidersHorizontal} label="Campos avanzados" />
                 <Tab active={tab === 'menu'} onClick={() => setTab('menu')} icon={Menu} label="Menu principal" />
             </div>
 
@@ -209,6 +222,46 @@ export default function SettingsPage() {
                                 />
                                 <span className="text-sm text-gray-800">{label}</span>
                             </label>
+                        ))}
+                    </div>
+                    <div className="flex justify-end mt-6">
+                        <Button onClick={handleSave} loading={saving} size="lg">
+                            <Save size={18} /> Guardar configuración
+                        </Button>
+                    </div>
+                </div>
+            )}
+
+            {tab === 'advanced' && (
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+                    <h2 className="font-semibold text-gray-900 mb-2">Campos avanzados por formulario</h2>
+                    <p className="text-sm text-gray-500 mb-6">
+                        Los campos marcados se ocultan por defecto para mantener la pantalla limpia:
+                        aparecen al pulsar "Mostrar campos avanzados" dentro de la sección, o agrupados
+                        en una zona "Avanzado" al final del formulario. No se pierden datos ya guardados.
+                        Un campo marcado como obligatorio siempre permanece visible.
+                    </p>
+                    <div className="space-y-6">
+                        {FORM_ADVANCED_OPTIONS.map((group) => (
+                            <div key={group.form}>
+                                <h3 className="text-sm font-semibold text-gray-900">{group.label}</h3>
+                                {group.description && (
+                                    <p className="mt-1 mb-3 text-xs text-gray-500">{group.description}</p>
+                                )}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    {group.items.map(({ key, label }) => (
+                                        <label key={key} className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${form.advanced_form_fields.includes(key) ? 'border-[#1a2a4a] bg-[#1a2a4a]/5' : 'border-gray-200 hover:bg-gray-50'}`}>
+                                            <input
+                                                type="checkbox"
+                                                checked={form.advanced_form_fields.includes(key)}
+                                                onChange={() => toggleAdvancedField(key)}
+                                                className="w-4 h-4 accent-[#1a2a4a]"
+                                            />
+                                            <span className="text-sm text-gray-800">{label}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
                         ))}
                     </div>
                     <div className="flex justify-end mt-6">

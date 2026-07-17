@@ -27,6 +27,8 @@ class SettingController extends Controller
             'clinic_address' => 'sometimes|nullable|string|max:500',
             'clinic_phone' => 'sometimes|nullable|string|max:100',
             'required_fields' => 'sometimes|array',
+            'advanced_form_fields' => 'sometimes|array',
+            'advanced_form_fields.*' => 'string|max:120',
             'menu_visible_sections' => 'sometimes|array|min:1',
             'menu_visible_sections.*' => [
                 'string',
@@ -67,7 +69,7 @@ class SettingController extends Controller
         ]);
 
         foreach ($data as $key => $value) {
-            if (in_array($key, ['required_fields', 'menu_visible_sections', 'menu_visible_items'], true)) {
+            if (in_array($key, ['required_fields', 'advanced_form_fields', 'menu_visible_sections', 'menu_visible_items'], true)) {
                 Setting::set($key, json_encode($value));
             } else {
                 Setting::set($key, $value);

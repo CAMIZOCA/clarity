@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import client from '../api/client';
 import { DEFAULT_MENU_VISIBLE_ITEMS, DEFAULT_MENU_VISIBLE_SECTIONS } from '../data/menuOptions';
+import { DEFAULT_ADVANCED_FORM_FIELDS } from '../data/formFieldsOptions';
 
 const SettingsContext = createContext({});
 
@@ -27,6 +28,7 @@ export function SettingsProvider({ children }) {
         clinic_phone: '',
         clinic_logo: '',
         required_fields: [],
+        advanced_form_fields: DEFAULT_ADVANCED_FORM_FIELDS,
         menu_visible_sections: DEFAULT_MENU_VISIBLE_SECTIONS,
         menu_visible_items: DEFAULT_MENU_VISIBLE_ITEMS,
     });
@@ -38,6 +40,7 @@ export function SettingsProvider({ children }) {
                 ...prev,
                 ...data,
                 required_fields: parseJsonArray(data.required_fields),
+                advanced_form_fields: parseJsonArray(data.advanced_form_fields, DEFAULT_ADVANCED_FORM_FIELDS, false),
                 menu_visible_sections: parseJsonArray(data.menu_visible_sections, DEFAULT_MENU_VISIBLE_SECTIONS, true),
                 menu_visible_items: parseJsonArray(data.menu_visible_items, DEFAULT_MENU_VISIBLE_ITEMS, true),
             }));
@@ -51,6 +54,7 @@ export function SettingsProvider({ children }) {
                 ...prev,
                 ...data,
                 required_fields: parseJsonArray(data.required_fields),
+                advanced_form_fields: parseJsonArray(data.advanced_form_fields, DEFAULT_ADVANCED_FORM_FIELDS, false),
                 menu_visible_sections: parseJsonArray(data.menu_visible_sections, DEFAULT_MENU_VISIBLE_SECTIONS, true),
                 menu_visible_items: parseJsonArray(data.menu_visible_items, DEFAULT_MENU_VISIBLE_ITEMS, true),
             }));
