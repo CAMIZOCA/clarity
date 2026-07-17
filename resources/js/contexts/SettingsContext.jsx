@@ -26,6 +26,8 @@ export function SettingsProvider({ children }) {
         clinic_tagline: 'Cuidando tu visión',
         clinic_address: '',
         clinic_phone: '',
+        clinic_email: '',
+        clinic_website: '',
         clinic_logo: '',
         required_fields: [],
         advanced_form_fields: DEFAULT_ADVANCED_FORM_FIELDS,

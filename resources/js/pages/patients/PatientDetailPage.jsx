@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Edit2, Plus, FileText, Eye, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, Edit2, Plus, FileText, Eye, ShieldCheck, Award, Download } from 'lucide-react';
 import client from '../../api/client';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
@@ -12,8 +12,13 @@ export default function PatientDetailPage() {
     const navigate = useNavigate();
     const [patient, setPatient] = useState(null);
     const [history, setHistory] = useState([]);
+    const [certificates, setCertificates] = useState([]);
 
     useEffect(() => {
+        client.get('/certificates', { params: { patient_id: id } })
+            .then(r => setCertificates(r.data.data ?? []))
+            .catch(() => setCertificates([]));
+
         Promise.all([
             client.get(`/patients/${id}`),
             client.get(`/patients/${id}/consultations`),
@@ -92,6 +97,40 @@ export default function PatientDetailPage() {
                             <dd className="text-sm text-gray-700 leading-relaxed">{patient.antecedentes}</dd>
                         </div>
                     )}
+
+                    {/* Certificados emitidos */}
+                    <div className="mt-6 pt-4 border-t border-gray-100">
+                        <h3 className="font-semibold text-gray-900 text-sm mb-3 flex items-center gap-2">
+                            <Award size={16} className="text-[#1a2a4a]" /> Certificados emitidos
+                        </h3>
+                        {certificates.length === 0 ? (
+                            <p className="text-sm text-gray-400">Sin certificados generados</p>
+                        ) : (
+                            <ul className="space-y-2">
+                                {certificates.map(cert => (
+                                    <li key={cert.id} className="flex items-center justify-between gap-2 text-sm">
+                                        <div className="min-w-0">
+                                            <div className="text-gray-800 truncate">
+                                                Consulta #{cert.numero_consulta}
+                                                {cert.certifying_doctor?.nombre && ` · ${cert.certifying_doctor.nombre}`}
+                                            </div>
+                                            <div className="text-xs text-gray-500">
+                                                {cert.created_at ? format(new Date(cert.created_at), 'dd/MM/yyyy HH:mm') : ''}
+                                                {cert.status === 'enviado' && ` · enviado a ${cert.recipient_email}`}
+                                                {cert.status === 'error' && ' · error al enviar'}
+                                            </div>
+                                        </div>
+                                        {cert.pdf_url && (
+                                            <a href={cert.pdf_url} target="_blank" rel="noreferrer"
+                                                className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 shrink-0" title="Descargar PDF">
+                                                <Download size={16} />
+                                            </a>
+                                        )}
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+                    </div>
                 </div>
 
                 {/* Unified history */}

@@ -1,232 +1,250 @@
-import React, { useRef } from 'react';
-import { X, Download, Printer } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { X, Download, Printer, Mail } from 'lucide-react';
 import Button from '../ui/Button';
+import client from '../../api/client';
+import { useToast } from '../ui/Toast';
 import { useSettings } from '../../contexts/SettingsContext';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
-function RxRow({ label, data, fields }) {
-    if (!data) return null;
-    const hasData = fields.some(f => data[`${f}_od`] || data[`${f}_oi`]);
-    if (!hasData) return null;
-    return (
-        <tr>
-            <td className="border border-gray-300 px-2 py-1 text-xs font-semibold bg-gray-50">{label}</td>
-            {['od', 'oi'].map(eye => (
-                <React.Fragment key={eye}>
-                    {fields.map(f => (
-                        <td key={f} className="border border-gray-300 px-2 py-1 text-xs text-center">
-                            {data[`${f}_${eye}`] || ''}
-                        </td>
-                    ))}
-                </React.Fragment>
-            ))}
-        </tr>
-    );
+const RX_COLS = [
+    { key: 'rx_final_esfera', label: 'ESFERA' },
+    { key: 'rx_final_cilindro', label: 'CILINDRO' },
+    { key: 'rx_final_eje', label: 'EJE' },
+    { key: 'rx_final_add', label: 'ADD' },
+    { key: 'rx_final_avl', label: 'AVL' },
+    { key: 'rx_final_prisma', label: 'PRISMA' },
+    { key: 'rx_final_base', label: 'BASE' },
+    { key: 'rx_final_dnp', label: 'DNP/DP' },
+];
+
+const NAVY = '#1a2a4a';
+const BLUE = '#2f6db5';
+
+function val(v) {
+    return v === null || v === undefined || v === '' ? '' : String(v);
 }
 
-function InfoRow({ label, value }) {
-    if (!value) return null;
-    return (
-        <div className="flex gap-2 text-xs">
-            <span className="font-semibold text-gray-600 shrink-0">{label}:</span>
-            <span className="text-gray-800">{value}</span>
-        </div>
-    );
-}
-
-function PdfContent({ data, settings, logoUrl }) {
+function PdfContent({ data, settings, logoUrl, doctor }) {
     const c = data?.consultation ?? data ?? {};
     const patient = data?.patient ?? c.patient ?? {};
-    const optometrist = data?.optometrist ?? c.optometrista ?? {};
-    const diagnoses = data?.diagnoses ?? c.diagnoses ?? [];
-    const recommendations = data?.recommendations_list ?? c.recommendations_list ?? [];
-    const lensRec = data?.lens_recommendation ?? c.lens_recommendation ?? {};
+    const diagnoses = c.diagnoses ?? data?.diagnoses ?? [];
 
-    const fecha = c.fecha_consulta
-        ? format(new Date(c.fecha_consulta), "d 'de' MMMM yyyy", { locale: es })
+    const cedula = patient.cedula || patient.company_ruc || '';
+    const edad = patient.edad ?? '';
+
+    const fechaRaw = c.fecha_consulta
+        ? format(new Date(c.fecha_consulta), "EEEE, d 'de' MMMM 'de' yyyy", { locale: es })
         : '';
+    const fecha = fechaRaw ? fechaRaw.charAt(0).toUpperCase() + fechaRaw.slice(1) : '';
+
+    // Diagnóstico por ojo: campos de certificado con fallback a la relación diagnoses.
+    const diagOd = c.certificado_diagnostico_od
+        || diagnoses.filter(d => d.eye === 'od').map(d => [d.code, d.description].filter(Boolean).join(' ')).join(', ');
+    const diagOi = c.certificado_diagnostico_oi
+        || diagnoses.filter(d => d.eye === 'oi').map(d => [d.code, d.description].filter(Boolean).join(' ')).join(', ');
+
+    const hasRx = RX_COLS.some(col => c[`${col.key}_od`] || c[`${col.key}_oi`]);
+    const hasAv = c.avsc_od || c.avsc_oi || c.avcc_od || c.avcc_oi;
+
+    // Recomendaciones del certificado: `certificado_nota` es el campo que usa la
+    // clínica (ej. "USO PERMANENTE"); si está vacío se cae al texto libre y al catálogo.
+    const recList = c.recommendations_list ?? data?.recommendations_list ?? [];
+    const recomendaciones = val(c.certificado_nota)
+        || val(c.recomendaciones)
+        || recList.filter(r => r.text).map(r => r.text).join('\n');
+
+    const th = { border: '1px solid #9db4d0', padding: '3px 6px', textAlign: 'center', fontSize: '10px' };
+    const td = { border: '1px solid #9db4d0', padding: '3px 6px', textAlign: 'center', fontSize: '11px' };
 
     return (
-        <div id="pdf-content" style={{ fontFamily: 'Arial, sans-serif', fontSize: '11px', color: '#111', background: '#fff', padding: '20px', maxWidth: '800px', margin: '0 auto' }}>
-            {/* Header */}
-            <div style={{ display: 'flex', alignItems: 'center', borderBottom: '2px solid #1a2a4a', paddingBottom: '12px', marginBottom: '16px' }}>
+        <div id="pdf-content" style={{ fontFamily: 'Arial, sans-serif', fontSize: '12px', color: '#111', background: '#fff', padding: '28px 34px', maxWidth: '820px', margin: '0 auto' }}>
+            {/* Encabezado con logo */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '6px' }}>
                 {logoUrl && (
-                    <img src={logoUrl} alt="Logo" style={{ height: '60px', marginRight: '16px', objectFit: 'contain' }} />
+                    <img src={logoUrl} alt="Logo" style={{ height: '70px', objectFit: 'contain' }} crossOrigin="anonymous" />
                 )}
                 <div style={{ flex: 1 }}>
-                    <h1 style={{ margin: 0, fontSize: '18px', fontWeight: 'bold', color: '#1a2a4a' }}>{settings.clinic_name}</h1>
-                    {settings.clinic_tagline && <p style={{ margin: '2px 0 0', fontSize: '11px', color: '#666' }}>{settings.clinic_tagline}</p>}
-                    <div style={{ display: 'flex', gap: '16px', marginTop: '4px' }}>
-                        {settings.clinic_address && <span style={{ fontSize: '10px', color: '#666' }}>{settings.clinic_address}</span>}
-                        {settings.clinic_phone && <span style={{ fontSize: '10px', color: '#666' }}>Tel: {settings.clinic_phone}</span>}
-                    </div>
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: '10px', color: '#666' }}>Consulta N°</div>
-                    <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#1a2a4a' }}>{c.numero_consulta}</div>
-                    <div style={{ fontSize: '10px', color: '#666', marginTop: '4px' }}>{fecha}</div>
+                    <div style={{ fontSize: '18px', fontWeight: 'bold', color: NAVY }}>{settings.clinic_name}</div>
+                    {settings.clinic_tagline && <div style={{ fontSize: '11px', color: '#666' }}>{settings.clinic_tagline}</div>}
                 </div>
             </div>
 
-            {/* Patient info */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '16px', padding: '10px', background: '#f8f9fa', borderRadius: '6px' }}>
-                <InfoRow label="Paciente" value={patient.nombre} />
-                <InfoRow label="Cédula" value={patient.cedula} />
-                <InfoRow label="Fecha nac." value={patient.fecha_nacimiento} />
-                <InfoRow label="Edad" value={patient.edad ? `${patient.edad} años` : ''} />
-                <InfoRow label="Ocupación" value={patient.ocupacion} />
-                <InfoRow label="Teléfono" value={patient.telefono} />
+            {/* Título */}
+            <h1 style={{ textAlign: 'center', fontSize: '22px', fontWeight: 'bold', color: NAVY, letterSpacing: '1px', margin: '10px 0 4px', textDecoration: 'underline' }}>
+                CERTIFICADO VISUAL
+            </h1>
+            <div style={{ textAlign: 'right', color: BLUE, fontWeight: 'bold', fontSize: '12px', marginBottom: '10px' }}>
+                {fecha}
             </div>
 
-            {/* Doctor */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', fontSize: '10px', color: '#555' }}>
-                <span>Optometrista: <strong>{optometrist.name || c.doctor_license}</strong></span>
-                {c.doctor_license && <span>Reg.: {c.doctor_license}</span>}
-                {c.motivo_consulta && <span>Motivo: {c.motivo_consulta}</span>}
-            </div>
-
-            {/* Examen visual */}
-            {(c.avsc_od || c.avsc_oi || c.rx_final_esfera_od || c.rx_final_esfera_oi) && (
-                <div style={{ marginBottom: '14px' }}>
-                    <h3 style={{ fontSize: '12px', fontWeight: 'bold', color: '#1a2a4a', borderBottom: '1px solid #ddd', paddingBottom: '4px', marginBottom: '8px' }}>EXAMEN VISUAL Y REFRACCIÓN</h3>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px' }}>
-                        <thead>
-                            <tr style={{ background: '#1a2a4a', color: '#fff' }}>
-                                <th style={{ border: '1px solid #999', padding: '4px 6px', textAlign: 'left' }}>Rx</th>
-                                <th colSpan={5} style={{ border: '1px solid #999', padding: '4px 6px', textAlign: 'center' }}>OD</th>
-                                <th colSpan={5} style={{ border: '1px solid #999', padding: '4px 6px', textAlign: 'center' }}>OI</th>
-                            </tr>
-                            <tr style={{ background: '#e8eef5' }}>
-                                <th style={{ border: '1px solid #ccc', padding: '3px 6px' }}></th>
-                                {['Esf', 'Cil', 'Eje', 'Add', 'AVL'].map(h => (
-                                    <React.Fragment key={h}>
-                                        <th style={{ border: '1px solid #ccc', padding: '3px 4px', textAlign: 'center', fontSize: '9px' }}>{h}</th>
-                                    </React.Fragment>
-                                ))}
-                                {['Esf', 'Cil', 'Eje', 'Add', 'AVL'].map(h => (
-                                    <th key={`oi-${h}`} style={{ border: '1px solid #ccc', padding: '3px 4px', textAlign: 'center', fontSize: '9px' }}>{h}</th>
-                                ))}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {c.rx_final_esfera_od && (
-                                <tr>
-                                    <td style={{ border: '1px solid #ccc', padding: '3px 6px', fontWeight: 'bold', background: '#f5f5f5' }}>Rx Final</td>
-                                    {['rx_final_esfera', 'rx_final_cilindro', 'rx_final_eje', 'rx_final_add', 'avcc'].map(f => (
-                                        <td key={f} style={{ border: '1px solid #ccc', padding: '3px 4px', textAlign: 'center' }}>{c[`${f}_od`] || ''}</td>
-                                    ))}
-                                    {['rx_final_esfera', 'rx_final_cilindro', 'rx_final_eje', 'rx_final_add', 'avcc'].map(f => (
-                                        <td key={`oi-${f}`} style={{ border: '1px solid #ccc', padding: '3px 4px', textAlign: 'center' }}>{c[`${f}_oi`] || ''}</td>
-                                    ))}
-                                </tr>
-                            )}
-                            {c.vc_esfera_od && (
-                                <tr>
-                                    <td style={{ border: '1px solid #ccc', padding: '3px 6px', fontWeight: 'bold', background: '#f5f5f5' }}>Visión Cerca</td>
-                                    {['vc_esfera', 'vc_cilindro', 'vc_eje', '', 'vc_av'].map(f => (
-                                        <td key={f} style={{ border: '1px solid #ccc', padding: '3px 4px', textAlign: 'center' }}>{f ? (c[`${f}_od`] || '') : ''}</td>
-                                    ))}
-                                    {['vc_esfera', 'vc_cilindro', 'vc_eje', '', 'vc_av'].map(f => (
-                                        <td key={`oi-${f}`} style={{ border: '1px solid #ccc', padding: '3px 4px', textAlign: 'center' }}>{f ? (c[`${f}_oi`] || '') : ''}</td>
-                                    ))}
-                                </tr>
-                            )}
-                            <tr>
-                                <td style={{ border: '1px solid #ccc', padding: '3px 6px', fontWeight: 'bold', background: '#f5f5f5' }}>AV SC</td>
-                                <td colSpan={5} style={{ border: '1px solid #ccc', padding: '3px 4px', textAlign: 'center' }}>{c.avsc_od || ''}</td>
-                                <td colSpan={5} style={{ border: '1px solid #ccc', padding: '3px 4px', textAlign: 'center' }}>{c.avsc_oi || ''}</td>
-                            </tr>
-                        </tbody>
-                    </table>
+            {/* Narrativa + datos del paciente */}
+            <div style={{ fontSize: '12.5px', lineHeight: 1.7, marginBottom: '14px' }}>
+                <div>
+                    Por medio de la presente certifico haber examinado al paciente{' '}
+                    <strong style={{ textTransform: 'uppercase' }}>{patient.nombre}</strong>
                 </div>
-            )}
+                <div>De <strong>{edad}</strong> Años de edad, con Cédula ID: <strong>{cedula}</strong></div>
+                {fecha && <div>Asistió a consulta, el día: {fecha}</div>}
+                {c.numero_consulta && <div>Consulta No: <strong>{c.numero_consulta}</strong></div>}
+            </div>
 
-            {/* Diagnóstico */}
-            {diagnoses.length > 0 && diagnoses.some(d => d.description) && (
-                <div style={{ marginBottom: '14px' }}>
-                    <h3 style={{ fontSize: '12px', fontWeight: 'bold', color: '#1a2a4a', borderBottom: '1px solid #ddd', paddingBottom: '4px', marginBottom: '8px' }}>DIAGNÓSTICO CLÍNICO</h3>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px' }}>
-                        <thead>
-                            <tr style={{ background: '#e8eef5' }}>
-                                <th style={{ border: '1px solid #ccc', padding: '4px 6px', textAlign: 'left', width: '60px' }}>Ojo</th>
-                                <th style={{ border: '1px solid #ccc', padding: '4px 6px', textAlign: 'left', width: '80px' }}>Código</th>
-                                <th style={{ border: '1px solid #ccc', padding: '4px 6px', textAlign: 'left' }}>Descripción</th>
-                                <th style={{ border: '1px solid #ccc', padding: '4px 6px', textAlign: 'left' }}>Notas</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {diagnoses.filter(d => d.description).map((d, i) => (
-                                <tr key={i}>
-                                    <td style={{ border: '1px solid #ccc', padding: '3px 6px', textAlign: 'center', fontWeight: 'bold', textTransform: 'uppercase' }}>{d.eye}</td>
-                                    <td style={{ border: '1px solid #ccc', padding: '3px 6px', fontFamily: 'monospace', fontSize: '9px' }}>{d.code}</td>
-                                    <td style={{ border: '1px solid #ccc', padding: '3px 6px' }}>{d.description}</td>
-                                    <td style={{ border: '1px solid #ccc', padding: '3px 6px', color: '#555' }}>{d.notes}</td>
-                                </tr>
+            {/* Agudeza visual + visión de colores */}
+            {(hasAv || c.vision_colores) && (
+                <div style={{ display: 'flex', gap: '18px', alignItems: 'flex-start', marginBottom: '16px' }}>
+                    {hasAv && (
+                        <div style={{ display: 'flex', gap: '14px' }}>
+                            {[{ label: 'AV.SC', od: c.avsc_od, oi: c.avsc_oi }, { label: 'AV.CC', od: c.avcc_od, oi: c.avcc_oi }].map(t => (
+                                <table key={t.label} style={{ borderCollapse: 'collapse' }}>
+                                    <thead>
+                                        <tr><th colSpan={2} style={{ ...th, background: BLUE, color: '#fff', border: '1px solid ' + BLUE }}>{t.label}</th></tr>
+                                        <tr><th colSpan={2} style={{ ...th, fontWeight: 'bold' }}>LEJOS</th></tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr><td style={{ ...td, fontWeight: 'bold' }}>O.D</td><td style={{ ...td, minWidth: '54px' }}>{val(t.od)}</td></tr>
+                                        <tr><td style={{ ...td, fontWeight: 'bold' }}>O.I</td><td style={{ ...td, minWidth: '54px' }}>{val(t.oi)}</td></tr>
+                                    </tbody>
+                                </table>
                             ))}
-                        </tbody>
-                    </table>
-                    {c.diagnostico_adicional && (
-                        <p style={{ marginTop: '6px', fontSize: '10px', color: '#555', padding: '6px', background: '#fffbf0', borderRadius: '4px', border: '1px solid #f0e0a0' }}>
-                            <strong>Notas adicionales:</strong> {c.diagnostico_adicional}
-                        </p>
+                        </div>
+                    )}
+                    {c.vision_colores && (
+                        <div style={{ marginLeft: 'auto', minWidth: '220px' }}>
+                            <div style={{ ...th, background: BLUE, color: '#fff', border: '1px solid ' + BLUE, fontWeight: 'bold' }}>VISIÓN DE COLORES</div>
+                            <div style={{ border: '1px solid #9db4d0', borderTop: 'none', padding: '10px 8px', textAlign: 'center', fontSize: '12px', fontWeight: 'bold' }}>
+                                {c.vision_colores}
+                            </div>
+                        </div>
                     )}
                 </div>
             )}
 
-            {/* Recomendación de lunas */}
-            {(lensRec?.material || lensRec?.material_item) && (
+            {/* Diagnóstico */}
+            {(diagOd || diagOi) && (
                 <div style={{ marginBottom: '14px' }}>
-                    <h3 style={{ fontSize: '12px', fontWeight: 'bold', color: '#1a2a4a', borderBottom: '1px solid #ddd', paddingBottom: '4px', marginBottom: '8px' }}>RECOMENDACIÓN DE LUNAS</h3>
-                    <div style={{ display: 'flex', gap: '12px', fontSize: '10px' }}>
-                        {lensRec.material && <span><strong>Material:</strong> {lensRec.material}</span>}
-                        {lensRec.thickness && <span><strong>Espesor:</strong> {lensRec.thickness}</span>}
-                        {lensRec.protection && <span><strong>Protección:</strong> {lensRec.protection}</span>}
-                    </div>
-                    {lensRec.observation && <p style={{ marginTop: '4px', fontSize: '10px', color: '#555' }}>{lensRec.observation}</p>}
+                    <div style={{ fontWeight: 'bold', color: NAVY, fontSize: '13px', marginBottom: '6px' }}>DIAGNÓSTICO:</div>
+                    {diagOd && <div style={{ fontSize: '12px', marginBottom: '3px' }}><strong>O.D</strong>&nbsp;&nbsp;&nbsp;{diagOd}</div>}
+                    {diagOi && <div style={{ fontSize: '12px' }}><strong>O.I</strong>&nbsp;&nbsp;&nbsp;&nbsp;{diagOi}</div>}
                 </div>
             )}
 
-            {/* Recomendaciones médicas */}
-            {recommendations.length > 0 && recommendations.some(r => r.text) && (
-                <div style={{ marginBottom: '14px' }}>
-                    <h3 style={{ fontSize: '12px', fontWeight: 'bold', color: '#1a2a4a', borderBottom: '1px solid #ddd', paddingBottom: '4px', marginBottom: '8px' }}>RECOMENDACIONES</h3>
-                    <ul style={{ margin: 0, paddingLeft: '16px', fontSize: '10px' }}>
-                        {recommendations.filter(r => r.text).map((r, i) => (
-                            <li key={i} style={{ marginBottom: '3px' }}>{r.text}</li>
-                        ))}
-                    </ul>
+            {/* RX Final */}
+            {hasRx && (
+                <div style={{ marginBottom: '16px' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                        <thead>
+                            <tr><th colSpan={RX_COLS.length + 1} style={{ ...th, background: BLUE, color: '#fff', border: '1px solid ' + BLUE }}>RX FINAL</th></tr>
+                            <tr>
+                                <th style={{ ...th }}></th>
+                                {RX_COLS.map(col => <th key={col.key} style={th}>{col.label}</th>)}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {['od', 'oi'].map(eye => (
+                                <tr key={eye}>
+                                    <td style={{ ...td, fontWeight: 'bold' }}>{eye === 'od' ? 'O.D' : 'O.I'}</td>
+                                    {RX_COLS.map(col => <td key={col.key} style={td}>{val(c[`${col.key}_${eye}`])}</td>)}
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
                 </div>
             )}
 
-            {/* Observaciones */}
-            {c.observaciones && (
-                <div style={{ marginBottom: '14px' }}>
-                    <h3 style={{ fontSize: '12px', fontWeight: 'bold', color: '#1a2a4a', borderBottom: '1px solid #ddd', paddingBottom: '4px', marginBottom: '6px' }}>OBSERVACIONES</h3>
-                    <p style={{ fontSize: '10px', color: '#555', margin: 0 }}>{c.observaciones}</p>
+            {/* Recomendaciones */}
+            {recomendaciones && (
+                <div style={{ marginBottom: '18px' }}>
+                    <div style={{ fontWeight: 'bold', color: NAVY, fontSize: '13px', marginBottom: '4px' }}>RECOMENDACIONES:</div>
+                    <div style={{ fontSize: '12px', whiteSpace: 'pre-line', textTransform: 'uppercase' }}>{recomendaciones}</div>
                 </div>
             )}
+
+            <div style={{ fontSize: '12px', margin: '18px 0 26px' }}>Es todo cuanto puedo certificar.</div>
 
             {/* Firma */}
-            <div style={{ marginTop: '30px', paddingTop: '16px', borderTop: '1px solid #ddd', display: 'flex', justifyContent: 'flex-end' }}>
-                <div style={{ textAlign: 'center', minWidth: '200px' }}>
-                    <div style={{ borderBottom: '1px solid #333', marginBottom: '4px', height: '40px' }}></div>
-                    <p style={{ margin: 0, fontSize: '10px', fontWeight: 'bold' }}>{optometrist.name || ''}</p>
-                    {c.doctor_license && <p style={{ margin: 0, fontSize: '9px', color: '#666' }}>Reg.: {c.doctor_license}</p>}
-                    <p style={{ margin: '2px 0 0', fontSize: '9px', color: '#666' }}>Optómetra</p>
-                </div>
+            <div style={{ textAlign: 'center', marginTop: '10px' }}>
+                {doctor?.nombre && <div style={{ fontSize: '12px', fontWeight: 'bold' }}>{doctor.nombre}</div>}
+                {doctor?.titulo && <div style={{ fontSize: '11px', fontWeight: 'bold', letterSpacing: '1px' }}>{doctor.titulo}</div>}
+                {doctor?.registro_senescyt && (
+                    <div style={{ fontSize: '10px' }}>
+                        REG. SENESCYT<br />{doctor.registro_senescyt}
+                    </div>
+                )}
+                {doctor?.firma_url && (
+                    <img src={doctor.firma_url} alt="Firma" crossOrigin="anonymous"
+                        style={{ height: '70px', objectFit: 'contain', margin: '4px auto', display: 'block' }} />
+                )}
+                {doctor?.nombre && (
+                    <div style={{ fontSize: '12px', fontWeight: 'bold', textTransform: 'uppercase', borderTop: doctor?.firma_url ? 'none' : '1px solid #333', paddingTop: '2px', display: 'inline-block', minWidth: '220px' }}>
+                        {doctor.nombre}
+                    </div>
+                )}
+                {doctor?.titulo && <div style={{ fontSize: '11px', color: '#333' }}>{doctor.titulo.charAt(0) + doctor.titulo.slice(1).toLowerCase()}</div>}
             </div>
 
-            <p style={{ marginTop: '16px', fontSize: '9px', color: '#999', textAlign: 'center' }}>
-                Documento generado el {format(new Date(), "d 'de' MMMM yyyy", { locale: es })} · {settings.clinic_name}
-            </p>
+            {/* Pie de página */}
+            <div style={{ marginTop: '30px', paddingTop: '10px', borderTop: '1px solid #bcd0e6', textAlign: 'center', fontSize: '10px', color: '#555' }}>
+                {settings.clinic_address && <div>Dirección: {settings.clinic_address}{settings.clinic_phone ? ` · Telf.: ${settings.clinic_phone}` : ''}</div>}
+                {(settings.clinic_email || settings.clinic_website) && (
+                    <div>
+                        {settings.clinic_email ? `Email: ${settings.clinic_email}` : ''}
+                        {settings.clinic_email && settings.clinic_website ? ' / ' : ''}
+                        {settings.clinic_website || ''}
+                    </div>
+                )}
+            </div>
         </div>
     );
 }
 
 export default function CertificadoPdf({ data, onClose }) {
     const { settings, logoUrl } = useSettings();
-    const contentRef = useRef(null);
+    const { addToast } = useToast();
+
+    const doctors = data?.certifying_doctors ?? [];
+    const defaultDoctorId = useMemo(() => {
+        const def = doctors.find(d => d.is_default) ?? doctors[0];
+        return def ? String(def.id) : '';
+    }, [doctors]);
+
+    const [doctorId, setDoctorId] = useState(defaultDoctorId);
+    const selectedDoctor = doctors.find(d => String(d.id) === String(doctorId)) ?? null;
+
+    const patient = data?.patient ?? data?.consultation?.patient ?? {};
+    const [email, setEmail] = useState(patient.email || '');
+    const [sending, setSending] = useState(false);
+    const [downloading, setDownloading] = useState(false);
+
+    const consultationId = data?.consultation?.id ?? data?.consultation_id ?? null;
+    const numero = data?.consultation?.numero_consulta || 'consulta';
+
+    const pdfOptions = () => ({
+        margin: 8,
+        filename: `certificado_${numero}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+    });
+
+    // Genera el PDF como Blob para subirlo al backend (persistencia / correo).
+    const generateBlob = async () => {
+        const content = document.getElementById('pdf-content');
+        if (!content) throw new Error('No hay contenido');
+        const html2pdf = (await import('html2pdf.js')).default;
+        return await html2pdf().set(pdfOptions()).from(content).outputPdf('blob');
+    };
+
+    // Sube el PDF al backend para guardarlo (y opcionalmente enviarlo).
+    const persist = async (blob, send) => {
+        if (!consultationId) return;
+        const fd = new FormData();
+        fd.append('consultation_id', consultationId);
+        fd.append('pdf', blob, `certificado_${numero}.pdf`);
+        if (selectedDoctor) fd.append('certifying_doctor_id', selectedDoctor.id);
+        if (email) fd.append('recipient_email', email);
+        fd.append('send', send ? '1' : '0');
+        await client.post('/certificates', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+    };
 
     const handlePrint = () => {
         const content = document.getElementById('pdf-content');
@@ -252,33 +270,65 @@ export default function CertificadoPdf({ data, onClose }) {
     };
 
     const handleDownloadPdf = async () => {
-        const content = document.getElementById('pdf-content');
-        if (!content) return;
+        setDownloading(true);
         try {
-            const html2pdf = (await import('html2pdf.js')).default;
-            html2pdf()
-                .set({
-                    margin: 10,
-                    filename: `certificado_${data?.consultation?.numero_consulta || 'consulta'}.pdf`,
-                    html2canvas: { scale: 2, useCORS: true },
-                    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-                })
-                .from(content)
-                .save();
+            const blob = await generateBlob();
+            // Descargar en el navegador.
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `certificado_${numero}.pdf`;
+            a.click();
+            URL.revokeObjectURL(url);
+            // Guardar copia en la base de datos.
+            try { await persist(blob, false); } catch { /* la descarga no debe fallar por esto */ }
+            addToast('Certificado descargado', 'success');
         } catch {
             handlePrint();
-        }
+        } finally { setDownloading(false); }
+    };
+
+    const handleSendEmail = async () => {
+        if (!email.trim()) { addToast('Indica un correo destinatario', 'error'); return; }
+        if (!consultationId) { addToast('Guarda la consulta antes de enviar', 'error'); return; }
+        setSending(true);
+        try {
+            const blob = await generateBlob();
+            await persist(blob, true);
+            addToast('Certificado enviado por correo', 'success');
+        } catch (e) {
+            addToast(e.response?.data?.message || 'No se pudo enviar el certificado', 'error');
+        } finally { setSending(false); }
     };
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
             <div className="w-full max-w-4xl overflow-hidden rounded-2xl bg-white shadow-2xl flex flex-col max-h-[95vh]">
                 {/* Header */}
-                <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4 shrink-0">
-                    <h2 className="text-lg font-semibold text-gray-900">Vista previa del certificado</h2>
-                    <div className="flex items-center gap-3">
-                        <Button variant="secondary" size="sm" onClick={handleDownloadPdf}>
-                            <Download size={16} /> Descargar PDF
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 px-6 py-4 shrink-0">
+                    <h2 className="text-lg font-semibold text-gray-900">Certificado visual</h2>
+                    <div className="flex flex-wrap items-center gap-2">
+                        {doctors.length > 0 && (
+                            <select
+                                value={doctorId}
+                                onChange={e => setDoctorId(e.target.value)}
+                                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]"
+                            >
+                                {doctors.map(d => <option key={d.id} value={d.id}>{d.nombre}</option>)}
+                            </select>
+                        )}
+                        <input
+                            type="email"
+                            value={email}
+                            onChange={e => setEmail(e.target.value)}
+                            placeholder="correo del paciente"
+                            className="px-3 py-2 border border-gray-300 rounded-lg text-sm w-52 focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]"
+                        />
+                        <Button variant="secondary" size="sm" onClick={handleSendEmail} loading={sending}>
+                            <Mail size={16} /> Enviar
+                        </Button>
+                        <Button variant="secondary" size="sm" onClick={handleDownloadPdf} loading={downloading}>
+                            <Download size={16} /> Descargar
                         </Button>
                         <Button size="sm" onClick={handlePrint}>
                             <Printer size={16} /> Imprimir
@@ -289,10 +339,16 @@ export default function CertificadoPdf({ data, onClose }) {
                     </div>
                 </div>
 
+                {doctors.length === 0 && (
+                    <div className="bg-amber-50 border-b border-amber-200 px-6 py-2 text-xs text-amber-800">
+                        No hay doctores certificadores configurados. Agrégalos en Configuración → Doctores para que aparezca la firma.
+                    </div>
+                )}
+
                 {/* Preview */}
                 <div className="flex-1 overflow-y-auto bg-gray-100 p-4">
                     <div className="shadow-lg">
-                        <PdfContent data={data} settings={settings} logoUrl={logoUrl} />
+                        <PdfContent data={data} settings={settings} logoUrl={logoUrl} doctor={selectedDoctor} />
                     </div>
                 </div>
             </div>

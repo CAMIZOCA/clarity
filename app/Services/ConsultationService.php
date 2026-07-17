@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\CertifyingDoctor;
 use App\Models\ClinicalCatalogItem;
 use App\Models\Consultation;
 use App\Models\PrintTemplate;
@@ -16,16 +17,16 @@ class ConsultationService extends BaseService
     public function create(array $data, int $userId): Consultation
     {
         return $this->transaction(function () use ($data, $userId) {
-            $attributes                    = $this->extractConsultationAttributes($data);
+            $attributes = $this->extractConsultationAttributes($data);
             $attributes['optometrista_id'] = $attributes['optometrista_id'] ?? $userId;
-            $attributes['created_by']      = $userId;
-            $attributes['updated_by']      = $userId;
+            $attributes['created_by'] = $userId;
+            $attributes['updated_by'] = $userId;
 
             $consultation = Consultation::create($attributes);
             $this->syncModules($consultation, $data);
 
             $this->logActivity('consultation_created', $consultation, [
-                'patient_id'      => $consultation->patient_id,
+                'patient_id' => $consultation->patient_id,
                 'numero_consulta' => $consultation->numero_consulta,
             ]);
 
@@ -40,14 +41,14 @@ class ConsultationService extends BaseService
     public function update(Consultation $consultation, array $data, int $userId): Consultation
     {
         return $this->transaction(function () use ($consultation, $data, $userId) {
-            $attributes               = $this->extractConsultationAttributes($data);
+            $attributes = $this->extractConsultationAttributes($data);
             $attributes['updated_by'] = $userId;
 
             $consultation->update($attributes);
             $this->syncModules($consultation, $data);
 
             $this->logActivity('consultation_updated', $consultation, [
-                'patient_id'      => $consultation->patient_id,
+                'patient_id' => $consultation->patient_id,
                 'numero_consulta' => $consultation->numero_consulta,
             ]);
 
@@ -62,7 +63,7 @@ class ConsultationService extends BaseService
     {
         return $this->transaction(function () use ($consultation) {
             $this->logActivity('consultation_deleted', $consultation, [
-                'patient_id'      => $consultation->patient_id,
+                'patient_id' => $consultation->patient_id,
                 'numero_consulta' => $consultation->numero_consulta,
             ]);
 
@@ -80,15 +81,20 @@ class ConsultationService extends BaseService
 
         return [
             'consultation' => $consultation,
-            'patient'      => $consultation->patient,
+            'patient' => $consultation->patient,
             'optometrista' => $consultation->optometrista ? array_merge(
                 $consultation->optometrista->toArray(),
                 ['firma_digital_url' => $consultation->optometrista->firma_digital_url]
             ) : null,
-            'templates'    => PrintTemplate::query()
+            'templates' => PrintTemplate::query()
                 ->where('is_active', true)
                 ->orderBy('sort_order')
                 ->get(['id', 'key', 'name', 'description']),
+            'certifying_doctors' => CertifyingDoctor::query()
+                ->where('is_active', true)
+                ->orderByDesc('is_default')
+                ->orderBy('nombre')
+                ->get(),
         ];
     }
 
@@ -179,17 +185,17 @@ class ConsultationService extends BaseService
             foreach ($diagnoses as $index => $diagnosis) {
                 $consultation->diagnoses()->create([
                     'catalog_item_id' => $diagnosis['catalog_item_id'] ?? null,
-                    'eye'             => $diagnosis['eye'] ?? 'general',
-                    'code'            => $diagnosis['code'] ?? null,
-                    'description'     => $diagnosis['description'],
-                    'notes'           => $diagnosis['notes'] ?? null,
-                    'sort_order'      => $index + 1,
+                    'eye' => $diagnosis['eye'] ?? 'general',
+                    'code' => $diagnosis['code'] ?? null,
+                    'description' => $diagnosis['description'],
+                    'notes' => $diagnosis['notes'] ?? null,
+                    'sort_order' => $index + 1,
                 ]);
             }
 
             $legacy = $diagnoses->first();
             $consultation->forceFill([
-                'diagnostico_cie10'       => $legacy['code'] ?? null,
+                'diagnostico_cie10' => $legacy['code'] ?? null,
                 'diagnostico_descripcion' => $legacy['description'] ?? null,
             ])->save();
         }
@@ -205,8 +211,8 @@ class ConsultationService extends BaseService
             foreach ($recommendations as $index => $recommendation) {
                 $consultation->recommendationsList()->create([
                     'catalog_item_id' => $recommendation['catalog_item_id'] ?? null,
-                    'text'            => $recommendation['text'],
-                    'sort_order'      => $index + 1,
+                    'text' => $recommendation['text'],
+                    'sort_order' => $index + 1,
                 ]);
             }
 
@@ -232,10 +238,10 @@ class ConsultationService extends BaseService
                 ->pluck('label', 'id');
 
             $consultation->forceFill([
-                'luna_material'   => $itemLabels[$payload['material_item_id'] ?? 0] ?? null,
-                'luna_espesor'    => $itemLabels[$payload['thickness_item_id'] ?? 0] ?? null,
+                'luna_material' => $itemLabels[$payload['material_item_id'] ?? 0] ?? null,
+                'luna_espesor' => $itemLabels[$payload['thickness_item_id'] ?? 0] ?? null,
                 'luna_proteccion' => $itemLabels[$payload['protection_item_id'] ?? 0] ?? null,
-                'luna_observacion'=> $payload['observation'] ?? null,
+                'luna_observacion' => $payload['observation'] ?? null,
             ])->save();
         }
 
