@@ -24,7 +24,7 @@ export default function PatientDetailPage() {
             client.get(`/patients/${id}/consultations`),
             client.get(`/guarantee-reports`, { params: { patient_id: id } }),
         ]).then(([pRes, cRes, gRes]) => {
-            setPatient(pRes.data);
+            setPatient(pRes.data.data);
             const consultations = cRes.data.map(c => ({ ...c, _type: 'consulta', _date: c.fecha_consulta }));
             const guarantees = gRes.data.map(g => ({ ...g, _type: 'garantia', _date: g.fecha_informe }));
             const merged = [...consultations, ...guarantees].sort((a, b) => {

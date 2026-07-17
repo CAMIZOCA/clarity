@@ -123,6 +123,10 @@ class ImportOpticaAndinaSqlite extends Command
         if ($only === 'all' || $only === 'consultations') {
             $this->importConsultations();
             $this->refreshPatientCrmStats();
+
+            if (! $this->dryRun) {
+                $this->call('consultations:recalculate-numbers');
+            }
         }
 
         if ((bool) $this->option('prune-placeholders')) {
