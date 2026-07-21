@@ -6,6 +6,8 @@ import client from '../../api/client';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import { useToast } from '../../components/ui/Toast';
+import { AdvancedToggleButton, useAdvancedToggle } from '../../components/forms/AdvancedFieldsToggle';
+import { useAdvancedFields } from '../../hooks/useAdvancedFields';
 
 export default function PatientFormPage() {
     const { id } = useParams();
@@ -15,10 +17,13 @@ export default function PatientFormPage() {
     const [loading, setLoading] = useState(false);
 
     const { register, handleSubmit, reset, formState: { errors } } = useForm();
+    const { isAdvanced } = useAdvancedFields('paciente');
+    const antecedentesAdv = useAdvancedToggle('paciente:antecedentes');
+    const showAntecedentes = !isAdvanced('paciente:antecedentes') || antecedentesAdv.open;
 
     useEffect(() => {
         if (isEdit) {
-            client.get(`/patients/${id}`).then(r => reset(r.data));
+            client.get(`/patients/${id}`).then(r => reset(r.data.data));
         }
     }, [id, isEdit, reset]);
 
@@ -67,7 +72,7 @@ export default function PatientFormPage() {
                         {...register('nombre', { required: 'Requerido' })}
                     />
                     <Input
-                        label="CÃ©dula / RUC"
+                        label="Cédula / RUC"
                         required
                         error={errors.cedula?.message}
                         inputMode="numeric"
@@ -84,12 +89,12 @@ export default function PatientFormPage() {
                         {...register('fecha_nacimiento', { required: 'Requerido' })}
                     />
                     <Input
-                        label="OcupaciÃ³n"
+                        label="Ocupación"
                         nextFieldId="telefono"
                         {...register('ocupacion')}
                     />
                     <Input
-                        label="TelÃ©fono"
+                        label="Teléfono"
                         type="tel"
                         nextFieldId="email"
                         {...register('telefono')}
@@ -102,24 +107,30 @@ export default function PatientFormPage() {
                     />
                     <div className="md:col-span-2">
                         <Input
-                            label="DirecciÃ³n"
+                            label="Dirección"
                             nextFieldId="antecedentes"
                             {...register('direccion')}
                         />
                     </div>
-                    <div className="md:col-span-2">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Antecedentes mÃ©dicos oculares
-                        </label>
-                        <textarea
-                            id="antecedentes"
-                            rows={4}
-                            className="w-full px-3 py-2.5 text-base rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] focus:bg-[#fef08a]/20 resize-none"
-                            placeholder="Historial de enfermedades oculares, cirugÃ­as, alergias..."
-                            {...register('antecedentes')}
-                        />
-                    </div>
+                    {showAntecedentes && (
+                        <div className="md:col-span-2">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Antecedentes médicos oculares
+                            </label>
+                            <textarea
+                                id="antecedentes"
+                                rows={4}
+                                className="w-full px-3 py-2.5 text-base rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] focus:bg-[#fef08a]/20 resize-none"
+                                placeholder="Historial de enfermedades oculares, cirugías, alergias..."
+                                {...register('antecedentes')}
+                            />
+                        </div>
+                    )}
                 </div>
+
+                {isAdvanced('paciente:antecedentes') && (
+                    <AdvancedToggleButton open={antecedentesAdv.open} onToggle={antecedentesAdv.toggle} />
+                )}
 
                 <div className="mobile-sticky-actions -mx-5 px-5 py-4 sm:-mx-8 sm:px-8">
                     <div className="flex flex-col gap-3 sm:flex-row">

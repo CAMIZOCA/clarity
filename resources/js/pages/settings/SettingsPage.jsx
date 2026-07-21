@@ -1,10 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Settings, Upload, Save, CheckSquare, Menu } from 'lucide-react';
+import { Settings, Upload, Save, CheckSquare, Menu, SlidersHorizontal, Mail, Stethoscope, Send } from 'lucide-react';
 import client from '../../api/client';
 import Button from '../../components/ui/Button';
 import { useToast } from '../../components/ui/Toast';
 import { useSettings } from '../../contexts/SettingsContext';
 import { DEFAULT_MENU_VISIBLE_ITEMS, DEFAULT_MENU_VISIBLE_SECTIONS, MENU_ITEM_OPTIONS_BY_SECTION, MENU_SECTION_OPTIONS } from '../../data/menuOptions';
+import { DEFAULT_ADVANCED_FORM_FIELDS, FORM_ADVANCED_OPTIONS } from '../../data/formFieldsOptions';
+import CertifyingDoctorsTab from './CertifyingDoctorsTab';
 
 const REQUIRED_FIELD_OPTIONS = [
     { key: 'optometrista_id', label: 'Médico / Optometrista' },
@@ -38,12 +40,25 @@ export default function SettingsPage() {
     const [uploadingLogo, setUploadingLogo] = useState(false);
     const fileRef = useRef(null);
 
+    const [testEmail, setTestEmail] = useState('');
+    const [testingMail, setTestingMail] = useState(false);
+
     const [form, setForm] = useState({
         clinic_name: '',
         clinic_tagline: '',
         clinic_address: '',
         clinic_phone: '',
+        clinic_email: '',
+        clinic_website: '',
+        mail_host: '',
+        mail_port: '',
+        mail_username: '',
+        mail_password: '',
+        mail_encryption: 'tls',
+        mail_from_address: '',
+        mail_from_name: '',
         required_fields: [],
+        advanced_form_fields: DEFAULT_ADVANCED_FORM_FIELDS,
         menu_visible_sections: DEFAULT_MENU_VISIBLE_SECTIONS,
         menu_visible_items: DEFAULT_MENU_VISIBLE_ITEMS,
     });
@@ -54,7 +69,18 @@ export default function SettingsPage() {
             clinic_tagline: settings.clinic_tagline || '',
             clinic_address: settings.clinic_address || '',
             clinic_phone: settings.clinic_phone || '',
+            clinic_email: settings.clinic_email || '',
+            clinic_website: settings.clinic_website || '',
+            mail_host: settings.mail_host || '',
+            mail_port: settings.mail_port || '',
+            mail_username: settings.mail_username || '',
+            // Nunca prellenar la contraseña: si hay una guardada llega el marcador '__stored__'.
+            mail_password: '',
+            mail_encryption: settings.mail_encryption ?? 'tls',
+            mail_from_address: settings.mail_from_address || '',
+            mail_from_name: settings.mail_from_name || '',
             required_fields: Array.isArray(settings.required_fields) ? settings.required_fields : [],
+            advanced_form_fields: Array.isArray(settings.advanced_form_fields) ? settings.advanced_form_fields : DEFAULT_ADVANCED_FORM_FIELDS,
             menu_visible_sections: Array.isArray(settings.menu_visible_sections) && settings.menu_visible_sections.length > 0
                 ? settings.menu_visible_sections
                 : DEFAULT_MENU_VISIBLE_SECTIONS,
@@ -72,6 +98,15 @@ export default function SettingsPage() {
             required_fields: f.required_fields.includes(key)
                 ? f.required_fields.filter(k => k !== key)
                 : [...f.required_fields, key],
+        }));
+    };
+
+    const toggleAdvancedField = (key) => {
+        setForm(f => ({
+            ...f,
+            advanced_form_fields: f.advanced_form_fields.includes(key)
+                ? f.advanced_form_fields.filter(k => k !== key)
+                : [...f.advanced_form_fields, key],
         }));
     };
 
@@ -103,6 +138,20 @@ export default function SettingsPage() {
         finally { setSaving(false); }
     };
 
+    const handleTestEmail = async () => {
+        if (!testEmail.trim()) { addToast('Indica un correo para la prueba', 'error'); return; }
+        setTestingMail(true);
+        try {
+            // Guardar primero la config SMTP actual para que la prueba use los valores del form.
+            await client.post('/settings', form);
+            refresh();
+            await client.post('/certificates/test-email', { recipient: testEmail });
+            addToast('Correo de prueba enviado', 'success');
+        } catch (e) {
+            addToast(e.response?.data?.message || 'No se pudo enviar el correo de prueba', 'error');
+        } finally { setTestingMail(false); }
+    };
+
     const handleLogoUpload = async (e) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -130,7 +179,10 @@ export default function SettingsPage() {
             <div className="flex border-b border-gray-200 mb-6">
                 <Tab active={tab === 'general'} onClick={() => setTab('general')} icon={Settings} label="General" />
                 <Tab active={tab === 'required'} onClick={() => setTab('required')} icon={CheckSquare} label="Campos obligatorios" />
+                <Tab active={tab === 'advanced'} onClick={() => setTab('advanced')} icon={SlidersHorizontal} label="Campos avanzados" />
                 <Tab active={tab === 'menu'} onClick={() => setTab('menu')} icon={Menu} label="Menu principal" />
+                <Tab active={tab === 'doctors'} onClick={() => setTab('doctors')} icon={Stethoscope} label="Doctores" />
+                <Tab active={tab === 'mail'} onClick={() => setTab('mail')} icon={Mail} label="Correo (SMTP)" />
             </div>
 
             {tab === 'general' && (
@@ -158,7 +210,20 @@ export default function SettingsPage() {
                                 <input type="text" value={form.clinic_phone} onChange={e => set('clinic_phone', e.target.value)}
                                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]" />
                             </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Correo electrónico</label>
+                                <input type="email" value={form.clinic_email} onChange={e => set('clinic_email', e.target.value)}
+                                    placeholder="contacto@clinica.com"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Sitio web</label>
+                                <input type="text" value={form.clinic_website} onChange={e => set('clinic_website', e.target.value)}
+                                    placeholder="www.clinica.com"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]" />
+                            </div>
                         </div>
+                        <p className="text-xs text-gray-400 mt-3">El correo y el sitio web aparecen en el pie de página del certificado.</p>
                     </div>
 
                     {/* Logo */}
@@ -219,6 +284,46 @@ export default function SettingsPage() {
                 </div>
             )}
 
+            {tab === 'advanced' && (
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+                    <h2 className="font-semibold text-gray-900 mb-2">Campos avanzados por formulario</h2>
+                    <p className="text-sm text-gray-500 mb-6">
+                        Los campos marcados se ocultan por defecto para mantener la pantalla limpia:
+                        aparecen al pulsar "Mostrar campos avanzados" dentro de la sección, o agrupados
+                        en una zona "Avanzado" al final del formulario. No se pierden datos ya guardados.
+                        Un campo marcado como obligatorio siempre permanece visible.
+                    </p>
+                    <div className="space-y-6">
+                        {FORM_ADVANCED_OPTIONS.map((group) => (
+                            <div key={group.form}>
+                                <h3 className="text-sm font-semibold text-gray-900">{group.label}</h3>
+                                {group.description && (
+                                    <p className="mt-1 mb-3 text-xs text-gray-500">{group.description}</p>
+                                )}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    {group.items.map(({ key, label }) => (
+                                        <label key={key} className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${form.advanced_form_fields.includes(key) ? 'border-[#1a2a4a] bg-[#1a2a4a]/5' : 'border-gray-200 hover:bg-gray-50'}`}>
+                                            <input
+                                                type="checkbox"
+                                                checked={form.advanced_form_fields.includes(key)}
+                                                onChange={() => toggleAdvancedField(key)}
+                                                className="w-4 h-4 accent-[#1a2a4a]"
+                                            />
+                                            <span className="text-sm text-gray-800">{label}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                    <div className="flex justify-end mt-6">
+                        <Button onClick={handleSave} loading={saving} size="lg">
+                            <Save size={18} /> Guardar configuración
+                        </Button>
+                    </div>
+                </div>
+            )}
+
             {tab === 'menu' && (
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
                     <h2 className="font-semibold text-gray-900 mb-2">Secciones visibles del menu principal</h2>
@@ -263,7 +368,85 @@ export default function SettingsPage() {
                     </div>
                     <div className="flex justify-end mt-6">
                         <Button onClick={handleSave} loading={saving} size="lg">
-                            <Save size={18} /> Guardar configuraciÃ³n
+                            <Save size={18} /> Guardar configuración
+                        </Button>
+                    </div>
+                </div>
+            )}
+
+            {tab === 'doctors' && <CertifyingDoctorsTab />}
+
+            {tab === 'mail' && (
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+                    <h2 className="font-semibold text-gray-900 mb-2">Configuración de correo (SMTP)</h2>
+                    <p className="text-sm text-gray-500 mb-6">
+                        Datos del servidor SMTP para enviar los certificados por correo. Para Gmail usa
+                        host <code className="bg-gray-100 px-1 rounded">smtp.gmail.com</code>, puerto 465 (SSL) o 587 (TLS),
+                        tu correo como usuario y una <strong>Contraseña de aplicación</strong> de Google (requiere verificación en 2 pasos).
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Servidor (host)</label>
+                            <input type="text" value={form.mail_host} onChange={e => set('mail_host', e.target.value)} placeholder="smtp.gmail.com"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]" />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Puerto</label>
+                                <input type="number" value={form.mail_port} onChange={e => set('mail_port', e.target.value)} placeholder="587"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Cifrado</label>
+                                <select value={form.mail_encryption} onChange={e => set('mail_encryption', e.target.value)}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]">
+                                    <option value="tls">TLS</option>
+                                    <option value="ssl">SSL</option>
+                                    <option value="">Ninguno</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Usuario</label>
+                            <input type="text" value={form.mail_username} onChange={e => set('mail_username', e.target.value)} placeholder="correo@gmail.com"
+                                autoComplete="off"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>
+                            <input type="password" value={form.mail_password} onChange={e => set('mail_password', e.target.value)}
+                                autoComplete="new-password"
+                                placeholder={settings.mail_password === '__stored__' ? '•••••••• (guardada)' : 'Contraseña de aplicación'}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]" />
+                            <p className="text-xs text-gray-400 mt-1">Déjala vacía para conservar la contraseña actual.</p>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Remitente (correo)</label>
+                            <input type="email" value={form.mail_from_address} onChange={e => set('mail_from_address', e.target.value)} placeholder="correo@gmail.com"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Remitente (nombre)</label>
+                            <input type="text" value={form.mail_from_name} onChange={e => set('mail_from_name', e.target.value)} placeholder="Óptica Andina"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]" />
+                        </div>
+                    </div>
+
+                    <div className="mt-6 rounded-xl border border-gray-200 bg-gray-50 p-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Enviar correo de prueba</label>
+                        <div className="flex flex-col sm:flex-row gap-3">
+                            <input type="email" value={testEmail} onChange={e => setTestEmail(e.target.value)} placeholder="destino@correo.com"
+                                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]" />
+                            <Button variant="secondary" onClick={handleTestEmail} loading={testingMail}>
+                                <Send size={16} /> Enviar prueba
+                            </Button>
+                        </div>
+                        <p className="text-xs text-gray-400 mt-2">Guarda la configuración actual y envía un correo de prueba al destinatario indicado.</p>
+                    </div>
+
+                    <div className="flex justify-end mt-6">
+                        <Button onClick={handleSave} loading={saving} size="lg">
+                            <Save size={18} /> Guardar configuración
                         </Button>
                     </div>
                 </div>

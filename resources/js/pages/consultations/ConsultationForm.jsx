@@ -1,13 +1,16 @@
 import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFieldArray, useForm } from 'react-hook-form';
-import { Save, FileText, CheckCircle, Clock, Plus, Trash2, Printer, ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react';
+import { Save, FileText, CheckCircle, Clock, Plus, Trash2, Printer, AlertTriangle } from 'lucide-react';
 import client from '../../api/client';
 import Button from '../../components/ui/Button';
 import EyeFieldGroup from '../../components/forms/EyeFieldGroup';
+import CollapsibleSection from '../../components/forms/CollapsibleSection';
+import { AdvancedToggleButton, useAdvancedToggle } from '../../components/forms/AdvancedFieldsToggle';
 import CertificadoPdf from '../../components/pdf/CertificadoPdf';
 import { useToast } from '../../components/ui/Toast';
 import { useSettings } from '../../contexts/SettingsContext';
+import { useAdvancedFields } from '../../hooks/useAdvancedFields';
 
 const RequiredErrorsCtx = React.createContext(new Set());
 
@@ -142,7 +145,10 @@ function buildDefaultValues(patient, consultation, meta) {
             ppc_obj: '',
             luz: '',
             fr: '',
-            results: buildOphthalmoscopyMatrix(meta?.ophthalmoscopy_rows ?? [], meta?.ophthalmoscopy_distances ?? []),
+            results: buildOphthalmoscopyMatrix(
+                Array.isArray(meta?.ophthalmoscopy_rows) ? meta.ophthalmoscopy_rows : [],
+                Array.isArray(meta?.ophthalmoscopy_distances) ? meta.ophthalmoscopy_distances : []
+            ),
         },
         treatment_module: consultation?.treatment_module ?? {
             plan: '',
@@ -152,41 +158,6 @@ function buildDefaultValues(patient, consultation, meta) {
         },
         ...consultation,
     };
-}
-
-function Section({ title, subtitle, children, sectionKey }) {
-    const storageKey = `section_open_${sectionKey ?? title}`;
-    const [open, setOpen] = useState(() => {
-        try { return localStorage.getItem(storageKey) !== 'false'; } catch { return true; }
-    });
-
-    const toggle = () => {
-        const next = !open;
-        setOpen(next);
-        try { localStorage.setItem(storageKey, String(next)); } catch {}
-    };
-
-    return (
-        <section className="mb-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <button
-                type="button"
-                onClick={toggle}
-                className="w-full flex items-center justify-between border-b border-slate-200 bg-slate-900 px-5 py-4 text-white hover:bg-slate-800 transition-colors"
-            >
-                <div className="text-left">
-                    <h2 className="text-base font-semibold">{title}</h2>
-                    {subtitle && !open && <p className="mt-0.5 text-xs text-slate-400">{subtitle}</p>}
-                </div>
-                {open ? <ChevronDown size={18} className="text-slate-400 shrink-0" /> : <ChevronRight size={18} className="text-slate-400 shrink-0" />}
-            </button>
-            {open && (
-                <>
-                    {subtitle && <div className="border-b border-slate-100 bg-slate-50 px-5 py-2 text-xs text-slate-500">{subtitle}</div>}
-                    <div className="p-5">{children}</div>
-                </>
-            )}
-        </section>
-    );
 }
 
 function fieldErrorClass(hasError) {
@@ -320,15 +291,16 @@ export default function ConsultationForm({ patient, consultation, meta }) {
     const diagnosesFieldArray = useFieldArray({ control, name: 'diagnoses' });
     const recommendationsFieldArray = useFieldArray({ control, name: 'recommendations_list' });
 
-    const diagnosisOptions = meta?.catalogs?.diagnoses ?? [];
-    const materialOptions = meta?.catalogs?.lens_materials ?? [];
-    const thicknessOptions = meta?.catalogs?.lens_thicknesses ?? [];
-    const protectionOptions = meta?.catalogs?.lens_protections ?? [];
-    const recommendationOptions = meta?.catalogs?.recommendations ?? [];
-    const optometrists = meta?.optometrists ?? [];
-    const templateOptions = meta?.templates ?? [];
-    const ophthalmoscopyRows = meta?.ophthalmoscopy_rows ?? [];
-    const ophthalmoscopyDistances = meta?.ophthalmoscopy_distances ?? [];
+    const asArray = (value) => (Array.isArray(value) ? value : []);
+    const diagnosisOptions = asArray(meta?.catalogs?.diagnoses);
+    const materialOptions = asArray(meta?.catalogs?.lens_materials);
+    const thicknessOptions = asArray(meta?.catalogs?.lens_thicknesses);
+    const protectionOptions = asArray(meta?.catalogs?.lens_protections);
+    const recommendationOptions = asArray(meta?.catalogs?.recommendations);
+    const optometrists = asArray(meta?.optometrists);
+    const templateOptions = asArray(meta?.templates);
+    const ophthalmoscopyRows = asArray(meta?.ophthalmoscopy_rows);
+    const ophthalmoscopyDistances = asArray(meta?.ophthalmoscopy_distances);
     const previousConsultation = consultation?.previous_consultation_summary;
 
     const doSave = useCallback(async (showMsg = false, forceStatus = null) => {
@@ -444,6 +416,48 @@ export default function ConsultationForm({ patient, consultation, meta }) {
         }
     };
 
+    const { isAdvanced } = useAdvancedFields('consulta');
+    const refractionAdv = useAdvancedToggle('consulta:refraccion');
+    const cabeceraAdv = useAdvancedToggle('consulta:cabecera');
+    const diagnosticoAdv = useAdvancedToggle('consulta:diagnostico');
+    const observacionesAdv = useAdvancedToggle('consulta:observaciones');
+
+    // Un campo avanzado se muestra solo si su sección tiene revelado "avanzado".
+    const advVisible = (key, adv) => !isAdvanced(key) || adv.open;
+    const filterFields = (fields, keyMap) =>
+        fields.filter((f) => {
+            const key = keyMap[f];
+            return !key || !isAdvanced(key) || refractionAdv.open;
+        });
+
+    const topColumns = [
+        { field: 'av_lectura', label: 'Lectura computador' },
+        { field: 'avsc', label: 'AV.SC lejos', advKey: 'consulta:col_avsc' },
+        { field: 'retinoscopia', label: 'Retinoscopia' },
+        { field: 'avcc', label: 'AV.CC lejos', advKey: 'consulta:col_avcc' },
+    ].filter((c) => !c.advKey || !isAdvanced(c.advKey) || refractionAdv.open);
+
+    const rxUsoFields = filterFields(['esfera', 'cilindro', 'eje', 'add', 'avcc'], { cilindro: 'consulta:rx_uso_cilindro', avcc: 'consulta:rx_uso_avcc' });
+    const subjFields = filterFields(['esfera', 'cilindro', 'eje', 'avl'], { esfera: 'consulta:subj_esfera', eje: 'consulta:subj_eje', avl: 'consulta:subj_avl' });
+    const rxFinalFields = filterFields(['esfera', 'cilindro', 'eje', 'add', 'avl', 'prisma', 'base', 'dnp'], { avl: 'consulta:rx_final_avl', prisma: 'consulta:rx_final_prisma', base: 'consulta:rx_final_base' });
+
+    const refractionAdvKeys = [
+        'consulta:col_avsc', 'consulta:col_avcc', 'consulta:rx_uso_cilindro', 'consulta:rx_uso_avcc',
+        'consulta:subj_esfera', 'consulta:subj_eje', 'consulta:subj_avl',
+        'consulta:rx_final_avl', 'consulta:rx_final_prisma', 'consulta:rx_final_base',
+        'consulta:grp_vision_cerca', 'consulta:lente_anterior',
+    ];
+    const hasRefractionAdvanced = refractionAdvKeys.some((k) => isAdvanced(k));
+    const cabeceraHasAdvanced = isAdvanced('consulta:ultimo_control');
+    const diagnosticoHasAdvanced = isAdvanced('consulta:diagnostico_adicional');
+    const observacionesHasAdvanced = ['consulta:queratometria', 'consulta:examen_externo', 'consulta:vision_colores'].some((k) => isAdvanced(k));
+
+    // Estilo/estado inicial de las secciones-módulo según estén marcadas avanzadas.
+    const moduleSectionProps = (advKey) => ({
+        variant: isAdvanced(advKey) ? 'advanced' : 'default',
+        defaultOpen: !isAdvanced(advKey),
+    });
+
     return (
       <RequiredErrorsCtx.Provider value={requiredErrors}>
         <form onSubmit={handleSubmit(onSubmit)} className="pb-24 lg:pb-8">
@@ -471,7 +485,7 @@ export default function ConsultationForm({ patient, consultation, meta }) {
                 </div>
             </div>
 
-            <Section title="Cabecera clinica" subtitle="Resumen operativo del paciente y la consulta actual.">
+            <CollapsibleSection title="Cabecera clinica" subtitle="Resumen operativo del paciente y la consulta actual." sectionKey="cabecera">
                 <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
                     <FormInput label="Fecha de consulta" name="fecha_consulta" register={register} type="date" />
                     <FormSelect label="Medico / Optometra" name="optometrista_id" register={register} options={optometrists} />
@@ -484,12 +498,19 @@ export default function ConsultationForm({ patient, consultation, meta }) {
                     <div className="lg:col-span-2">
                         <TextArea label="Motivo de consulta" name="motivo_consulta" register={register} rows={3} placeholder="Motivo principal, sintomas, seguimiento o reclamo..." />
                     </div>
-                    <FormInput label="Ultimo control" name="ultimo_control" register={register} type="date" />
+                    {advVisible('consulta:ultimo_control', cabeceraAdv) && (
+                        <FormInput label="Ultimo control" name="ultimo_control" register={register} type="date" />
+                    )}
                     <FormInput label="Direccion" name="patient_direccion" register={register} value={patient.direccion ?? ''} disabled />
                     <div className="lg:col-span-4">
                         <TextArea label="Antecedentes" name="patient_antecedentes" register={register} rows={2} value={patient.antecedentes ?? ''} disabled />
                     </div>
                 </div>
+                {cabeceraHasAdvanced && (
+                    <div className="mt-4">
+                        <AdvancedToggleButton open={cabeceraAdv.open} onToggle={cabeceraAdv.toggle} />
+                    </div>
+                )}
                 {previousConsultation && (
                     <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4">
                         <div className="flex flex-wrap items-center gap-2 text-sm text-amber-900">
@@ -501,29 +522,28 @@ export default function ConsultationForm({ patient, consultation, meta }) {
                         </div>
                     </div>
                 )}
-            </Section>
+            </CollapsibleSection>
 
-            <Section title="Examen visual y refraccion" subtitle="Captura central de lectura, refraccion y receta final.">
+            <CollapsibleSection title="Examen visual y refraccion" subtitle="Captura central de lectura, refraccion y receta final." sectionKey="refraccion">
                 <div className="mb-6 overflow-x-auto">
                     <table className="w-full text-sm">
                         <thead>
                             <tr className="bg-slate-100">
                                 <th className="px-3 py-2 text-left text-xs font-semibold uppercase text-slate-500">Ojo</th>
-                                <th className="px-3 py-2 text-center text-xs font-semibold uppercase text-slate-500">Lectura computador</th>
-                                <th className="px-3 py-2 text-center text-xs font-semibold uppercase text-slate-500">AV.SC lejos</th>
-                                <th className="px-3 py-2 text-center text-xs font-semibold uppercase text-slate-500">Retinoscopia</th>
-                                <th className="px-3 py-2 text-center text-xs font-semibold uppercase text-slate-500">AV.CC lejos</th>
+                                {topColumns.map((col) => (
+                                    <th key={col.field} className="px-3 py-2 text-center text-xs font-semibold uppercase text-slate-500">{col.label}</th>
+                                ))}
                             </tr>
                         </thead>
                         <tbody>
                             {['od', 'oi'].map((eye) => (
                                 <tr key={eye} className="border-b border-slate-200">
                                     <td className="px-3 py-3 font-semibold uppercase text-slate-700">{eye}</td>
-                                    {['av_lectura', 'avsc', 'retinoscopia', 'avcc'].map((field) => {
-                                        const fieldName = `${field}_${eye}`;
+                                    {topColumns.map((col) => {
+                                        const fieldName = `${col.field}_${eye}`;
                                         const hasErr = requiredErrors.has(fieldName);
                                         return (
-                                            <td key={field} className="px-2 py-2">
+                                            <td key={col.field} className="px-2 py-2">
                                                 <input className={`w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 ${fieldErrorClass(hasErr)}`} {...register(fieldName)} />
                                             </td>
                                         );
@@ -533,46 +553,23 @@ export default function ConsultationForm({ patient, consultation, meta }) {
                         </tbody>
                     </table>
                 </div>
-                <EyeFieldGroup prefix="rx_uso" fields={['esfera', 'cilindro', 'eje', 'add', 'avcc']} register={register} errors={{}} label="RX en uso" />
-                <EyeFieldGroup prefix="subj" fields={['esfera', 'cilindro', 'eje', 'avl']} register={register} errors={{}} label="Subjetivo" />
-                <EyeFieldGroup prefix="rx_final" fields={['esfera', 'cilindro', 'eje', 'add', 'avl', 'prisma', 'base', 'dnp']} register={register} errors={{}} label="RX final" />
-                <EyeFieldGroup prefix="vc" fields={['esfera', 'cilindro', 'eje', 'av', 'dnp', 'avcc']} register={register} errors={{}} label="Vision de cerca" />
-                <TextArea label="Lente anterior" name="lente_anterior" register={register} rows={3} placeholder="Lente previo, marca, material y comparacion con receta anterior." />
-            </Section>
+                <EyeFieldGroup prefix="rx_uso" fields={rxUsoFields} register={register} errors={{}} label="RX en uso" />
+                <EyeFieldGroup prefix="subj" fields={subjFields} register={register} errors={{}} label="Subjetivo" />
+                <EyeFieldGroup prefix="rx_final" fields={rxFinalFields} register={register} errors={{}} label="RX final" />
+                {advVisible('consulta:grp_vision_cerca', refractionAdv) && (
+                    <EyeFieldGroup prefix="vc" fields={['esfera', 'cilindro', 'eje', 'av', 'dnp', 'avcc']} register={register} errors={{}} label="Vision de cerca" />
+                )}
+                {advVisible('consulta:lente_anterior', refractionAdv) && (
+                    <TextArea label="Lente anterior" name="lente_anterior" register={register} rows={3} placeholder="Lente previo, marca, material y comparacion con receta anterior." />
+                )}
+                {hasRefractionAdvanced && (
+                    <div className="mt-2">
+                        <AdvancedToggleButton open={refractionAdv.open} onToggle={refractionAdv.toggle} />
+                    </div>
+                )}
+            </CollapsibleSection>
 
-            <Section title="Motor, binocular y reflejos" subtitle="Registro por ojo con observacion general por prueba.">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                        <thead>
-                            <tr className="bg-slate-100">
-                                <th className="px-3 py-2 text-left text-xs font-semibold uppercase text-slate-500">Prueba</th>
-                                <th className="px-3 py-2 text-center text-xs font-semibold uppercase text-slate-500">OD</th>
-                                <th className="px-3 py-2 text-center text-xs font-semibold uppercase text-slate-500">OI</th>
-                                <th className="px-3 py-2 text-center text-xs font-semibold uppercase text-slate-500">Observacion</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {[
-                                ['ducciones', 'Ducciones'],
-                                ['versiones', 'Versiones'],
-                                ['ppc', 'P.P.C.'],
-                                ['cover_test', 'Cover test'],
-                                ['reflejos_pupilares', 'Reflejos pupilares'],
-                                ['test_hirschberg', 'Test de Hirschberg'],
-                            ].map(([key, label]) => (
-                                <tr key={key} className="border-b border-slate-200">
-                                    <td className="px-3 py-3 font-medium text-slate-700">{label}</td>
-                                    <td className="px-2 py-2"><input className="w-full rounded-xl border border-slate-300 px-3 py-2" {...register(`motor_binocular_data.${key}.od`)} /></td>
-                                    <td className="px-2 py-2"><input className="w-full rounded-xl border border-slate-300 px-3 py-2" {...register(`motor_binocular_data.${key}.oi`)} /></td>
-                                    <td className="px-2 py-2"><input className="w-full rounded-xl border border-slate-300 px-3 py-2" {...register(`motor_binocular_data.${key}.observacion`)} /></td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            </Section>
-
-            <Section title="Diagnostico clinico" subtitle="Catalogo configurable con soporte para multiples diagnosticos por ojo.">
+            <CollapsibleSection title="Diagnostico clinico" subtitle="Catalogo configurable con soporte para multiples diagnosticos por ojo." sectionKey="diagnostico">
                 <div className="space-y-4">
                     {diagnosesFieldArray.fields.map((field, index) => (
                         <div key={field.id} className="rounded-2xl border border-slate-200 p-4">
@@ -610,11 +607,16 @@ export default function ConsultationForm({ patient, consultation, meta }) {
                     <Button type="button" variant="secondary" onClick={() => diagnosesFieldArray.append(defaultDiagnosis())}>
                         <Plus size={16} /> Agregar diagnostico
                     </Button>
-                    <TextArea label="Diagnostico adicional" name="diagnostico_adicional" register={register} rows={3} placeholder="Hallazgos, patologia asociada o aclaraciones diagnosticas." />
+                    {advVisible('consulta:diagnostico_adicional', diagnosticoAdv) && (
+                        <TextArea label="Diagnostico adicional" name="diagnostico_adicional" register={register} rows={3} placeholder="Hallazgos, patologia asociada o aclaraciones diagnosticas." />
+                    )}
+                    {diagnosticoHasAdvanced && (
+                        <AdvancedToggleButton open={diagnosticoAdv.open} onToggle={diagnosticoAdv.toggle} />
+                    )}
                 </div>
-            </Section>
+            </CollapsibleSection>
 
-            <Section title="Recomendacion de lunas y recomendaciones medicas" subtitle="Seleccion rapida por catalogos y texto editable antes de guardar.">
+            <CollapsibleSection title="Recomendacion de lunas y recomendaciones medicas" subtitle="Seleccion rapida por catalogos y texto editable antes de guardar." sectionKey="recomendaciones">
                 <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
                     <div className="rounded-2xl border border-slate-200 p-4">
                         <div className="mb-4 flex items-center gap-2">
@@ -665,23 +667,69 @@ export default function ConsultationForm({ patient, consultation, meta }) {
                         </div>
                     </div>
                 </div>
-            </Section>
+            </CollapsibleSection>
 
-            <Section title="Observaciones clinicas, queratometria y examen externo" subtitle="Texto libre y hallazgos auxiliares del examen.">
-                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                    <FormInput label="Queratometria OD" name="queratometria_od" register={register} placeholder="K1 / K2 @ eje" />
-                    <FormInput label="Queratometria OI" name="queratometria_oi" register={register} placeholder="K1 / K2 @ eje" />
-                    <TextArea label="Examen externo OD" name="examen_externo_od" register={register} rows={3} />
-                    <TextArea label="Examen externo OI" name="examen_externo_oi" register={register} rows={3} />
-                    <FormInput label="Vision de colores" name="vision_colores" register={register} placeholder="14/14 Test Ishihara" />
-                    <div />
-                    <div className="lg:col-span-2">
-                        <TextArea label="Observaciones clinicas" name="observaciones" register={register} rows={6} placeholder="Comentarios del caso, comparacion con recetas previas, seguimiento y observaciones libres..." />
-                    </div>
+            <CollapsibleSection title="Observaciones clinicas, queratometria y examen externo" subtitle="Texto libre y hallazgos auxiliares del examen." sectionKey="observaciones">
+                <div className="mb-4">
+                    <TextArea label="Observaciones clinicas" name="observaciones" register={register} rows={6} placeholder="Comentarios del caso, comparacion con recetas previas, seguimiento y observaciones libres..." />
                 </div>
-            </Section>
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                    {advVisible('consulta:queratometria', observacionesAdv) && (
+                        <FormInput label="Queratometria OD" name="queratometria_od" register={register} placeholder="K1 / K2 @ eje" />
+                    )}
+                    {advVisible('consulta:queratometria', observacionesAdv) && (
+                        <FormInput label="Queratometria OI" name="queratometria_oi" register={register} placeholder="K1 / K2 @ eje" />
+                    )}
+                    {advVisible('consulta:examen_externo', observacionesAdv) && (
+                        <TextArea label="Examen externo OD" name="examen_externo_od" register={register} rows={3} />
+                    )}
+                    {advVisible('consulta:examen_externo', observacionesAdv) && (
+                        <TextArea label="Examen externo OI" name="examen_externo_oi" register={register} rows={3} />
+                    )}
+                    {advVisible('consulta:vision_colores', observacionesAdv) && (
+                        <FormInput label="Vision de colores" name="vision_colores" register={register} placeholder="14/14 Test Ishihara" />
+                    )}
+                </div>
+                {observacionesHasAdvanced && (
+                    <div className="mt-2">
+                        <AdvancedToggleButton open={observacionesAdv.open} onToggle={observacionesAdv.toggle} />
+                    </div>
+                )}
+            </CollapsibleSection>
 
-            <Section title="Modulo de lentes de contacto" subtitle="Adaptacion, lente de prueba y lente definitivo.">
+            <CollapsibleSection title="Motor, binocular y reflejos" subtitle="Registro por ojo con observacion general por prueba." sectionKey="motor_binocular" {...moduleSectionProps('consulta:sec_motor_binocular')}>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                        <thead>
+                            <tr className="bg-slate-100">
+                                <th className="px-3 py-2 text-left text-xs font-semibold uppercase text-slate-500">Prueba</th>
+                                <th className="px-3 py-2 text-center text-xs font-semibold uppercase text-slate-500">OD</th>
+                                <th className="px-3 py-2 text-center text-xs font-semibold uppercase text-slate-500">OI</th>
+                                <th className="px-3 py-2 text-center text-xs font-semibold uppercase text-slate-500">Observacion</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {[
+                                ['ducciones', 'Ducciones'],
+                                ['versiones', 'Versiones'],
+                                ['ppc', 'P.P.C.'],
+                                ['cover_test', 'Cover test'],
+                                ['reflejos_pupilares', 'Reflejos pupilares'],
+                                ['test_hirschberg', 'Test de Hirschberg'],
+                            ].map(([key, label]) => (
+                                <tr key={key} className="border-b border-slate-200">
+                                    <td className="px-3 py-3 font-medium text-slate-700">{label}</td>
+                                    <td className="px-2 py-2"><input className="w-full rounded-xl border border-slate-300 px-3 py-2" {...register(`motor_binocular_data.${key}.od`)} /></td>
+                                    <td className="px-2 py-2"><input className="w-full rounded-xl border border-slate-300 px-3 py-2" {...register(`motor_binocular_data.${key}.oi`)} /></td>
+                                    <td className="px-2 py-2"><input className="w-full rounded-xl border border-slate-300 px-3 py-2" {...register(`motor_binocular_data.${key}.observacion`)} /></td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </CollapsibleSection>
+
+            <CollapsibleSection title="Modulo de lentes de contacto" subtitle="Adaptacion, lente de prueba y lente definitivo." sectionKey="lentes_contacto" {...moduleSectionProps('consulta:sec_lentes_contacto')}>
                 <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-4">
                     <FormInput label="Diametro pupilar" name="contact_lens_module.diametro_pupilar" register={register} />
                     <FormInput label="Diametro corneal" name="contact_lens_module.diametro_corneal" register={register} />
@@ -743,9 +791,9 @@ export default function ConsultationForm({ patient, consultation, meta }) {
                         </tbody>
                     </table>
                 </div>
-            </Section>
+            </CollapsibleSection>
 
-            <Section title="Oftalmoscopia" subtitle="Parametros generales y tabla editable por distancias.">
+            <CollapsibleSection title="Oftalmoscopia" subtitle="Parametros generales y tabla editable por distancias." sectionKey="oftalmoscopia" {...moduleSectionProps('consulta:sec_oftalmoscopia')}>
                 <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
                     <FormInput label="Fijacion OD" name="ophthalmoscopy_module.fijacion_od" register={register} />
                     <FormInput label="Fijacion OI" name="ophthalmoscopy_module.fijacion_oi" register={register} />
@@ -778,9 +826,9 @@ export default function ConsultationForm({ patient, consultation, meta }) {
                         </tbody>
                     </table>
                 </div>
-            </Section>
+            </CollapsibleSection>
 
-            <Section title="Tratamiento" subtitle="Plan terapeutico y modalidad de uso.">
+            <CollapsibleSection title="Tratamiento" subtitle="Plan terapeutico y modalidad de uso." sectionKey="tratamiento" {...moduleSectionProps('consulta:sec_tratamiento')}>
                 <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                     <TextArea label="Plan de tratamiento" name="treatment_module.plan" register={register} rows={4} />
                     <div className="grid grid-cols-1 gap-4">
@@ -789,7 +837,7 @@ export default function ConsultationForm({ patient, consultation, meta }) {
                         <FormInput label="Modalidad de uso" name="treatment_module.modalidad_uso" register={register} />
                     </div>
                 </div>
-            </Section>
+            </CollapsibleSection>
 
             <div className="mobile-sticky-actions -mx-4 px-4 py-4 lg:hidden">
                 <div className="grid grid-cols-3 gap-2">

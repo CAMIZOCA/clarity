@@ -12,9 +12,23 @@ use Illuminate\Validation\Rule;
 
 class SettingController extends Controller
 {
+    /**
+     * Claves sensibles que no deben exponerse en texto plano en la respuesta.
+     */
+    private const MASKED_KEYS = ['mail_password'];
+
     public function index(): JsonResponse
     {
-        return response()->json(Setting::all_map());
+        $settings = Setting::all_map();
+
+        foreach (self::MASKED_KEYS as $key) {
+            if (! empty($settings[$key] ?? null)) {
+                // Marcador: indica que hay una contraseña guardada sin revelarla.
+                $settings[$key] = '__stored__';
+            }
+        }
+
+        return response()->json($settings);
     }
 
     public function update(Request $request): JsonResponse
@@ -26,7 +40,19 @@ class SettingController extends Controller
             'clinic_tagline' => 'sometimes|nullable|string|max:255',
             'clinic_address' => 'sometimes|nullable|string|max:500',
             'clinic_phone' => 'sometimes|nullable|string|max:100',
+            'clinic_email' => 'sometimes|nullable|email|max:150',
+            'clinic_website' => 'sometimes|nullable|string|max:150',
+            // Configuración SMTP (correo del certificado)
+            'mail_host' => 'sometimes|nullable|string|max:150',
+            'mail_port' => 'sometimes|nullable|integer|min:1|max:65535',
+            'mail_username' => 'sometimes|nullable|string|max:150',
+            'mail_password' => 'sometimes|nullable|string|max:255',
+            'mail_encryption' => ['sometimes', 'nullable', Rule::in(['tls', 'ssl', ''])],
+            'mail_from_address' => 'sometimes|nullable|email|max:150',
+            'mail_from_name' => 'sometimes|nullable|string|max:150',
             'required_fields' => 'sometimes|array',
+            'advanced_form_fields' => 'sometimes|array',
+            'advanced_form_fields.*' => 'string|max:120',
             'menu_visible_sections' => 'sometimes|array|min:1',
             'menu_visible_sections.*' => [
                 'string',
@@ -67,7 +93,12 @@ class SettingController extends Controller
         ]);
 
         foreach ($data as $key => $value) {
-            if (in_array($key, ['required_fields', 'menu_visible_sections', 'menu_visible_items'], true)) {
+            // No sobrescribir la contraseña SMTP si llega vacía o con el marcador.
+            if ($key === 'mail_password' && (blank($value) || $value === '__stored__')) {
+                continue;
+            }
+
+            if (in_array($key, ['required_fields', 'advanced_form_fields', 'menu_visible_sections', 'menu_visible_items'], true)) {
                 Setting::set($key, json_encode($value));
             } else {
                 Setting::set($key, $value);

@@ -4,6 +4,8 @@ import PatientAutocomplete from '../../components/ui/PatientAutocomplete';
 import OrdenTrabajoPdf from '../../components/pdf/OrdenTrabajoPdf';
 import client from '../../api/client';
 import { useSettings } from '../../contexts/SettingsContext';
+import { AdvancedToggleButton, useAdvancedToggle } from '../../components/forms/AdvancedFieldsToggle';
+import { useAdvancedFields } from '../../hooks/useAdvancedFields';
 import { format } from 'date-fns';
 
 const SPECS_DEFAULT = {
@@ -101,6 +103,11 @@ function generateNumero() {
 
 export default function OrdenTrabajoPage() {
     const { settings } = useSettings();
+    const { isAdvanced } = useAdvancedFields('orden_trabajo');
+    const ordenAdv = useAdvancedToggle('orden_trabajo:avanzado');
+    const showEspecificaciones = !isAdvanced('orden_trabajo:especificaciones') || ordenAdv.open;
+    const showLabExtra = !isAdvanced('orden_trabajo:laboratorio_extra') || ordenAdv.open;
+    const ordenHasAdvanced = isAdvanced('orden_trabajo:especificaciones') || isAdvanced('orden_trabajo:laboratorio_extra');
     const [paciente, setPaciente] = useState(null);
     const [consulta, setConsulta] = useState(null);
     const [loadingConsulta, setLoadingConsulta] = useState(false);
@@ -258,6 +265,13 @@ export default function OrdenTrabajoPage() {
                     <Field label="AV C.C. O.I." name="avcc_oi" value={orden.avcc_oi} onChange={handleOrdenChange} placeholder="20/20" nextFieldId="especif" />
                 </div>
 
+                {ordenHasAdvanced && (
+                    <div className="mb-4">
+                        <AdvancedToggleButton open={ordenAdv.open} onToggle={ordenAdv.toggle} />
+                    </div>
+                )}
+
+                {showEspecificaciones && (<>
                 <h3 className="text-sm font-bold text-gray-700 mb-3 border-b pb-1">Especificaciones de Lentes</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
                     <SpecGroup title="Material">
@@ -312,6 +326,7 @@ export default function OrdenTrabajoPage() {
                         <SpecCheckbox label="N 1.74" name="n174" checked={specs.n174} onChange={handleSpecChange} />
                     </SpecGroup>
                 </div>
+                </>)}
 
                 <div className="mb-6">
                     <label className="block text-xs font-semibold text-gray-600 mb-1">OTRO / ESPECIF.</label>
@@ -328,7 +343,9 @@ export default function OrdenTrabajoPage() {
                 <h3 className="text-sm font-bold text-gray-700 mb-3 border-b pb-1">Laboratorio y Logística</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                     <Field label="LAB" name="lab" value={orden.lab} onChange={handleOrdenChange} placeholder="Nombre laboratorio" nextFieldId="alt" />
-                    <Field label="ALT." name="alt" value={orden.alt} onChange={handleOrdenChange} type="number" inputMode="numeric" placeholder="24" nextFieldId="dnp" />
+                    {showLabExtra && (
+                        <Field label="ALT." name="alt" value={orden.alt} onChange={handleOrdenChange} type="number" inputMode="numeric" placeholder="24" nextFieldId="dnp" />
+                    )}
                     <Field label="D.P." name="dnp" value={orden.dnp} onChange={handleOrdenChange} placeholder="32/33" nextFieldId="dr" />
                     <Field label="DR." name="dr" value={orden.dr} onChange={handleOrdenChange} nextFieldId="armazon" />
                 </div>
@@ -336,8 +353,12 @@ export default function OrdenTrabajoPage() {
                     <div className="md:col-span-2">
                         <Field label="ARMAZÓN" name="armazon" value={orden.armazon} onChange={handleOrdenChange} placeholder="Descripción del armazón" nextFieldId="fac" />
                     </div>
-                    <Field label="FAC." name="fac" value={orden.fac} onChange={handleOrdenChange} nextFieldId="rc" />
-                    <Field label="R.C." name="rc" value={orden.rc} onChange={handleOrdenChange} nextFieldId="entrega" />
+                    {showLabExtra && (
+                        <Field label="FAC." name="fac" value={orden.fac} onChange={handleOrdenChange} nextFieldId="rc" />
+                    )}
+                    {showLabExtra && (
+                        <Field label="R.C." name="rc" value={orden.rc} onChange={handleOrdenChange} nextFieldId="entrega" />
+                    )}
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                     <div className="md:col-span-2">

@@ -112,4 +112,80 @@ class SettingTest extends TestCase
             'menu_visible_sections' => ['reportes'],
         ])->assertForbidden();
     }
+
+    public function test_advanced_form_fields_can_be_updated(): void
+    {
+        $user = User::factory()->create();
+        SpatiePermission::firstOrCreate([
+            'name' => Permission::SETTINGS_EDIT->value,
+            'guard_name' => 'web',
+        ]);
+        $user->givePermissionTo(Permission::SETTINGS_EDIT->value);
+        Sanctum::actingAs($user);
+
+        $this->postJson('/api/settings', [
+            'advanced_form_fields' => [
+                'consulta:sec_tratamiento',
+                'paciente:antecedentes',
+            ],
+        ])->assertOk()
+            ->assertJsonPath('advanced_form_fields', json_encode([
+                'consulta:sec_tratamiento',
+                'paciente:antecedentes',
+            ]));
+
+        $this->assertSame(
+            ['consulta:sec_tratamiento', 'paciente:antecedentes'],
+            json_decode(Setting::get('advanced_form_fields'), true)
+        );
+    }
+
+    public function test_mail_password_is_masked_when_reading_settings(): void
+    {
+        Setting::set('mail_password', 'super-secreta');
+        Sanctum::actingAs(User::factory()->create());
+
+        $this->getJson('/api/settings')
+            ->assertOk()
+            ->assertJsonPath('mail_password', '__stored__');
+    }
+
+    public function test_empty_mail_password_does_not_overwrite_stored_one(): void
+    {
+        Setting::set('mail_password', 'super-secreta');
+
+        $user = User::factory()->create();
+        SpatiePermission::firstOrCreate([
+            'name' => Permission::SETTINGS_EDIT->value,
+            'guard_name' => 'web',
+        ]);
+        $user->givePermissionTo(Permission::SETTINGS_EDIT->value);
+        Sanctum::actingAs($user);
+
+        // El frontend envía la contraseña vacía cuando el usuario no la cambia.
+        $this->postJson('/api/settings', [
+            'mail_host' => 'smtp.gmail.com',
+            'mail_password' => '',
+        ])->assertOk();
+
+        $this->assertSame('super-secreta', Setting::get('mail_password'));
+        $this->assertSame('smtp.gmail.com', Setting::get('mail_host'));
+    }
+
+    public function test_advanced_form_fields_can_be_emptied(): void
+    {
+        $user = User::factory()->create();
+        SpatiePermission::firstOrCreate([
+            'name' => Permission::SETTINGS_EDIT->value,
+            'guard_name' => 'web',
+        ]);
+        $user->givePermissionTo(Permission::SETTINGS_EDIT->value);
+        Sanctum::actingAs($user);
+
+        $this->postJson('/api/settings', [
+            'advanced_form_fields' => [],
+        ])->assertOk();
+
+        $this->assertSame([], json_decode(Setting::get('advanced_form_fields'), true));
+    }
 }

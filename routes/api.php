@@ -7,6 +7,8 @@ use App\Http\Controllers\Api\BranchController;
 use App\Http\Controllers\Api\BrigadeController;
 use App\Http\Controllers\Api\CashRegisterController;
 use App\Http\Controllers\Api\CatalogController;
+use App\Http\Controllers\Api\CertificateController;
+use App\Http\Controllers\Api\CertifyingDoctorController;
 use App\Http\Controllers\Api\Cie10Controller;
 use App\Http\Controllers\Api\ConsultationController;
 use App\Http\Controllers\Api\ConsultationMetaController;
@@ -74,6 +76,15 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/settings', [SettingController::class, 'index']);
     Route::post('/settings', [SettingController::class, 'update']);
     Route::post('/settings/logo', [SettingController::class, 'uploadLogo']);
+
+    // Certifying doctors (doctores certificadores del certificado visual)
+    Route::post('/certifying-doctors/{certifyingDoctor}/firma', [CertifyingDoctorController::class, 'uploadFirma']);
+    Route::apiResource('certifying-doctors', CertifyingDoctorController::class)->except(['show']);
+
+    // Certificates (certificado visual: persistencia + envío por correo)
+    Route::get('/certificates', [CertificateController::class, 'index']);
+    Route::post('/certificates', [CertificateController::class, 'store']);
+    Route::post('/certificates/test-email', [CertificateController::class, 'sendTest']);
 
     // Catalog management
     Route::get('/catalog-groups', [CatalogController::class, 'groups']);

@@ -6,6 +6,8 @@ import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import { useToast } from '../../components/ui/Toast';
 import { getList, getPayload } from '../../api/response';
+import { AdvancedToggleButton, useAdvancedToggle } from '../../components/forms/AdvancedFieldsToggle';
+import { useAdvancedFields } from '../../hooks/useAdvancedFields';
 
 const CATEGORIES = [
     { value: 'armazon', label: 'Armazón' },
@@ -39,6 +41,10 @@ export default function ProductFormPage() {
     const [saving, setSaving] = useState(false);
     const [loading, setLoading] = useState(isEdit);
     const [skuError, setSkuError] = useState('');
+
+    const { isAdvanced } = useAdvancedFields('producto');
+    const subcategoriaAdv = useAdvancedToggle('producto:subcategoria');
+    const showSubcategoria = !isAdvanced('producto:subcategoria') || subcategoriaAdv.open;
 
     const [form, setForm] = useState({
         nombre: '',
@@ -201,12 +207,16 @@ export default function ProductFormPage() {
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <Input
-                            label="Subcategoría"
-                            value={form.subcategoria}
-                            onChange={set('subcategoria')}
-                            placeholder="Ej: Deportivos, Fotocromáticos..."
-                        />
+                        {showSubcategoria ? (
+                            <Input
+                                label="Subcategoría"
+                                value={form.subcategoria}
+                                onChange={set('subcategoria')}
+                                placeholder="Ej: Deportivos, Fotocromáticos..."
+                            />
+                        ) : (
+                            <div className="hidden md:block" />
+                        )}
 
                         <div className="flex flex-col gap-1">
                             <label className="text-sm font-medium text-gray-700">Proveedor</label>
@@ -233,6 +243,10 @@ export default function ProductFormPage() {
                             className="min-h-11 py-2.5 px-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] bg-white text-sm resize-none touch-manipulation"
                         />
                     </div>
+
+                    {isAdvanced('producto:subcategoria') && (
+                        <AdvancedToggleButton open={subcategoriaAdv.open} onToggle={subcategoriaAdv.toggle} />
+                    )}
                 </div>
 
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 sm:p-6 space-y-4">
