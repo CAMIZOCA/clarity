@@ -368,7 +368,7 @@ export default function SettingsPage() {
                     </div>
                     <div className="flex justify-end mt-6">
                         <Button onClick={handleSave} loading={saving} size="lg">
-                            <Save size={18} /> Guardar configuraciÃ³n
+                            <Save size={18} /> Guardar configuración
                         </Button>
                     </div>
                 </div>

@@ -145,7 +145,10 @@ function buildDefaultValues(patient, consultation, meta) {
             ppc_obj: '',
             luz: '',
             fr: '',
-            results: buildOphthalmoscopyMatrix(meta?.ophthalmoscopy_rows ?? [], meta?.ophthalmoscopy_distances ?? []),
+            results: buildOphthalmoscopyMatrix(
+                Array.isArray(meta?.ophthalmoscopy_rows) ? meta.ophthalmoscopy_rows : [],
+                Array.isArray(meta?.ophthalmoscopy_distances) ? meta.ophthalmoscopy_distances : []
+            ),
         },
         treatment_module: consultation?.treatment_module ?? {
             plan: '',
@@ -288,15 +291,16 @@ export default function ConsultationForm({ patient, consultation, meta }) {
     const diagnosesFieldArray = useFieldArray({ control, name: 'diagnoses' });
     const recommendationsFieldArray = useFieldArray({ control, name: 'recommendations_list' });
 
-    const diagnosisOptions = meta?.catalogs?.diagnoses ?? [];
-    const materialOptions = meta?.catalogs?.lens_materials ?? [];
-    const thicknessOptions = meta?.catalogs?.lens_thicknesses ?? [];
-    const protectionOptions = meta?.catalogs?.lens_protections ?? [];
-    const recommendationOptions = meta?.catalogs?.recommendations ?? [];
-    const optometrists = meta?.optometrists ?? [];
-    const templateOptions = meta?.templates ?? [];
-    const ophthalmoscopyRows = meta?.ophthalmoscopy_rows ?? [];
-    const ophthalmoscopyDistances = meta?.ophthalmoscopy_distances ?? [];
+    const asArray = (value) => (Array.isArray(value) ? value : []);
+    const diagnosisOptions = asArray(meta?.catalogs?.diagnoses);
+    const materialOptions = asArray(meta?.catalogs?.lens_materials);
+    const thicknessOptions = asArray(meta?.catalogs?.lens_thicknesses);
+    const protectionOptions = asArray(meta?.catalogs?.lens_protections);
+    const recommendationOptions = asArray(meta?.catalogs?.recommendations);
+    const optometrists = asArray(meta?.optometrists);
+    const templateOptions = asArray(meta?.templates);
+    const ophthalmoscopyRows = asArray(meta?.ophthalmoscopy_rows);
+    const ophthalmoscopyDistances = asArray(meta?.ophthalmoscopy_distances);
     const previousConsultation = consultation?.previous_consultation_summary;
 
     const doSave = useCallback(async (showMsg = false, forceStatus = null) => {

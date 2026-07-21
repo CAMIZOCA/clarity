@@ -23,7 +23,7 @@ export default function PatientFormPage() {
 
     useEffect(() => {
         if (isEdit) {
-            client.get(`/patients/${id}`).then(r => reset(r.data));
+            client.get(`/patients/${id}`).then(r => reset(r.data.data));
         }
     }, [id, isEdit, reset]);
 
@@ -72,7 +72,7 @@ export default function PatientFormPage() {
                         {...register('nombre', { required: 'Requerido' })}
                     />
                     <Input
-                        label="CÃ©dula / RUC"
+                        label="Cédula / RUC"
                         required
                         error={errors.cedula?.message}
                         inputMode="numeric"
@@ -89,12 +89,12 @@ export default function PatientFormPage() {
                         {...register('fecha_nacimiento', { required: 'Requerido' })}
                     />
                     <Input
-                        label="OcupaciÃ³n"
+                        label="Ocupación"
                         nextFieldId="telefono"
                         {...register('ocupacion')}
                     />
                     <Input
-                        label="TelÃ©fono"
+                        label="Teléfono"
                         type="tel"
                         nextFieldId="email"
                         {...register('telefono')}
@@ -107,7 +107,7 @@ export default function PatientFormPage() {
                     />
                     <div className="md:col-span-2">
                         <Input
-                            label="DirecciÃ³n"
+                            label="Dirección"
                             nextFieldId="antecedentes"
                             {...register('direccion')}
                         />
@@ -115,13 +115,13 @@ export default function PatientFormPage() {
                     {showAntecedentes && (
                         <div className="md:col-span-2">
                             <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Antecedentes mÃ©dicos oculares
+                                Antecedentes médicos oculares
                             </label>
                             <textarea
                                 id="antecedentes"
                                 rows={4}
                                 className="w-full px-3 py-2.5 text-base rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] focus:bg-[#fef08a]/20 resize-none"
-                                placeholder="Historial de enfermedades oculares, cirugÃ­as, alergias..."
+                                placeholder="Historial de enfermedades oculares, cirugías, alergias..."
                                 {...register('antecedentes')}
                             />
                         </div>

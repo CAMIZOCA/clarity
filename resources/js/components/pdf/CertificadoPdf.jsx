@@ -333,7 +333,7 @@ export default function CertificadoPdf({ data, onClose }) {
                         <Button size="sm" onClick={handlePrint}>
                             <Printer size={16} /> Imprimir
                         </Button>
-                        <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100 text-gray-500">
+                        <button type="button" onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100 text-gray-500">
                             <X size={20} />
                         </button>
                     </div>

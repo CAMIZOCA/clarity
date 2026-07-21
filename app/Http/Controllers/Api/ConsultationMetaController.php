@@ -33,12 +33,14 @@ class ConsultationMetaController extends Controller
             $templates = PrintTemplate::query()
                 ->where('is_active', true)
                 ->orderBy('sort_order')
-                ->get(['id', 'key', 'name', 'description']);
+                ->get(['id', 'key', 'name', 'description'])
+                ->values();
 
             $optometrists = User::query()
                 ->whereIn('role', ['admin', 'optometra'])
                 ->orderBy('name')
-                ->get(['id', 'name', 'codigo', 'registro_senescyt']);
+                ->get(['id', 'name', 'codigo', 'registro_senescyt'])
+                ->values();
 
             return [
                 'catalogs' => $catalogs,
