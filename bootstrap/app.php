@@ -12,6 +12,9 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Detras de Traefik y el tunel de Cloudflare: sin esto Laravel ve http,
+        // genera URLs incorrectas y registra la IP del proxy en vez de la del cliente.
+        $middleware->trustProxies(at: '*');
         $middleware->statefulApi();
         $middleware->validateCsrfTokens(except: [
             'login',
