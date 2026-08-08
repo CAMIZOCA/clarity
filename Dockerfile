@@ -94,6 +94,11 @@ COPY docker/entrypoint.sh /usr/local/bin/entrypoint
 
 RUN chmod +x /usr/local/bin/entrypoint \
     && mkdir -p /var/log/supervisor /run/nginx /var/www/html/storage /var/www/html/bootstrap/cache \
+    && mkdir -p /var/lib/nginx/tmp/client_body /var/lib/nginx/tmp/fastcgi \
+                /var/lib/nginx/tmp/proxy /var/lib/nginx/tmp/uwsgi /var/lib/nginx/tmp/scgi \
+    # Los workers de nginx corren como www-data y necesitan escribir aqui para
+    # bufferear las subidas grandes.
+    && chown -R www-data:www-data /var/lib/nginx /run/nginx \
     && chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
 
 ENV CONTAINER_ROLE=app
