@@ -8,7 +8,12 @@ return new class extends Migration
 {
     public function up(): void
     {
-        if (Schema::hasColumn('consultations', 'legacy_id')) {
+        // Se comprueba la ULTIMA columna que agrega esta migracion, no la
+        // primera. El DDL en MySQL/MariaDB no es transaccional: si el ALTER se
+        // queda a mitad de camino, mirar `legacy_id` hacia que el reintento
+        // creyera que ya estaba todo hecho y Laravel registraba la migracion
+        // como aplicada con el esquema incompleto.
+        if (Schema::hasColumn('consultations', 'observacion_pedidos')) {
             return;
         }
 
