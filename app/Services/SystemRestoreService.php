@@ -16,6 +16,12 @@ class SystemRestoreService
 
     private const PRESERVED_RESTORE_TABLES = ['maintenance_operations'];
 
+    /**
+     * Margen por debajo del limite de 65535 placeholders por sentencia que
+     * imponen MySQL y MariaDB.
+     */
+    private const MAX_PLACEHOLDERS_PER_STATEMENT = 60000;
+
     private const CLEARED_RUNTIME_TABLES = [
         'cache',
         'cache_locks',
@@ -199,11 +205,21 @@ class SystemRestoreService
                         continue;
                     }
 
+                    // Un insert multi-fila usa un placeholder por celda, y MySQL
+                    // y MariaDB no admiten mas de 65535 por sentencia. Con las
+                    // 144 columnas de `consultations`, un bloque de 500 filas
+                    // pedia 72000 y reventaba con el error 1390, asi que el
+                    // tamano del bloque se ajusta al ancho de cada tabla.
+                    $rowsPerInsert = max(1, min(
+                        $chunkSize,
+                        intdiv(self::MAX_PLACEHOLDERS_PER_STATEMENT, count($columns))
+                    ));
+
                     $total = 0;
                     $offset = 0;
 
                     do {
-                        $rows = $this->sourceRows($source, $table, $columns, $chunkSize, $offset);
+                        $rows = $this->sourceRows($source, $table, $columns, $rowsPerInsert, $offset);
                         if ($rows === []) {
                             break;
                         }
@@ -217,7 +233,7 @@ class SystemRestoreService
                         $count = count($rows);
                         $total += $count;
                         $offset += $count;
-                    } while ($count === $chunkSize);
+                    } while ($count === $rowsPerInsert);
 
                     $copiedTables[] = $table;
                     $copiedRows[$table] = $total;
