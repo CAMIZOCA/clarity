@@ -1,54 +1,116 @@
 import React from 'react';
+import { useRequiredErrors } from './RequiredErrorsContext';
 
 /**
- * Reusable OD/OI field group.
- * @param {string} prefix - e.g. "rx_uso" → generates rx_uso_esfera_od, rx_uso_esfera_oi ...
- * @param {string} label - Section label
- * @param {string[]} fields - Array of field names: ['esfera','cilindro','eje','add','avcc'] etc.
- * @param {object} register - react-hook-form register
- * @param {object} errors - react-hook-form errors
- * @param {object} extraCols - additional columns not doubled: {name, label, type?}
+ * Tabla OD/OI reutilizable de las secciones de refraccion.
+ *
+ * Todos los campos son `type="text"`: con `type="number"` la rueda del mouse
+ * sobre un input enfocado cambiaba el valor en silencio y aparecian los
+ * steppers. Se conserva `inputMode` para que el movil siga abriendo el teclado
+ * numerico. La validacion de rangos clinicos vive en el backend
+ * (`App\Rules\ValidOpticalPrescription`).
+ *
+ * @param {string} prefix - ej. "rx_uso" -> genera rx_uso_esfera_od, rx_uso_esfera_oi...
+ * @param {string} label - titulo de la seccion
+ * @param {string[]} fields - columnas a mostrar, en orden
+ * @param {object} register - register de react-hook-form
+ * @param {object} labelOverrides - renombra encabezados solo en esta tabla
+ * @param {string[]} tabOrder - recorrido de teclado como sufijos `campo_ojo`
+ * @param {function} nameFor - (campo, ojo) => nombre del campo; permite usar la
+ *   tabla dentro de un `useFieldArray` (ej. `rx_uso_entries.0.esfera_od`)
+ * @param {React.ReactNode} footer - contenido bajo la tabla (ej. observaciones)
+ * @param {object[]} extra - columnas adicionales no derivadas de `prefix`
  */
-export default function EyeFieldGroup({ prefix, label, fields, register, errors, extra = [] }) {
-    const fieldMeta = {
-        esfera:   { label: 'Esfera',    type: 'number', step: '0.25', min: '-30', max: '30', placeholder: '±0.00', inputMode: 'decimal' },
-        cilindro: { label: 'Cilindro',  type: 'number', step: '0.25', min: '-10', max: '10', placeholder: '±0.00', inputMode: 'decimal' },
-        eje:      { label: 'Eje (°)',   type: 'number', step: '1',    min: '0',   max: '180', placeholder: '0–180', inputMode: 'numeric' },
-        add:      { label: 'ADD',       type: 'number', step: '0.25', min: '0',   max: '5',  placeholder: '0.00', inputMode: 'decimal' },
-        avcc:     { label: 'AV.CC',     type: 'text',   placeholder: '20/20', inputMode: 'text' },
-        avl:      { label: 'AVL',       type: 'text',   placeholder: '20/20', inputMode: 'text' },
-        av:       { label: 'AV',        type: 'text',   placeholder: '20/20', inputMode: 'text' },
-        prisma:   { label: 'Prisma',    type: 'text',   placeholder: '—', inputMode: 'text' },
-        base:     { label: 'Base',      type: 'text',   placeholder: '—', inputMode: 'text' },
-        dnp:      { label: 'DNP/DP',    type: 'text',   placeholder: 'mm', inputMode: 'text' },
-    };
 
-    const orderedNames = ['od', 'oi'].flatMap((eye) => [
-        ...fields.map((field) => `${prefix}_${field}_${eye}`),
+const FIELD_META = {
+    esfera:    { label: 'Esfera',     placeholder: '±0.00', inputMode: 'decimal' },
+    cilindro:  { label: 'Cilindro',   placeholder: '±0.00', inputMode: 'decimal' },
+    eje:       { label: 'Eje (°)',    placeholder: '0–180', inputMode: 'numeric' },
+    add:       { label: 'ADD',        placeholder: '0.00',  inputMode: 'decimal' },
+    distancia: { label: 'Distancia',  placeholder: 'a 50cm', inputMode: 'text' },
+    avcc:      { label: 'AV.CC',      placeholder: '20/20', inputMode: 'text' },
+    avl:       { label: 'AVL',        placeholder: '20/20', inputMode: 'text' },
+    av:        { label: 'AV',         placeholder: '20/20', inputMode: 'text' },
+    prisma:    { label: 'Prisma',     placeholder: '3 BE',  inputMode: 'text' },
+    base:      { label: 'Base',       placeholder: '—',     inputMode: 'text' },
+    dnp:       { label: 'DNP/DP',     placeholder: 'mm',    inputMode: 'text' },
+};
+
+const EYES = ['od', 'oi'];
+
+/**
+ * Secuencia de recorrido con Tab/Enter.
+ *
+ * Por defecto va fila por fila (OD completo y luego OI). Si se pasa `tabOrder`,
+ * ese recorrido manda y cualquier campo visible que no aparezca en el se agrega
+ * al final, de modo que ocultar una columna nunca rompe la navegacion.
+ */
+function buildOrderedNames({ fields, extra, tabOrder, resolve }) {
+    const rowOrder = EYES.flatMap((eye) => [
+        ...fields.map((field) => resolve(field, eye)),
         ...extra.map((field) => `${field.name}_${eye}`),
     ]);
+
+    if (!tabOrder?.length) return rowOrder;
+
+    const available = new Set(rowOrder);
+    const preferred = tabOrder
+        .map((suffix) => {
+            const separator = suffix.lastIndexOf('_');
+            return resolve(suffix.slice(0, separator), suffix.slice(separator + 1));
+        })
+        .filter((name) => available.has(name));
+
+    const seen = new Set(preferred);
+    return [...preferred, ...rowOrder.filter((name) => !seen.has(name))];
+}
+
+export default function EyeFieldGroup({
+    prefix,
+    label,
+    fields,
+    register,
+    labelOverrides = {},
+    tabOrder = null,
+    footer = null,
+    extra = [],
+    nameFor = null,
+}) {
+    const requiredErrors = useRequiredErrors();
+
+    const resolve = nameFor ?? ((field, eye) => `${prefix}_${field}_${eye}`);
+    const orderedNames = buildOrderedNames({ fields, extra, tabOrder, resolve });
     const nextByName = new Map(orderedNames.map((name, index) => [name, orderedNames[index + 1] ?? null]));
+    const prevByName = new Map(orderedNames.map((name, index) => [name, orderedNames[index - 1] ?? null]));
 
-    const focusNextField = (event, nextFieldId) => {
-        if (event.key !== 'Enter' || event.isComposing || !nextFieldId) {
-            return;
-        }
+    const focusField = (targetId) => {
+        const target = document.getElementById(targetId);
+        if (!target || typeof target.focus !== 'function') return false;
 
-        const nextField = document.getElementById(nextFieldId);
-        if (!nextField || typeof nextField.focus !== 'function') {
-            return;
-        }
-
-        event.preventDefault();
-        nextField.focus({ preventScroll: true });
-        if (typeof nextField.select === 'function') {
-            nextField.select();
-        }
+        target.focus({ preventScroll: true });
+        if (typeof target.select === 'function') target.select();
+        return true;
     };
+
+    /** Enter y Tab siguen el mismo recorrido explicito; Shift+Tab lo recorre al reves. */
+    const handleKeyDown = (event, name) => {
+        if (event.isComposing) return;
+
+        const goingBack = event.key === 'Tab' && event.shiftKey;
+        const isAdvance = event.key === 'Enter' || (event.key === 'Tab' && !event.shiftKey);
+        if (!isAdvance && !goingBack) return;
+
+        const targetId = goingBack ? prevByName.get(name) : nextByName.get(name);
+        if (!targetId) return;
+
+        if (focusField(targetId)) event.preventDefault();
+    };
+
+    const headerLabel = (field) => labelOverrides[field] ?? FIELD_META[field]?.label ?? field;
 
     const inputCls = (name) =>
         `w-full min-h-11 px-2 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] focus:bg-[#fef08a]/20 touch-manipulation
-        ${errors?.[name] ? 'border-red-400 bg-red-50' : 'border-gray-300 bg-white'}`;
+        ${requiredErrors.has(name) ? 'border-red-400 bg-red-50' : 'border-gray-300 bg-white'}`;
 
     return (
         <div className="mb-6">
@@ -64,7 +126,7 @@ export default function EyeFieldGroup({ prefix, label, fields, register, errors,
                             <th className="w-16 px-2 py-2 text-left text-xs font-medium text-gray-500">Ojo</th>
                             {fields.map(f => (
                                 <th key={f} className="px-2 py-2 text-center text-xs font-medium text-gray-500">
-                                    {fieldMeta[f]?.label ?? f}
+                                    {headerLabel(f)}
                                 </th>
                             ))}
                             {extra.map(e => (
@@ -73,7 +135,7 @@ export default function EyeFieldGroup({ prefix, label, fields, register, errors,
                         </tr>
                     </thead>
                     <tbody>
-                        {['od', 'oi'].map(eye => (
+                        {EYES.map(eye => (
                             <tr key={eye} className={`border-b ${eye === 'od' ? 'bg-blue-50/30' : 'bg-green-50/30'}`}>
                                 <td className="px-2 py-2">
                                     <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold text-white ${eye === 'od' ? 'bg-blue-600' : 'bg-green-600'}`}>
@@ -81,59 +143,59 @@ export default function EyeFieldGroup({ prefix, label, fields, register, errors,
                                     </span>
                                 </td>
                                 {fields.map(f => {
-                                    const m = fieldMeta[f] ?? { type: 'text' };
-                                    const name = `${prefix}_${f}_${eye}`;
-                                    const nextFieldId = nextByName.get(name);
+                                    const meta = FIELD_META[f] ?? { inputMode: 'text' };
+                                    const name = resolve(f, eye);
                                     return (
                                         <td key={f} className="px-2 py-2">
                                             <input
                                                 id={name}
-                                                type={m.type}
-                                                step={m.step}
-                                                min={m.min}
-                                                max={m.max}
-                                                inputMode={m.inputMode}
-                                                enterKeyHint={nextFieldId ? 'next' : 'done'}
-                                                placeholder={m.placeholder}
+                                                type="text"
+                                                inputMode={meta.inputMode}
+                                                enterKeyHint={nextByName.get(name) ? 'next' : 'done'}
+                                                placeholder={meta.placeholder}
                                                 className={inputCls(name)}
-                                                onKeyDown={(event) => focusNextField(event, nextFieldId)}
+                                                onKeyDown={(event) => handleKeyDown(event, name)}
                                                 {...register(name)}
                                             />
                                         </td>
                                     );
                                 })}
-                                {extra.map(e => (
-                                    <td key={e.name} className="px-2 py-2">
-                                        {e.type === 'select' ? (
-                                            <select
-                                                id={`${e.name}_${eye}`}
-                                                className={inputCls(`${e.name}_${eye}`)}
-                                                enterKeyHint={nextByName.get(`${e.name}_${eye}`) ? 'next' : 'done'}
-                                                onKeyDown={(event) => focusNextField(event, nextByName.get(`${e.name}_${eye}`))}
-                                                {...register(`${e.name}_${eye}`)}
-                                            >
-                                                <option value="">—</option>
-                                                {e.options?.map(o => <option key={o} value={o}>{o}</option>)}
-                                            </select>
-                                        ) : (
-                                            <input
-                                                id={`${e.name}_${eye}`}
-                                                type="text"
-                                                inputMode={e.inputMode ?? 'text'}
-                                                enterKeyHint={nextByName.get(`${e.name}_${eye}`) ? 'next' : 'done'}
-                                                placeholder={e.placeholder ?? '—'}
-                                                className={inputCls(`${e.name}_${eye}`)}
-                                                onKeyDown={(event) => focusNextField(event, nextByName.get(`${e.name}_${eye}`))}
-                                                {...register(`${e.name}_${eye}`)}
-                                            />
-                                        )}
-                                    </td>
-                                ))}
+                                {extra.map(e => {
+                                    const name = `${e.name}_${eye}`;
+                                    return (
+                                        <td key={e.name} className="px-2 py-2">
+                                            {e.type === 'select' ? (
+                                                <select
+                                                    id={name}
+                                                    className={inputCls(name)}
+                                                    enterKeyHint={nextByName.get(name) ? 'next' : 'done'}
+                                                    onKeyDown={(event) => handleKeyDown(event, name)}
+                                                    {...register(name)}
+                                                >
+                                                    <option value="">—</option>
+                                                    {e.options?.map(o => <option key={o} value={o}>{o}</option>)}
+                                                </select>
+                                            ) : (
+                                                <input
+                                                    id={name}
+                                                    type="text"
+                                                    inputMode={e.inputMode ?? 'text'}
+                                                    enterKeyHint={nextByName.get(name) ? 'next' : 'done'}
+                                                    placeholder={e.placeholder ?? '—'}
+                                                    className={inputCls(name)}
+                                                    onKeyDown={(event) => handleKeyDown(event, name)}
+                                                    {...register(name)}
+                                                />
+                                            )}
+                                        </td>
+                                    );
+                                })}
                             </tr>
                         ))}
                     </tbody>
                 </table>
             </div>
+            {footer}
         </div>
     );
 }

@@ -221,7 +221,7 @@ export default function SalesHistoryPage() {
                                                 {sale.created_at ? new Date(sale.created_at).toLocaleDateString('es-ES') : '—'}
                                             </td>
                                             <td className="px-4 py-3">
-                                                <p className="font-medium text-gray-900">{sale.patient?.nombre || sale.patient_name || '—'}</p>
+                                                <p className="font-medium text-gray-900">{sale.patient?.nombre_completo || sale.patient?.nombre || sale.patient_name || '—'}</p>
                                                 <p className="text-xs text-gray-400">{sale.patient?.cedula}</p>
                                             </td>
                                             <td className="px-4 py-3 text-gray-600">{sale.user?.name || sale.seller_name || '—'}</td>

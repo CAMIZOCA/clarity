@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Plus, Search, Eye, Edit2, Trash2, User } from 'lucide-react';
+import { Plus, Search, Eye, Edit2, Trash2, User, ArrowDownWideNarrow } from 'lucide-react';
 import client from '../../api/client';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
@@ -8,12 +8,15 @@ import ConfirmModal from '../../components/ui/ConfirmModal';
 import { useToast } from '../../components/ui/Toast';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { toDisplayDate } from '../../utils/dates';
 
 export default function PatientListPage() {
     const [patients, setPatients] = useState([]);
     const [meta, setMeta] = useState(null);
     const [search, setSearch] = useState('');
     const [page, setPage] = useState(1);
+    // Por defecto las visitas mas recientes primero; A-Z queda como alternativa.
+    const [sort, setSort] = useState('ultima_consulta');
     const [loading, setLoading] = useState(false);
     const [confirmOpen, setConfirmOpen] = useState(false);
     const [toDelete, setToDelete] = useState(null);
@@ -23,7 +26,7 @@ export default function PatientListPage() {
     const fetchPatients = useCallback(async () => {
         setLoading(true);
         try {
-            const res = await client.get('/patients', { params: { q: search, page } });
+            const res = await client.get('/patients', { params: { q: search, page, sort } });
             setPatients(res.data.data);
             setMeta(res.data.meta ?? res.data);
         } catch {
@@ -31,7 +34,7 @@ export default function PatientListPage() {
         } finally {
             setLoading(false);
         }
-    }, [search, page]);
+    }, [search, page, sort]);
 
     useEffect(() => {
         const t = setTimeout(fetchPatients, 300);
@@ -68,16 +71,30 @@ export default function PatientListPage() {
                 </Link>
             </div>
 
-            {/* Search */}
-            <div className="relative mb-6">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-                <input
-                    type="text"
-                    value={search}
-                    onChange={e => { setSearch(e.target.value); setPage(1); }}
-                    placeholder="Buscar por nombre o cédula..."
-                    className="w-full pl-12 pr-4 py-3 text-base rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] bg-white"
-                />
+            {/* Search + orden */}
+            <div className="mb-6 flex flex-col gap-3 sm:flex-row">
+                <div className="relative flex-1">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                    <input
+                        type="text"
+                        value={search}
+                        onChange={e => { setSearch(e.target.value); setPage(1); }}
+                        placeholder="Buscar por nombre, apellido o cédula..."
+                        className="w-full pl-12 pr-4 py-3 text-base rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] bg-white"
+                    />
+                </div>
+                <label className="flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-3 sm:w-auto">
+                    <ArrowDownWideNarrow size={18} className="flex-shrink-0 text-gray-400" />
+                    <span className="whitespace-nowrap text-sm text-gray-500">Ordenar por</span>
+                    <select
+                        value={sort}
+                        onChange={e => { setSort(e.target.value); setPage(1); }}
+                        className="min-w-0 flex-1 bg-transparent text-sm font-medium text-gray-900 focus:outline-none"
+                    >
+                        <option value="ultima_consulta">Última consulta</option>
+                        <option value="nombre">Nombre (A–Z)</option>
+                    </select>
+                </label>
             </div>
 
             {/* Table */}
@@ -90,16 +107,17 @@ export default function PatientListPage() {
                             <th className="px-6 py-4 text-left text-sm font-semibold">Edad</th>
                             <th className="px-6 py-4 text-left text-sm font-semibold">Teléfono</th>
                             <th className="px-6 py-4 text-left text-sm font-semibold">Consultas</th>
+                            <th className="px-6 py-4 text-left text-sm font-semibold">Última consulta</th>
                             <th className="px-6 py-4 text-center text-sm font-semibold">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
                         {loading ? (
-                            <tr><td colSpan={6} className="py-16 text-center text-gray-400">
+                            <tr><td colSpan={7} className="py-16 text-center text-gray-400">
                                 <div className="animate-spin h-8 w-8 border-4 border-[#1a2a4a] border-t-transparent rounded-full mx-auto" />
                             </td></tr>
                         ) : patients.length === 0 ? (
-                            <tr><td colSpan={6} className="py-16 text-center">
+                            <tr><td colSpan={7} className="py-16 text-center">
                                 <User size={48} className="mx-auto text-gray-300 mb-3" />
                                 <p className="text-gray-500 text-lg">No se encontraron pacientes</p>
                                 <Link to="/pacientes/nuevo">
@@ -111,19 +129,22 @@ export default function PatientListPage() {
                                 <td className="px-6 py-4">
                                     <div className="flex items-center gap-3">
                                         <div className="w-9 h-9 rounded-full bg-[#1a2a4a]/10 flex items-center justify-center flex-shrink-0">
-                                            <span className="text-[#1a2a4a] font-semibold text-sm">{p.nombre[0]}</span>
+                                            <span className="text-[#1a2a4a] font-semibold text-sm">{(p.nombre_completo || p.nombre)?.[0]}</span>
                                         </div>
                                         <div>
-                                            <p className="font-medium text-gray-900">{p.nombre}</p>
+                                            <p className="font-medium text-gray-900">{p.nombre_completo || p.nombre}</p>
                                             <p className="text-sm text-gray-500">{p.email}</p>
                                         </div>
                                     </div>
                                 </td>
                                 <td className="px-6 py-4 text-gray-700 font-mono">{p.cedula}</td>
-                                <td className="px-6 py-4 text-gray-700">{p.edad} años</td>
+                                <td className="px-6 py-4 text-gray-700">{p.edad != null ? `${p.edad} años` : '—'}</td>
                                 <td className="px-6 py-4 text-gray-700">{p.telefono || '—'}</td>
                                 <td className="px-6 py-4">
                                     <Badge label={`${p.consultations_count ?? '?'} consultas`} color="default" />
+                                </td>
+                                <td className="px-6 py-4 text-gray-700">
+                                    {toDisplayDate(p.ultima_consulta ?? p.last_consultation?.fecha_consulta, '—')}
                                 </td>
                                 <td className="px-6 py-4">
                                     <div className="flex items-center justify-center gap-2">
@@ -162,7 +183,7 @@ export default function PatientListPage() {
 
             <ConfirmModal
                 open={confirmOpen}
-                title={`¿Eliminar a "${toDelete?.nombre}"?`}
+                title={`¿Eliminar a "${toDelete?.nombre_completo || toDelete?.nombre}"?`}
                 message="Esta acción no se puede deshacer. El paciente y sus datos serán eliminados."
                 confirmLabel="Eliminar paciente"
                 onConfirm={handleDelete}

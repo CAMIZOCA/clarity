@@ -11,7 +11,9 @@ Eres el responsable de mantener actualizada toda la documentación técnica inte
 
 | Archivo | Propósito | Frecuencia de actualización |
 |---------|-----------|----------------------------|
-| `D:\laragon\www\sistemaclinico\CLAUDE.md` | Guía para Claude Code | Tras cambios arquitecturales |
+| `docs/estado-del-sistema.md` | **Inventario vivo**: módulos, endpoints, pendientes, historial | Tras cerrar cualquier módulo |
+| `D:\laragon\www\sistemaclinico\CLAUDE.md` | Guía para Claude Code: comandos y **gotchas** | Tras cambios arquitecturales |
+| `.claude/commands/*.md` | Agentes especializados (documentación ejecutable) | Al cambiar un patrón o API compartida |
 | `C:\Users\camiz\.claude\projects\D--laragon-www-sistemaclinico\memory\project_sistemaclinico.md` | Memoria persistente del proyecto | Tras agregar módulos |
 | `C:\Users\camiz\.claude\projects\D--laragon-www-sistemaclinico\memory\MEMORY.md` | Índice de memorias | Cuando se crea/actualiza project_sistemaclinico.md |
 
@@ -107,22 +109,41 @@ Después de implementar un módulo completo, verificar y actualizar:
 - [ ] Verificar que las versiones de dependencias en docs son correctas
 - [ ] Eliminar referencias a código que ya no existe
 
-## Módulos Actuales del Sistema (baseline)
+## Fuente de verdad del inventario
 
-Verificar que estos están documentados correctamente:
-- Pacientes (`PatientController`, `/api/patients`)
-- Consultas (`ConsultationController`, `/api/consultations`) — módulo complejo con 6 sub-módulos
-- Citas (`AppointmentController`, `/api/appointments`)
-- Brigadas (`BrigadeController`, `/api/brigades`)
-- Lentes Especiales (`SpecialContactLensController`, `/api/special-contact-lenses`)
-- Referencias Oftalmológicas (`OphthalmologyReferenceController`, `/api/ophthalmology-references`)
-- Reportes de Garantía (`GuaranteeReportController`, `/api/guarantee-reports`)
-- Reportes/Dashboard (`ReportController`, `/api/reports/*`)
-- Usuarios (`UserController`, `/api/users`)
-- Catálogos Clínicos (`ConsultationMetaController`, `/api/consultations-meta`) — sin UI frontend
-- Plantillas de Impresión (`PrintTemplate`) — sin UI frontend ni CRUD API
+**El inventario de módulos vive en `docs/estado-del-sistema.md`, no en este archivo.**
+Antes se duplicaba aquí y quedó desactualizado (llegó a afirmar que Catálogos no tenía UI
+cuando `/catalogos` ya existía, y le faltaban ~10 módulos: POS, inventario, CRM, caja,
+laboratorio, facturación, sucursales, bodegas, certificados, mantenimiento).
 
-## Sin UI Todavía (pendientes de documentar cuando se implementen)
+Al auditar:
 
-- `/admin/catalogos` — Gestión de catálogos clínicos
-- `/admin/plantillas` — Gestión de plantillas de impresión
+1. Regenerar el inventario real:
+   ```bash
+   ls app/Http/Controllers/Api/*.php | xargs -n1 basename
+   ls -d resources/js/pages/*/ | xargs -n1 basename
+   php artisan route:list --path=api
+   ```
+2. Contrastar contra `docs/estado-del-sistema.md` y corregir ese archivo.
+3. Actualizar la fecha de "Última auditoría" y la sección "Historial de cambios relevantes".
+4. Revisar que los **gotchas** de `CLAUDE.md` sigan siendo ciertos.
+5. Revisar que los otros agentes de `.claude/commands/` no describan APIs que ya cambiaron.
+
+## Los agentes también se documentan
+
+Los archivos de `.claude/commands/` son documentación ejecutable: si describen mal una API,
+generan código roto. Errores reales encontrados en la auditoría de 2026-08-22:
+
+- `clinica-frontend` documentaba `showToast` (la función real es `addToast`) e imports con
+  alias `@/`, que **no existe** en este proyecto.
+- `clinica-backend` afirmaba "validación inline, no API Resources", cuando sí hay Form Requests
+  y `PatientResource`/`UserResource` envuelven en `data` — justo la causa de cinco bugs.
+- `clinica-consulta` describía una API de `EyeFieldGroup` (`nameOD`/`nameOI`/`type="number"`)
+  que nunca existió, y claves de catálogo inventadas (`material_lente` en vez de `lens_materials`).
+
+Al tocar un componente o patrón compartido, **verificar si algún agente lo describe** y
+actualizarlo en el mismo cambio:
+
+```bash
+grep -rn "NombreDelComponente\|nombreDeLaFuncion" .claude/commands/
+```

@@ -17,16 +17,24 @@ class PatientService extends BaseService
     public function search(string $term, int $limit = 15): Collection
     {
         return Patient::search($term)
-            ->select(['id', 'nombre', 'cedula', 'telefono', 'email', 'fecha_nacimiento', 'codigo_interno'])
+            ->select(['id', 'nombre', 'apellido', 'cedula', 'telefono', 'email', 'fecha_nacimiento', 'codigo_interno'])
             ->withCount('consultations')
             ->limit($limit)
             ->get();
     }
 
+    /** Ordenamientos admitidos por el listado de pacientes. */
+    public const SORT_ULTIMA_CONSULTA = 'ultima_consulta';
+    public const SORT_NOMBRE = 'nombre';
+
     /**
      * Listar pacientes con paginación y filtros.
+     *
+     * El orden por defecto es por fecha de última consulta descendente (las
+     * visitas más recientes primero); los pacientes sin consultas quedan al
+     * final. Se apoya en el índice compuesto ['patient_id', 'fecha_consulta'].
      */
-    public function paginate(array $filters = [], int $perPage = null): LengthAwarePaginator
+    public function paginate(array $filters = [], ?int $perPage = null): LengthAwarePaginator
     {
         $perPage = $perPage ?? AppConfig::PATIENTS_PER_PAGE;
 
@@ -36,6 +44,8 @@ class PatientService extends BaseService
             $query = Patient::query()->withCount('consultations');
         }
 
+        $query->withMax('consultations', 'fecha_consulta');
+
         if (!empty($filters['customer_type'])) {
             $query->where('customer_type', $filters['customer_type']);
         }
@@ -44,7 +54,18 @@ class PatientService extends BaseService
             $query->where('branch_id', $filters['branch_id']);
         }
 
-        return $query->orderBy('nombre')->paginate($perPage);
+        $sort = $filters['sort'] ?? self::SORT_ULTIMA_CONSULTA;
+
+        if ($sort === self::SORT_NOMBRE) {
+            $query->orderBy('nombre')->orderBy('apellido');
+        } else {
+            // NULLS LAST portable: los pacientes sin consultas van al final.
+            $query->orderByRaw('consultations_max_fecha_consulta IS NULL')
+                  ->orderByDesc('consultations_max_fecha_consulta')
+                  ->orderBy('nombre');
+        }
+
+        return $query->paginate($perPage);
     }
 
     /**

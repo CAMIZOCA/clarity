@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Enums\Permission;
 use App\Http\Controllers\Controller;
 use App\Models\Setting;
+use App\Services\OpenAiService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -15,7 +16,9 @@ class SettingController extends Controller
     /**
      * Claves sensibles que no deben exponerse en texto plano en la respuesta.
      */
-    private const MASKED_KEYS = ['mail_password'];
+    private const MASKED_KEYS = ['mail_password', OpenAiService::SETTING_KEY];
+
+    public function __construct(private OpenAiService $openAi) {}
 
     public function index(): JsonResponse
     {
@@ -50,6 +53,8 @@ class SettingController extends Controller
             'mail_encryption' => ['sometimes', 'nullable', Rule::in(['tls', 'ssl', ''])],
             'mail_from_address' => 'sometimes|nullable|email|max:150',
             'mail_from_name' => 'sometimes|nullable|string|max:150',
+            // Se guarda cifrada; ver OpenAiService::storeApiKey().
+            'openai_api_key' => 'sometimes|nullable|string|max:255',
             'required_fields' => 'sometimes|array',
             'advanced_form_fields' => 'sometimes|array',
             'advanced_form_fields.*' => 'string|max:120',
@@ -93,8 +98,15 @@ class SettingController extends Controller
         ]);
 
         foreach ($data as $key => $value) {
-            // No sobrescribir la contraseña SMTP si llega vacía o con el marcador.
-            if ($key === 'mail_password' && (blank($value) || $value === '__stored__')) {
+            // Los secretos no se sobrescriben si llegan vacíos o con el marcador:
+            // el frontend nunca recibe el valor real, solo `__stored__`.
+            $isSecret = in_array($key, self::MASKED_KEYS, true);
+            if ($isSecret && (blank($value) || $value === '__stored__')) {
+                continue;
+            }
+
+            if ($key === OpenAiService::SETTING_KEY) {
+                $this->openAi->storeApiKey($value);
                 continue;
             }
 

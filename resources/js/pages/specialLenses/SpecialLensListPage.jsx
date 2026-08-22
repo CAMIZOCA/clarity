@@ -91,7 +91,7 @@ export default function SpecialLensListPage() {
                             <tr key={l.id} className={`border-t border-gray-100 hover:bg-blue-50/40 transition-colors ${i % 2 === 0 ? '' : 'bg-gray-50/50'}`}>
                                 <td className="px-6 py-4">
                                     <Link to={`/pacientes/${l.patient_id}`} className="font-medium text-gray-900 hover:text-[#1a2a4a]">
-                                        {l.patient?.nombre || '—'}
+                                        {l.patient?.nombre_completo || l.patient?.nombre || '—'}
                                     </Link>
                                     <p className="text-xs text-gray-500">{l.patient?.cedula}</p>
                                 </td>

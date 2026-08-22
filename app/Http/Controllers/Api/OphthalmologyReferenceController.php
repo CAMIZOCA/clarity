@@ -11,7 +11,7 @@ class OphthalmologyReferenceController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $query = OphthalmologyReference::with(['patient:id,nombre,cedula', 'createdBy:id,name'])
+        $query = OphthalmologyReference::with(['patient:id,nombre,apellido,cedula', 'createdBy:id,name'])
             ->orderByDesc('fecha');
 
         if ($patientId = $request->input('patient_id')) {
@@ -34,7 +34,7 @@ class OphthalmologyReferenceController extends Controller
 
         $data['created_by'] = $request->user()->id;
         $ref = OphthalmologyReference::create($data);
-        $ref->load(['patient:id,nombre,cedula', 'createdBy:id,name']);
+        $ref->load(['patient:id,nombre,apellido,cedula', 'createdBy:id,name']);
 
         return response()->json($ref, 201);
     }

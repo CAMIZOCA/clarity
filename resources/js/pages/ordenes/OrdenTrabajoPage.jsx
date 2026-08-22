@@ -132,7 +132,7 @@ export default function OrdenTrabajoPage() {
         setLoadingConsulta(true);
         setOrden(prev => ({
             ...prev,
-            cliente: patient.nombre,
+            cliente: patient.nombre_completo || patient.nombre,
             telefono: patient.telefono || '',
         }));
 

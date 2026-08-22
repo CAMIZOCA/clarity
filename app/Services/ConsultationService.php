@@ -110,6 +110,7 @@ class ConsultationService extends BaseService
             'optometrista',
             'creator:id,name',
             'updater:id,name',
+            'rxUsoEntries',
             'diagnoses.catalogItem:id,label,code',
             'recommendationsList.catalogItem:id,label,code',
             'lensRecommendation.material:id,label',
@@ -159,6 +160,7 @@ class ConsultationService extends BaseService
     private function extractConsultationAttributes(array $data): array
     {
         return Arr::except($data, [
+            'rx_uso_entries',
             'diagnoses',
             'recommendations_list',
             'lens_recommendation',
@@ -174,6 +176,59 @@ class ConsultationService extends BaseService
      */
     private function syncModules(Consultation $consultation, array $data): void
     {
+        // --- RX en uso (0..N recetas, cada una con observación) ---
+        if (array_key_exists('rx_uso_entries', $data)) {
+            $consultation->rxUsoEntries()->delete();
+
+            $columns = ['esfera', 'cilindro', 'eje', 'add', 'avcc'];
+
+            $entries = collect($data['rx_uso_entries'] ?? [])
+                ->filter(function ($entry) use ($columns) {
+                    if (! is_array($entry)) {
+                        return false;
+                    }
+                    foreach ($columns as $column) {
+                        foreach (['od', 'oi'] as $eye) {
+                            if (filled($entry["{$column}_{$eye}"] ?? null)) {
+                                return true;
+                            }
+                        }
+                    }
+
+                    return filled($entry['observacion'] ?? null);
+                })
+                ->values();
+
+            foreach ($entries as $index => $entry) {
+                $payload = ['orden' => $index];
+
+                foreach ($columns as $column) {
+                    foreach (['od', 'oi'] as $eye) {
+                        $key = "{$column}_{$eye}";
+                        $value = $entry[$key] ?? null;
+                        $payload[$key] = $value === '' ? null : $value;
+                    }
+                }
+
+                $payload['observacion'] = $entry['observacion'] ?? null;
+
+                $consultation->rxUsoEntries()->create($payload);
+            }
+
+            // La primera receta se refleja en las columnas planas heredadas, de
+            // las que siguen dependiendo el PDF, los reportes y la importación.
+            $first = $entries->first();
+            $legacy = [];
+            foreach ($columns as $column) {
+                foreach (['od', 'oi'] as $eye) {
+                    $value = $first["{$column}_{$eye}"] ?? null;
+                    $legacy["rx_uso_{$column}_{$eye}"] = $value === '' ? null : $value;
+                }
+            }
+
+            $consultation->forceFill($legacy)->save();
+        }
+
         // --- Diagnósticos ---
         if (array_key_exists('diagnoses', $data)) {
             $consultation->diagnoses()->delete();

@@ -298,7 +298,7 @@ function OrderCopy({ label, orden, paciente, consulta, settings }) {
 
             <div style={{ marginBottom: 4 }}>
                 <LineField label="FECHA" value={orden.fecha} />
-                <LineField label="CLIENTE" value={paciente?.nombre || orden.cliente} />
+                <LineField label="CLIENTE" value={paciente?.nombre_completo || paciente?.nombre || orden.cliente} />
                 <LineField label="TELF./CEL." value={paciente?.telefono || orden.telefono} />
             </div>
 
@@ -468,7 +468,7 @@ export default function OrdenTrabajoPdf({ orden, paciente, consulta, settings, o
         const el = document.getElementById('orden-trabajo-pdf-sheet');
         html2pdf().set({
             margin: 0,
-            filename: `orden-trabajo-${paciente?.nombre?.replace(/\s+/g, '-') || 'orden'}.pdf`,
+            filename: `orden-trabajo-${(paciente?.nombre_completo || paciente?.nombre)?.replace(/\s+/g, '-') || 'orden'}.pdf`,
             image: { type: 'jpeg', quality: 0.98 },
             html2canvas: {
                 scale: 2,

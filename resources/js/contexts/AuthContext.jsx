@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import client, { initCsrf, webClient } from '../api/client';
 import { invalidateAll } from '../api/cache';
+import { getPayload } from '../api/response';
 
 const AuthContext = createContext(null);
 
@@ -10,7 +11,7 @@ export function AuthProvider({ children }) {
 
     useEffect(() => {
         webClient.get('/me')
-            .then(r => setUser(r.data))
+            .then(r => setUser(getPayload(r)))
             .catch(() => setUser(null))
             .finally(() => setLoading(false));
     }, []);

@@ -6,8 +6,11 @@ import client from '../../api/client';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import { useToast } from '../../components/ui/Toast';
+import DateInput from '../../components/ui/DateInput';
 import { AdvancedToggleButton, useAdvancedToggle } from '../../components/forms/AdvancedFieldsToggle';
 import { useAdvancedFields } from '../../hooks/useAdvancedFields';
+import { getPayload } from '../../api/response';
+import { todayIso } from '../../utils/dates';
 
 export default function PatientFormPage() {
     const { id } = useParams();
@@ -16,16 +19,20 @@ export default function PatientFormPage() {
     const { addToast } = useToast();
     const [loading, setLoading] = useState(false);
 
-    const { register, handleSubmit, reset, formState: { errors } } = useForm();
+    const { register, handleSubmit, reset, control, formState: { errors } } = useForm({
+        defaultValues: { fecha_registro: todayIso() },
+    });
     const { isAdvanced } = useAdvancedFields('paciente');
     const antecedentesAdv = useAdvancedToggle('paciente:antecedentes');
     const showAntecedentes = !isAdvanced('paciente:antecedentes') || antecedentesAdv.open;
 
     useEffect(() => {
         if (isEdit) {
-            client.get(`/patients/${id}`).then(r => reset(r.data.data));
+            client.get(`/patients/${id}`)
+                .then(r => reset(getPayload(r)))
+                .catch(() => addToast('No se pudo cargar el paciente', 'error'));
         }
-    }, [id, isEdit, reset]);
+    }, [id, isEdit, reset, addToast]);
 
     const onSubmit = async (data) => {
         setLoading(true);
@@ -34,9 +41,9 @@ export default function PatientFormPage() {
                 await client.put(`/patients/${id}`, data);
                 addToast('Paciente actualizado correctamente', 'success');
             } else {
-                const res = await client.post('/patients', data);
+                const created = getPayload(await client.post('/patients', data));
                 addToast('Paciente registrado correctamente', 'success');
-                navigate(`/pacientes/${res.data.id}`);
+                navigate(`/pacientes/${created.id}`);
                 return;
             }
             navigate(`/pacientes/${id}`);
@@ -65,11 +72,17 @@ export default function PatientFormPage() {
             <form onSubmit={handleSubmit(onSubmit)} className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 sm:p-8 space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <Input
-                        label="Nombre completo"
+                        label="Nombre"
                         required
                         error={errors.nombre?.message}
-                        nextFieldId="cedula"
+                        nextFieldId="apellido"
                         {...register('nombre', { required: 'Requerido' })}
+                    />
+                    <Input
+                        label="Apellido"
+                        error={errors.apellido?.message}
+                        nextFieldId="cedula"
+                        {...register('apellido')}
                     />
                     <Input
                         label="Cédula / RUC"
@@ -79,14 +92,20 @@ export default function PatientFormPage() {
                         nextFieldId="fecha_nacimiento"
                         {...register('cedula', { required: 'Requerido' })}
                     />
-                    <Input
-                        id="fecha_nacimiento"
+                    <DateInput
+                        control={control}
+                        name="fecha_nacimiento"
                         label="Fecha de nacimiento"
-                        type="date"
                         required
-                        error={errors.fecha_nacimiento?.message}
+                        rules={{ required: 'Requerido' }}
+                        nextFieldId="fecha_registro"
+                    />
+                    <DateInput
+                        control={control}
+                        name="fecha_registro"
+                        label="Fecha de registro"
+                        hint="Se completa con la fecha de hoy."
                         nextFieldId="ocupacion"
-                        {...register('fecha_nacimiento', { required: 'Requerido' })}
                     />
                     <Input
                         label="Ocupación"
@@ -108,8 +127,17 @@ export default function PatientFormPage() {
                     <div className="md:col-span-2">
                         <Input
                             label="Dirección"
-                            nextFieldId="antecedentes"
+                            nextFieldId="como_nos_conocio"
                             {...register('direccion')}
+                        />
+                    </div>
+                    <div className="md:col-span-2">
+                        <Input
+                            label="¿Cómo nos conoció?"
+                            placeholder="Recomendación de un conocido, redes sociales, pasaba por el local..."
+                            hint="Texto libre: anote lo que indique el paciente."
+                            nextFieldId="antecedentes"
+                            {...register('como_nos_conocio')}
                         />
                     </div>
                     {showAntecedentes && (

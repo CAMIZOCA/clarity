@@ -11,7 +11,7 @@ class SpecialContactLensController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $query = SpecialContactLens::with(['patient:id,nombre,cedula', 'optometrista:id,name'])
+        $query = SpecialContactLens::with(['patient:id,nombre,apellido,cedula', 'optometrista:id,name'])
             ->orderByDesc('fecha_adaptacion');
 
         if ($patientId = $request->input('patient_id')) {
@@ -37,7 +37,7 @@ class SpecialContactLensController extends Controller
 
         $data['optometrista_id'] = $request->user()->id;
         $lens = SpecialContactLens::create($data);
-        $lens->load(['patient:id,nombre,cedula', 'optometrista:id,name']);
+        $lens->load(['patient:id,nombre,apellido,cedula', 'optometrista:id,name']);
 
         return response()->json($lens, 201);
     }

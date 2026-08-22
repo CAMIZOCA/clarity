@@ -23,8 +23,10 @@ Eres un experto en el backend Laravel de este sistema. Tu objetivo es implementa
 ### Controladores
 ```php
 // CRUD estándar: index, store, show, update, destroy
-// Validación INLINE en el controlador (no Form Requests separados)
-// Respuesta: response()->json($data) directo (no API Resources)
+// Validación: Form Requests en app/Http/Requests/ (StoreXRequest / UpdateXRequest)
+// Lógica de negocio: delegar en app/Services/, no escribirla en el controlador
+// Respuesta: la mayoría usa response()->json($data) directo, PERO Patient y User
+//   usan API Resources, que envuelven en {"data": ...}. Ver aviso abajo.
 // Paginación: ->paginate(20)
 // Eager loading: ->with(['relation1', 'relation2.nested'])
 // Filtros: query params en index() con if ($request->filled('campo'))
@@ -40,6 +42,23 @@ public function index(Request $request)
     return response()->json($query->paginate(20));
 }
 ```
+
+### ⚠️ API Resources y el envoltorio `data`
+
+El proyecto **sí** usa `JsonResource` (`PatientResource`, `UserResource`) y **nunca** llama
+a `JsonResource::withoutWrapping()`. Conviven dos formas de respuesta:
+
+```php
+(new PatientResource($p))->response();              // => {"data":{...}}   ENVUELVE
+response()->json(['user' => UserResource::make($u)]); // => {"user":{...}}  NO envuelve
+```
+
+Esta inconsistencia causó cinco bugs distintos en el frontend. Reglas:
+
+- Al **crear un endpoint nuevo**, preferir `response()->json($data)` directo, como el resto.
+- Si se usa un Resource, avisarlo y consumirlo en el frontend con `getPayload()`
+  (`resources/js/api/response.js`).
+- **No** añadir `withoutWrapping()` global: hay código que ya cuenta con el envoltorio.
 
 ### Modelos
 ```php

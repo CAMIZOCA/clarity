@@ -35,6 +35,8 @@ class Consultation extends Model
         'rx_final_avl_od', 'rx_final_prisma_od', 'rx_final_base_od', 'rx_final_dnp_od',
         'rx_final_esfera_oi', 'rx_final_cilindro_oi', 'rx_final_eje_oi', 'rx_final_add_oi',
         'rx_final_avl_oi', 'rx_final_prisma_oi', 'rx_final_base_oi', 'rx_final_dnp_oi',
+        'rx_final_distancia_od', 'rx_final_distancia_oi', 'rx_final_av_od', 'rx_final_av_oi',
+        'rx_final_observaciones',
         // Vision de cerca
         'vc_esfera_od', 'vc_cilindro_od', 'vc_eje_od', 'vc_av_od', 'vc_dnp_od', 'vc_avcc_od',
         'vc_esfera_oi', 'vc_cilindro_oi', 'vc_eje_oi', 'vc_av_oi', 'vc_dnp_oi', 'vc_avcc_oi',
@@ -106,6 +108,12 @@ class Consultation extends Model
     public function updater(): BelongsTo
     {
         return $this->belongsTo(User::class, 'updated_by');
+    }
+
+    /** Recetas en uso de la consulta. Puede haber mas de una, cada una con observacion. */
+    public function rxUsoEntries(): HasMany
+    {
+        return $this->hasMany(ConsultationRxUsoEntry::class)->orderBy('orden');
     }
 
     public function diagnoses(): HasMany

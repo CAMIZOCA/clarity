@@ -94,7 +94,7 @@ export default function DashboardPage() {
                         ) : (data.ultimasConsultas ?? []).map(c => (
                             <Link key={c.id} to={`/consulta/${c.id}`} className="px-6 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors block">
                                 <div>
-                                    <p className="font-medium text-gray-900 text-sm">{c.patient?.nombre}</p>
+                                    <p className="font-medium text-gray-900 text-sm">{c.patient?.nombre_completo || c.patient?.nombre}</p>
                                     <p className="text-xs text-gray-500">
                                         Consulta #{c.numero_consulta} · {c.fecha_consulta ? format(new Date(c.fecha_consulta), 'd MMM', { locale: es }) : ''}
                                     </p>
@@ -123,7 +123,7 @@ export default function DashboardPage() {
                         ) : (data.proximasCitas ?? []).map(a => (
                             <div key={a.id} className="px-6 py-3 flex items-center justify-between">
                                 <div>
-                                    <p className="font-medium text-gray-900 text-sm">{a.titulo || a.patient?.nombre || 'Cita sin título'}</p>
+                                    <p className="font-medium text-gray-900 text-sm">{a.titulo || a.patient?.nombre_completo || a.patient?.nombre || 'Cita sin título'}</p>
                                     <p className="text-xs text-gray-500">
                                         {a.fecha_hora_inicio ? format(new Date(a.fecha_hora_inicio), "d MMM · HH:mm", { locale: es }) : ''}
                                     </p>

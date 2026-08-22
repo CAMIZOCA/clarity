@@ -6,6 +6,7 @@ import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { toDisplayDate } from '../../utils/dates';
 
 export default function PatientDetailPage() {
     const { id } = useParams();
@@ -13,6 +14,7 @@ export default function PatientDetailPage() {
     const [patient, setPatient] = useState(null);
     const [history, setHistory] = useState([]);
     const [certificates, setCertificates] = useState([]);
+    const [loadError, setLoadError] = useState(null);
 
     useEffect(() => {
         client.get('/certificates', { params: { patient_id: id } })
@@ -33,8 +35,21 @@ export default function PatientDetailPage() {
                 return new Date(b._date) - new Date(a._date);
             });
             setHistory(merged);
-        });
+        }).catch(() => setLoadError('No se pudo cargar la ficha del paciente.'));
     }, [id]);
+
+    if (loadError) return (
+        <div className="p-6 max-w-2xl mx-auto">
+            <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-center">
+                <p className="font-medium text-red-900">{loadError}</p>
+                <div className="mt-4 flex justify-center">
+                    <Button variant="secondary" onClick={() => navigate('/pacientes')}>
+                        Volver al listado
+                    </Button>
+                </div>
+            </div>
+        </div>
+    );
 
     if (!patient) return (
         <div className="flex items-center justify-center h-64">
@@ -53,8 +68,11 @@ export default function PatientDetailPage() {
                     <ArrowLeft size={24} />
                 </button>
                 <div className="flex-1">
-                    <h1 className="text-3xl font-bold text-gray-900">{patient.nombre}</h1>
-                    <p className="text-gray-500">CI: {patient.cedula} · {patient.edad} años</p>
+                    <h1 className="text-3xl font-bold text-gray-900">{patient.nombre_completo || patient.nombre}</h1>
+                    <p className="text-gray-500">
+                        CI: {patient.cedula}
+                        {patient.edad != null && ` · ${patient.edad} años`}
+                    </p>
                 </div>
                 <div className="flex gap-3">
                     <Link to={`/consulta?paciente=${id}`}>
@@ -77,13 +95,15 @@ export default function PatientDetailPage() {
                     </h2>
                     <dl className="space-y-3">
                         {[
-                            ['Nombre', patient.nombre],
+                            ['Nombre', patient.nombre_completo || patient.nombre],
                             ['Cédula', patient.cedula],
-                            ['Fecha nac.', patient.fecha_nacimiento ? format(new Date(patient.fecha_nacimiento), 'dd/MM/yyyy') : '—'],
-                            ['Edad', `${patient.edad} años`],
+                            ['Fecha nac.', toDisplayDate(patient.fecha_nacimiento, '—')],
+                            ['Edad', patient.edad != null ? `${patient.edad} años` : '—'],
+                            ['Fecha registro', toDisplayDate(patient.fecha_registro, '—')],
                             ['Ocupación', patient.ocupacion || '—'],
                             ['Teléfono', patient.telefono || '—'],
                             ['Email', patient.email || '—'],
+                            ['¿Cómo nos conoció?', patient.como_nos_conocio || '—'],
                         ].map(([label, value]) => (
                             <div key={label}>
                                 <dt className="text-xs text-gray-500 uppercase tracking-wide">{label}</dt>

@@ -17,7 +17,7 @@ class AppointmentController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $query = Appointment::with(['patient:id,nombre,cedula', 'optometrista:id,name']);
+        $query = Appointment::with(['patient:id,nombre,apellido,cedula', 'optometrista:id,name']);
 
         if ($from = $request->input('from')) {
             $query->where('fecha_hora_inicio', '>=', $from);
@@ -35,7 +35,7 @@ class AppointmentController extends Controller
     public function store(StoreAppointmentRequest $request): JsonResponse
     {
         $appointment = Appointment::create($request->validated());
-        $appointment->load(['patient:id,nombre,cedula', 'optometrista:id,name']);
+        $appointment->load(['patient:id,nombre,apellido,cedula', 'optometrista:id,name']);
 
         return (new AppointmentResource($appointment))
             ->response()
@@ -52,7 +52,7 @@ class AppointmentController extends Controller
     public function update(UpdateAppointmentRequest $request, Appointment $appointment): JsonResponse
     {
         $appointment->update($request->validated());
-        $appointment->load(['patient:id,nombre,cedula', 'optometrista:id,name']);
+        $appointment->load(['patient:id,nombre,apellido,cedula', 'optometrista:id,name']);
 
         return (new AppointmentResource($appointment))->response();
     }

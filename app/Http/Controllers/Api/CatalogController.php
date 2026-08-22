@@ -7,6 +7,7 @@ use App\Models\ClinicalCatalogGroup;
 use App\Models\ClinicalCatalogItem;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class CatalogController extends Controller
 {
@@ -32,6 +33,7 @@ class CatalogController extends Controller
         ]);
 
         $item = ClinicalCatalogItem::create($data);
+        $this->forgetConsultationMeta();
 
         return response()->json($item, 201);
     }
@@ -48,6 +50,7 @@ class CatalogController extends Controller
         ]);
 
         $item->update($data);
+        $this->forgetConsultationMeta();
 
         return response()->json($item);
     }
@@ -55,7 +58,19 @@ class CatalogController extends Controller
     public function destroyItem(ClinicalCatalogItem $item): JsonResponse
     {
         $item->delete();
+        $this->forgetConsultationMeta();
+
         return response()->json(['message' => 'Elemento eliminado.']);
+    }
+
+    /**
+     * El formulario de consulta lee catalogos y plantillas de una respuesta
+     * cacheada 10 minutos. Sin esta invalidacion, lo que se edita aqui no
+     * aparecia alla hasta que la cache expiraba.
+     */
+    private function forgetConsultationMeta(): void
+    {
+        Cache::forget(ConsultationMetaController::CACHE_KEY);
     }
 
     public function updateTemplate(Request $request, $id): JsonResponse
@@ -68,6 +83,8 @@ class CatalogController extends Controller
             'sort_order'  => 'integer',
         ]);
         $template->update($data);
+        $this->forgetConsultationMeta();
+
         return response()->json($template);
     }
 }

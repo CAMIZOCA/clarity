@@ -20,7 +20,7 @@ class Patient extends Model
     {
         return LogOptions::defaults()
             ->logOnly([
-                'nombre', 'cedula', 'email', 'telefono', 'direccion',
+                'nombre', 'apellido', 'cedula', 'email', 'telefono', 'direccion',
                 'customer_type', 'internal_notes',
             ])
             ->logOnlyDirty()
@@ -30,11 +30,14 @@ class Patient extends Model
 
     protected $fillable = [
         'nombre',
+        'apellido',
         'cedula',
         'codigo_interno',
         'legacy_id',
         'fecha_nacimiento',
+        'fecha_registro',
         'ocupacion',
+        'como_nos_conocio',
         'direccion',
         'telefono',
         'email',
@@ -53,10 +56,17 @@ class Patient extends Model
         'branch_id',
     ];
 
+    /**
+     * `nombre_completo` viaja en todas las serializaciones (incluidas las
+     * relaciones anidadas), para que la UI nunca tenga que recomponer el nombre.
+     */
+    protected $appends = ['nombre_completo'];
+
     protected function casts(): array
     {
         return [
             'fecha_nacimiento'  => 'date:Y-m-d',
+            'fecha_registro'    => 'date:Y-m-d',
             'customer_type'     => 'string',
             'last_purchase_at'  => 'datetime',
             'total_spent'       => 'decimal:2',
@@ -75,7 +85,7 @@ class Patient extends Model
 
         if ($driver === 'mysql' && strlen($term) >= 3) {
             return $query->whereRaw(
-                'MATCH(nombre, cedula, telefono, email, codigo_interno) AGAINST(? IN BOOLEAN MODE)',
+                'MATCH(nombre, apellido, cedula, telefono, email, codigo_interno) AGAINST(? IN BOOLEAN MODE)',
                 ['+' . str_replace(' ', '* +', trim($term)) . '*']
             );
         }
@@ -83,6 +93,8 @@ class Patient extends Model
         // Fallback para SQLite o términos muy cortos
         return $query->where(function ($q) use ($term) {
             $q->where('nombre', 'LIKE', "%{$term}%")
+              ->orWhere('apellido', 'LIKE', "%{$term}%")
+              ->orWhereRaw("TRIM(CONCAT(COALESCE(nombre, ''), ' ', COALESCE(apellido, ''))) LIKE ?", ["%{$term}%"])
               ->orWhere('cedula', 'LIKE', "%{$term}%")
               ->orWhere('telefono', 'LIKE', "%{$term}%")
               ->orWhere('email', 'LIKE', "%{$term}%")
@@ -90,9 +102,27 @@ class Patient extends Model
         });
     }
 
-    public function getEdadAttribute(): int
+    public function getEdadAttribute(): ?int
     {
-        return Carbon::parse($this->fecha_nacimiento)->age;
+        if (blank($this->fecha_nacimiento)) {
+            return null;
+        }
+
+        $age = Carbon::parse($this->fecha_nacimiento)->age;
+
+        // La importacion legacy dejo algunas fechas de nacimiento en el futuro
+        // (anios de 2 digitos mal interpretados), lo que producia edades
+        // negativas en pantalla. Sin fecha valida, no hay edad.
+        return $age >= 0 ? $age : null;
+    }
+
+    /**
+     * Nombre para mostrar. Los pacientes historicos guardan el nombre completo
+     * en `nombre` y tienen `apellido` vacio, asi que se siguen viendo bien.
+     */
+    public function getNombreCompletoAttribute(): string
+    {
+        return trim(($this->nombre ?? '') . ' ' . ($this->apellido ?? ''));
     }
 
     public function createdBy(): BelongsTo

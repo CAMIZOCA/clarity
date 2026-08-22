@@ -469,10 +469,10 @@ export default function PosPage() {
                     {patient && (
                         <div className="mt-2 p-3 bg-blue-50 rounded-xl flex items-center gap-3">
                             <div className="w-8 h-8 bg-[#1a2a4a] rounded-full flex items-center justify-center text-white font-bold text-sm">
-                                {patient.nombre?.[0]?.toUpperCase()}
+                                {(patient.nombre_completo || patient.nombre)?.[0]?.toUpperCase()}
                             </div>
                             <div className="flex-1">
-                                <p className="font-medium text-gray-900">{patient.nombre}</p>
+                                <p className="font-medium text-gray-900">{patient.nombre_completo || patient.nombre}</p>
                                 <p className="text-xs text-gray-500">CI: {patient.cedula}</p>
                             </div>
                             <button onClick={() => setPatient(null)} className="text-gray-400 hover:text-red-500">
@@ -513,10 +513,10 @@ export default function PosPage() {
                         <div className="space-y-2">
                             <div className="flex items-center gap-3">
                                 <div className="w-10 h-10 bg-[#1a2a4a] rounded-full flex items-center justify-center text-white font-bold">
-                                    {patient.nombre?.[0]?.toUpperCase()}
+                                    {(patient.nombre_completo || patient.nombre)?.[0]?.toUpperCase()}
                                 </div>
                                 <div className="flex-1">
-                                    <p className="font-semibold text-gray-900">{patient.nombre}</p>
+                                    <p className="font-semibold text-gray-900">{patient.nombre_completo || patient.nombre}</p>
                                     <p className="text-sm text-gray-500">CI: {patient.cedula} · Tel: {patient.telefono || '—'}</p>
                                 </div>
                                 {prevBalance > 0 && (

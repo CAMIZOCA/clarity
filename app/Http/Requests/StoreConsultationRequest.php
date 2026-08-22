@@ -62,6 +62,20 @@ class StoreConsultationRequest extends FormRequest
             'rx_uso_add_oi'         => ['nullable', 'numeric', new ValidOpticalPrescription('add')],
             'rx_uso_avcc_oi'        => ['nullable', 'string', 'max:20'],
 
+            // RX en uso: 0..N recetas, cada una con observacion
+            'rx_uso_entries'               => ['nullable', 'array', 'max:10'],
+            'rx_uso_entries.*.esfera_od'   => ['nullable', 'numeric', new ValidOpticalPrescription('sphere')],
+            'rx_uso_entries.*.cilindro_od' => ['nullable', 'numeric', new ValidOpticalPrescription('cylinder')],
+            'rx_uso_entries.*.eje_od'      => ['nullable', 'numeric', new ValidOpticalPrescription('axis')],
+            'rx_uso_entries.*.add_od'      => ['nullable', 'numeric', new ValidOpticalPrescription('add')],
+            'rx_uso_entries.*.avcc_od'     => ['nullable', 'string', 'max:20'],
+            'rx_uso_entries.*.esfera_oi'   => ['nullable', 'numeric', new ValidOpticalPrescription('sphere')],
+            'rx_uso_entries.*.cilindro_oi' => ['nullable', 'numeric', new ValidOpticalPrescription('cylinder')],
+            'rx_uso_entries.*.eje_oi'      => ['nullable', 'numeric', new ValidOpticalPrescription('axis')],
+            'rx_uso_entries.*.add_oi'      => ['nullable', 'numeric', new ValidOpticalPrescription('add')],
+            'rx_uso_entries.*.avcc_oi'     => ['nullable', 'string', 'max:20'],
+            'rx_uso_entries.*.observacion' => ['nullable', 'string', 'max:2000'],
+
             // Subjetivo
             'subj_esfera_od'        => ['nullable', 'numeric', new ValidOpticalPrescription('sphere')],
             'subj_cilindro_od'      => ['nullable', 'numeric', new ValidOpticalPrescription('cylinder')],
@@ -85,30 +99,35 @@ class StoreConsultationRequest extends FormRequest
             'rx_final_eje_od'       => ['nullable', 'numeric', new ValidOpticalPrescription('axis')],
             'rx_final_add_od'       => ['nullable', 'numeric', new ValidOpticalPrescription('add')],
             'rx_final_avl_od'       => ['nullable', 'string', 'max:20'],
-            'rx_final_prisma_od'    => ['nullable', 'numeric', new ValidOpticalPrescription('prism')],
+            'rx_final_prisma_od'    => ['nullable', 'string', 'max:20'],
             'rx_final_base_od'      => ['nullable', 'string', 'max:20'],
-            'rx_final_dnp_od'       => ['nullable', 'numeric', 'min:20', 'max:40'],
+            'rx_final_dnp_od'       => ['nullable', 'string', 'max:20'],
             'rx_final_esfera_oi'    => ['nullable', 'numeric', new ValidOpticalPrescription('sphere')],
             'rx_final_cilindro_oi'  => ['nullable', 'numeric', new ValidOpticalPrescription('cylinder')],
             'rx_final_eje_oi'       => ['nullable', 'numeric', new ValidOpticalPrescription('axis')],
             'rx_final_add_oi'       => ['nullable', 'numeric', new ValidOpticalPrescription('add')],
             'rx_final_avl_oi'       => ['nullable', 'string', 'max:20'],
-            'rx_final_prisma_oi'    => ['nullable', 'numeric', new ValidOpticalPrescription('prism')],
+            'rx_final_prisma_oi'    => ['nullable', 'string', 'max:20'],
             'rx_final_base_oi'      => ['nullable', 'string', 'max:20'],
-            'rx_final_dnp_oi'       => ['nullable', 'numeric', 'min:20', 'max:40'],
+            'rx_final_dnp_oi'       => ['nullable', 'string', 'max:20'],
+            'rx_final_distancia_od'  => ['nullable', 'string', 'max:50'],
+            'rx_final_distancia_oi'  => ['nullable', 'string', 'max:50'],
+            'rx_final_av_od'         => ['nullable', 'string', 'max:20'],
+            'rx_final_av_oi'         => ['nullable', 'string', 'max:20'],
+            'rx_final_observaciones' => ['nullable', 'string', 'max:2000'],
 
             // Visión de cerca
             'vc_esfera_od'          => ['nullable', 'numeric', new ValidOpticalPrescription('sphere')],
             'vc_cilindro_od'        => ['nullable', 'numeric', new ValidOpticalPrescription('cylinder')],
             'vc_eje_od'             => ['nullable', 'numeric', new ValidOpticalPrescription('axis')],
             'vc_av_od'              => ['nullable', 'string', 'max:20'],
-            'vc_dnp_od'             => ['nullable', 'numeric', 'min:20', 'max:40'],
+            'vc_dnp_od'             => ['nullable', 'string', 'max:20'],
             'vc_avcc_od'            => ['nullable', 'string', 'max:20'],
             'vc_esfera_oi'          => ['nullable', 'numeric', new ValidOpticalPrescription('sphere')],
             'vc_cilindro_oi'        => ['nullable', 'numeric', new ValidOpticalPrescription('cylinder')],
             'vc_eje_oi'             => ['nullable', 'numeric', new ValidOpticalPrescription('axis')],
             'vc_av_oi'              => ['nullable', 'string', 'max:20'],
-            'vc_dnp_oi'             => ['nullable', 'numeric', 'min:20', 'max:40'],
+            'vc_dnp_oi'             => ['nullable', 'string', 'max:20'],
             'vc_avcc_oi'            => ['nullable', 'string', 'max:20'],
             'near_vision_data'      => ['nullable', 'array'],
 
@@ -251,11 +270,9 @@ class StoreConsultationRequest extends FormRequest
             'subj_esfera_oi', 'subj_cilindro_oi', 'subj_eje_oi',
             'subj_add_od', 'subj_add_oi', 'subj_dp',
             'rx_final_esfera_od', 'rx_final_cilindro_od', 'rx_final_eje_od', 'rx_final_add_od',
-            'rx_final_prisma_od', 'rx_final_dnp_od',
             'rx_final_esfera_oi', 'rx_final_cilindro_oi', 'rx_final_eje_oi', 'rx_final_add_oi',
-            'rx_final_prisma_oi', 'rx_final_dnp_oi',
-            'vc_esfera_od', 'vc_cilindro_od', 'vc_eje_od', 'vc_dnp_od',
-            'vc_esfera_oi', 'vc_cilindro_oi', 'vc_eje_oi', 'vc_dnp_oi',
+            'vc_esfera_od', 'vc_cilindro_od', 'vc_eje_od',
+            'vc_esfera_oi', 'vc_cilindro_oi', 'vc_eje_oi',
             'costo_total', 'abono',
         ];
 
@@ -270,5 +287,33 @@ class StoreConsultationRequest extends FormRequest
         if (!empty($normalized)) {
             $this->merge($normalized);
         }
+
+        $this->normalizeRxUsoEntries();
+    }
+
+    /** Misma normalizacion de coma decimal para las recetas en uso anidadas. */
+    private function normalizeRxUsoEntries(): void
+    {
+        $entries = $this->input('rx_uso_entries');
+        if (! is_array($entries)) {
+            return;
+        }
+
+        $numeric = ['esfera_od', 'cilindro_od', 'eje_od', 'add_od', 'esfera_oi', 'cilindro_oi', 'eje_oi', 'add_oi'];
+
+        foreach ($entries as $index => $entry) {
+            if (! is_array($entry)) {
+                continue;
+            }
+
+            foreach ($numeric as $field) {
+                $value = $entry[$field] ?? null;
+                if ($value !== null && $value !== '') {
+                    $entries[$index][$field] = str_replace(',', '.', (string) $value);
+                }
+            }
+        }
+
+        $this->merge(['rx_uso_entries' => $entries]);
     }
 }

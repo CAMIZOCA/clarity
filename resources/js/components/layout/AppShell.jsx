@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { Menu } from 'lucide-react';
 import Sidebar from './Sidebar';
+import ConnectionBanner from '../ui/ConnectionBanner';
 import { useBranch } from '../../contexts/BranchContext';
 import AssistantChatButton from '../ai/AssistantChatButton';
 import { useAuth } from '../../contexts/AuthContext';
@@ -34,7 +35,7 @@ export default function AppShell() {
     const { user } = useAuth();
     const location = useLocation();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-    const context = user ? { role: user.roles?.[0]?.name, name: user.name } : {};
+    const context = user ? { role: user.roles?.[0] ?? user.role, name: user.name } : {};
     const handleMobileMenuOpen = useCallback(() => {
         setMobileMenuOpen(true);
     }, []);
@@ -68,6 +69,7 @@ export default function AppShell() {
                     <BranchSelector />
                 </header>
                 <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[env(safe-area-inset-bottom)] lg:overflow-visible lg:overscroll-auto">
+                    <ConnectionBanner />
                     <Outlet />
                 </main>
             </div>

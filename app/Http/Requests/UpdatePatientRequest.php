@@ -20,6 +20,9 @@ class UpdatePatientRequest extends FormRequest
 
         return [
             'nombre'            => ['sometimes', 'string', 'min:2', 'max:150'],
+            'apellido'          => ['nullable', 'string', 'max:150'],
+            'como_nos_conocio'  => ['nullable', 'string', 'max:500'],
+            'fecha_registro'    => ['nullable', 'date', 'before_or_equal:today'],
             'cedula'            => ['nullable', 'string', new ValidEcuadorCedula(), Rule::unique('patients', 'cedula')->ignore($patientId)->whereNull('deleted_at')],
             'codigo_interno'    => ['nullable', 'string', 'max:50', Rule::unique('patients', 'codigo_interno')->ignore($patientId)],
             'fecha_nacimiento'  => ['nullable', 'date', 'before:today', 'after:1900-01-01'],
@@ -53,6 +56,9 @@ class UpdatePatientRequest extends FormRequest
         }
         if ($this->nombre) {
             $this->merge(['nombre' => trim($this->nombre)]);
+        }
+        if ($this->apellido) {
+            $this->merge(['apellido' => trim($this->apellido)]);
         }
     }
 }

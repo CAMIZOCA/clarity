@@ -23,7 +23,7 @@ class ConsultationController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $query = Consultation::with(['patient:id,nombre,cedula,codigo_interno', 'optometrista:id,name'])
+        $query = Consultation::with(['patient:id,nombre,apellido,cedula,codigo_interno', 'optometrista:id,name'])
             ->orderByDesc('fecha_consulta');
 
         if ($patientId = $request->input('patient_id')) {
@@ -101,6 +101,8 @@ class ConsultationController extends Controller
             'subj_avl_od', 'subj_tipo_od', 'subj_avl_oi', 'subj_tipo_oi',
             'rx_final_avl_od', 'rx_final_prisma_od', 'rx_final_base_od', 'rx_final_dnp_od',
             'rx_final_avl_oi', 'rx_final_prisma_oi', 'rx_final_base_oi', 'rx_final_dnp_oi',
+            'rx_final_distancia_od', 'rx_final_distancia_oi', 'rx_final_av_od', 'rx_final_av_oi',
+            'rx_final_observaciones',
             'vc_av_od', 'vc_dnp_od', 'vc_avcc_od', 'vc_av_oi', 'vc_dnp_oi', 'vc_avcc_oi',
             'ducciones_od', 'ducciones_oi', 'versiones', 'ppc', 'cover_test', 'reflejos_pupilares', 'test_hirschberg',
             'luna_material', 'luna_espesor', 'luna_proteccion', 'luna_observacion',

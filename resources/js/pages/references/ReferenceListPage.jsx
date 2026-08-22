@@ -77,7 +77,7 @@ export default function ReferenceListPage() {
                             <tr key={r.id} className={`border-t border-gray-100 hover:bg-blue-50/40 transition-colors ${i % 2 === 0 ? '' : 'bg-gray-50/50'}`}>
                                 <td className="px-6 py-4">
                                     <Link to={`/pacientes/${r.patient_id}`} className="font-medium text-gray-900 hover:text-[#1a2a4a]">
-                                        {r.patient?.nombre || '—'}
+                                        {r.patient?.nombre_completo || r.patient?.nombre || '—'}
                                     </Link>
                                     <p className="text-xs text-gray-500">{r.patient?.cedula}</p>
                                 </td>

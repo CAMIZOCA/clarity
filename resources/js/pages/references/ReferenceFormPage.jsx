@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, FileText } from 'lucide-react';
 import client from '../../api/client';
+import { getPayload } from '../../api/response';
 import Button from '../../components/ui/Button';
 import PatientAutocomplete from '../../components/ui/PatientAutocomplete';
 import Input from '../../components/ui/Input';
@@ -28,7 +29,7 @@ export default function ReferenceFormPage() {
 
     useEffect(() => {
         if (form.patient_id && !patient) {
-            client.get(`/patients/${form.patient_id}`).then(r => setPatient(r.data)).catch(() => {});
+            client.get(`/patients/${form.patient_id}`).then(r => setPatient(getPayload(r))).catch(() => {});
         }
     }, [form.patient_id, patient]);
 

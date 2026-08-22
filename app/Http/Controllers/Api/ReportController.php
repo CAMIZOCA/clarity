@@ -40,12 +40,12 @@ class ReportController extends Controller
                 ->where('fecha_hora_inicio', '<=', now()->addDays(7)->endOfDay())
                 ->count();
 
-            $ultimasConsultas = Consultation::with(['patient:id,nombre', 'optometrista:id,name'])
+            $ultimasConsultas = Consultation::with(['patient:id,nombre,apellido', 'optometrista:id,name'])
                 ->orderByDesc('fecha_consulta')
                 ->limit(5)
                 ->get(['id', 'numero_consulta', 'patient_id', 'optometrista_id', 'fecha_consulta', 'estado', 'diagnostico_cie10', 'diagnostico_descripcion']);
 
-            $proximasCitas = Appointment::with(['patient:id,nombre'])
+            $proximasCitas = Appointment::with(['patient:id,nombre,apellido'])
                 ->where('estado', 'pendiente')
                 ->where('fecha_hora_inicio', '>=', now()->startOfDay())
                 ->orderBy('fecha_hora_inicio')
@@ -127,7 +127,7 @@ class ReportController extends Controller
         $from = $request->input('from', now()->startOfMonth()->toDateString());
         $to   = $request->input('to', now()->toDateString());
 
-        $consultations = Consultation::with(['patient:id,nombre,cedula', 'optometrista:id,name'])
+        $consultations = Consultation::with(['patient:id,nombre,apellido,cedula', 'optometrista:id,name'])
             ->whereBetween('fecha_consulta', [$from, $to])
             ->orderBy('fecha_consulta')
             ->get();
@@ -514,7 +514,7 @@ class ReportController extends Controller
             // Órdenes vencidas con detalle
             $overdueOrders = (clone $base)
                 ->overdue()
-                ->with(['patient:id,nombre', 'labSupplier:id,name'])
+                ->with(['patient:id,nombre,apellido', 'labSupplier:id,name'])
                 ->selectRaw(
                     'lab_orders.*,'
                     . ($isSqlite

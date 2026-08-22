@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Api\Concerns\ApiResponses;
 use App\Http\Controllers\Controller;
 use App\Models\Patient;
+use App\Enums\Permission;
 use App\Services\AiService;
+use App\Services\OpenAiService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -13,7 +15,10 @@ class AiController extends Controller
 {
     use ApiResponses;
 
-    public function __construct(private AiService $ai) {}
+    public function __construct(
+        private AiService $ai,
+        private OpenAiService $openAi,
+    ) {}
 
     /**
      * Verificar si la IA está habilitada.
@@ -33,6 +38,19 @@ class AiController extends Controller
                 'assistant_chat'         => true,
             ],
         ]);
+    }
+
+    /**
+     * Verificar que la API key de OpenAI guardada sea valida.
+     * POST /api/ai/test-openai
+     */
+    public function testOpenAi(Request $request): JsonResponse
+    {
+        abort_unless($request->user()?->can(Permission::SETTINGS_EDIT->value), 403);
+
+        $result = $this->openAi->testConnection();
+
+        return response()->json($result, $result['ok'] ? 200 : 422);
     }
 
     /**

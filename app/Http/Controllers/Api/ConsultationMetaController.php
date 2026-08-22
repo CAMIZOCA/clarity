@@ -11,9 +11,12 @@ use Illuminate\Support\Facades\Cache;
 
 class ConsultationMetaController extends Controller
 {
+    /** Cache compartida con CatalogController, que la invalida al editar catalogos. */
+    public const CACHE_KEY = 'consultation_meta';
+
     public function __invoke(): JsonResponse
     {
-        $data = Cache::remember('consultation_meta', 600, function () {
+        $data = Cache::remember(self::CACHE_KEY, 600, function () {
             $catalogs = ClinicalCatalogGroup::query()
                 ->with(['items' => fn ($query) => $query->where('is_active', true)->orderBy('sort_order')])
                 ->orderBy('name')
@@ -36,10 +39,20 @@ class ConsultationMetaController extends Controller
                 ->get(['id', 'key', 'name', 'description'])
                 ->values();
 
+            // `label` y `code` son las claves que consume FormSelect en el
+            // formulario de consulta; sin ellas cada <option> salia vacia.
             $optometrists = User::query()
                 ->whereIn('role', ['admin', 'optometra'])
                 ->orderBy('name')
                 ->get(['id', 'name', 'codigo', 'registro_senescyt'])
+                ->map(fn ($user) => [
+                    'id'                => $user->id,
+                    'label'             => $user->name,
+                    'code'              => $user->codigo,
+                    'name'              => $user->name,
+                    'codigo'            => $user->codigo,
+                    'registro_senescyt' => $user->registro_senescyt,
+                ])
                 ->values();
 
             return [

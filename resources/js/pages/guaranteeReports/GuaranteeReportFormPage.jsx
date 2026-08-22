@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams, useParams } from 'react-router-dom';
 import { ArrowLeft, ShieldCheck } from 'lucide-react';
 import client from '../../api/client';
+import { getPayload } from '../../api/response';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import { useToast } from '../../components/ui/Toast';
@@ -39,7 +40,7 @@ export default function GuaranteeReportFormPage() {
 
     useEffect(() => {
         if (patientIdFromQuery) {
-            client.get(`/patients/${patientIdFromQuery}`).then(r => setPatient(r.data)).catch(() => {});
+            client.get(`/patients/${patientIdFromQuery}`).then(r => setPatient(getPayload(r))).catch(() => {});
         }
     }, [patientIdFromQuery]);
 
@@ -102,7 +103,7 @@ export default function GuaranteeReportFormPage() {
                         <ShieldCheck size={24} className="text-amber-500" />
                         {isEdit ? 'Editar Informe de Garantía' : 'Nuevo Informe de Garantía'}
                     </h1>
-                    {patient && <p className="text-gray-500 text-sm mt-0.5">Paciente: {patient.nombre} · CI: {patient.cedula}</p>}
+                    {patient && <p className="text-gray-500 text-sm mt-0.5">Paciente: {patient.nombre_completo || patient.nombre} · CI: {patient.cedula}</p>}
                 </div>
             </div>
 

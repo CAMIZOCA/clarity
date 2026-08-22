@@ -17,6 +17,8 @@ class ValidOpticalPrescription implements ValidationRule
     private array $ranges = [
         'sphere'   => ['min' => -30.0, 'max' => 30.0,  'step' => 0.25],
         'cylinder' => ['min' => -10.0, 'max' => 10.0,  'step' => 0.25],
+        // Rangos clinicos: un eje va de 1 a 180 y una adicion menor a 0.25 no es
+        // una adicion. Para "sin valor" el campo se deja vacio, no en cero.
         'axis'     => ['min' => 1,     'max' => 180,   'step' => 1],
         'add'      => ['min' => 0.25,  'max' => 4.0,   'step' => 0.25],
         'prism'    => ['min' => 0.0,   'max' => 20.0,  'step' => 0.25],

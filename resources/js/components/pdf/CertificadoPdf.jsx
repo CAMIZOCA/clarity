@@ -82,7 +82,7 @@ function PdfContent({ data, settings, logoUrl, doctor }) {
             <div style={{ fontSize: '12.5px', lineHeight: 1.7, marginBottom: '14px' }}>
                 <div>
                     Por medio de la presente certifico haber examinado al paciente{' '}
-                    <strong style={{ textTransform: 'uppercase' }}>{patient.nombre}</strong>
+                    <strong style={{ textTransform: 'uppercase' }}>{patient.nombre_completo || patient.nombre}</strong>
                 </div>
                 <div>De <strong>{edad}</strong> Años de edad, con Cédula ID: <strong>{cedula}</strong></div>
                 {fecha && <div>Asistió a consulta, el día: {fecha}</div>}

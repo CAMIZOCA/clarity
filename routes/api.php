@@ -199,6 +199,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // ─── INTELIGENCIA ARTIFICIAL ─────────────────────────────────────────────────
     Route::prefix('ai')->group(function () {
         Route::get('/status', [AiController::class, 'status']);
+        Route::post('/test-openai', [AiController::class, 'testOpenAi']);
         Route::get('/patient/{patient}/summary', [AiController::class, 'patientSummary']);
         Route::post('/product-recommendation', [AiController::class, 'productRecommendation']);
         Route::post('/analyze-sales', [AiController::class, 'analyzeSales']);

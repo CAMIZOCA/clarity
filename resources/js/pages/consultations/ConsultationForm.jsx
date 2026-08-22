@@ -11,8 +11,7 @@ import CertificadoPdf from '../../components/pdf/CertificadoPdf';
 import { useToast } from '../../components/ui/Toast';
 import { useSettings } from '../../contexts/SettingsContext';
 import { useAdvancedFields } from '../../hooks/useAdvancedFields';
-
-const RequiredErrorsCtx = React.createContext(new Set());
+import { RequiredErrorsCtx } from '../../components/forms/RequiredErrorsContext';
 
 const REQUIRED_FIELD_LABELS = {
     optometrista_id: 'Médico / Optometrista',
@@ -20,8 +19,8 @@ const REQUIRED_FIELD_LABELS = {
     fecha_consulta: 'Fecha de consulta',
     avsc_od: 'AV SC (Ojo derecho)',
     avsc_oi: 'AV SC (Ojo izquierdo)',
-    rx_final_esfera_od: 'RX Final esfera OD',
-    rx_final_esfera_oi: 'RX Final esfera OI',
+    rx_final_esfera_od: 'RX Visión de Lejos: esfera OD',
+    rx_final_esfera_oi: 'RX Visión de Lejos: esfera OI',
     diagnostico_descripcion: 'Diagnóstico principal',
     lente_anterior: 'Lente anterior',
     observaciones: 'Observaciones clínicas',
@@ -47,6 +46,41 @@ const defaultRecommendation = () => ({
     catalog_item_id: '',
     text: '',
 });
+
+const RX_USO_COLUMNS = ['esfera', 'cilindro', 'eje', 'add', 'avcc'];
+
+const emptyRxUsoEntry = () => RX_USO_COLUMNS.reduce(
+    (entry, column) => ({ ...entry, [`${column}_od`]: '', [`${column}_oi`]: '' }),
+    { observacion: '' }
+);
+
+/**
+ * Recetas en uso del formulario.
+ *
+ * Las consultas guardadas antes de que existieran varias recetas solo tienen
+ * las columnas planas `rx_uso_*`; se convierten en la primera entrada para que
+ * el historico se siga viendo completo.
+ */
+function buildRxUsoEntries(consultation) {
+    const stored = consultation?.rx_uso_entries;
+    if (Array.isArray(stored) && stored.length) {
+        return stored.map((entry) => ({
+            ...emptyRxUsoEntry(),
+            ...Object.fromEntries(
+                Object.entries(entry).map(([key, value]) => [key, value ?? ''])
+            ),
+        }));
+    }
+
+    const legacy = emptyRxUsoEntry();
+    for (const column of RX_USO_COLUMNS) {
+        for (const eye of ['od', 'oi']) {
+            legacy[`${column}_${eye}`] = consultation?.[`rx_uso_${column}_${eye}`] ?? '';
+        }
+    }
+
+    return [legacy];
+}
 
 function buildOphthalmoscopyMatrix(rows = [], distances = []) {
     return rows.reduce((acc, row) => {
@@ -157,6 +191,49 @@ function buildDefaultValues(patient, consultation, meta) {
             modalidad_uso: '',
         },
         ...consultation,
+        rx_uso_entries: buildRxUsoEntries(consultation),
+    };
+}
+
+/**
+ * Lleva el foco al primer campo con error y lo centra en pantalla.
+ *
+ * Todos los inputs del formulario usan el nombre del campo como `id`, asi que
+ * basta buscarlo por id. Antes un 422 solo mostraba un toast generico y el
+ * usuario tenia que adivinar cual de los ~140 campos estaba mal.
+ */
+function scrollToField(fieldName) {
+    if (!fieldName) return;
+
+    const element = document.getElementById(fieldName);
+    if (!element) return;
+
+    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (typeof element.focus === 'function') {
+        element.focus({ preventScroll: true });
+    }
+}
+
+/** Extrae del 422 de Laravel los nombres de campo y un resumen legible. */
+function readValidationErrors(error) {
+    const data = error?.response?.data;
+    const errors = data?.errors;
+
+    if (!errors || typeof errors !== 'object') {
+        return { fields: [], message: data?.message ?? null };
+    }
+
+    // Laravel devuelve claves con puntos (rx_uso_entries.0.esfera_od); los
+    // inputs usan exactamente ese mismo nombre como id.
+    const fields = Object.keys(errors);
+    const messages = fields
+        .map((field) => (Array.isArray(errors[field]) ? errors[field][0] : errors[field]))
+        .filter(Boolean);
+
+    return {
+        fields,
+        message: messages.slice(0, 4).join('\n')
+            + (messages.length > 4 ? `\n(+${messages.length - 4} error(es) mas)` : ''),
     };
 }
 
@@ -274,6 +351,9 @@ export default function ConsultationForm({ patient, consultation, meta }) {
     const [requiredErrors, setRequiredErrors] = useState(new Set());
     const [showRequiredModal, setShowRequiredModal] = useState(false);
     const [missingLabels, setMissingLabels] = useState([]);
+    // Se levanta cuando un guardado falla y solo baja cuando uno funciona.
+    const [unsavedError, setUnsavedError] = useState(null);
+    const [firstMissingField, setFirstMissingField] = useState(null);
     const autosaveTimerRef = useRef(null);
 
     const defaultValues = useMemo(
@@ -290,6 +370,7 @@ export default function ConsultationForm({ patient, consultation, meta }) {
 
     const diagnosesFieldArray = useFieldArray({ control, name: 'diagnoses' });
     const recommendationsFieldArray = useFieldArray({ control, name: 'recommendations_list' });
+    const rxUsoFieldArray = useFieldArray({ control, name: 'rx_uso_entries' });
 
     const asArray = (value) => (Array.isArray(value) ? value : []);
     const diagnosisOptions = asArray(meta?.catalogs?.diagnoses);
@@ -327,19 +408,44 @@ export default function ConsultationForm({ patient, consultation, meta }) {
             }
 
             setLastSaved(new Date());
+            setUnsavedError(null);
+            setRequiredErrors(new Set());
             reset(buildDefaultValues(patient, response.data, meta));
             if (showMsg) addToast('Consulta guardada correctamente', 'success');
             return response.data;
         } catch (error) {
-            if (showMsg) {
-                addToast(error?.response?.data?.message ?? 'Error al guardar la consulta', 'error');
+            const status = error?.response?.status;
+            const { fields, message } = readValidationErrors(error);
+
+            if (fields.length) {
+                setRequiredErrors(new Set(fields));
             }
+
+            const detail = status === 422
+                ? (message || 'Revise los campos marcados en rojo.')
+                : (error?.response?.data?.message
+                    ?? 'No se pudo guardar. Verifique su conexión; los datos siguen en pantalla.');
+
+            // El aviso persiste aunque el guardado haya sido automatico: antes
+            // el autosave fallaba en silencio y el usuario perdia el trabajo.
+            setUnsavedError(detail);
+
+            if (showMsg) {
+                addToast(detail, 'error');
+            }
+
+            if (fields.length) {
+                scrollToField(fields[0]);
+            }
+
             throw error;
         }
     }, [consultationId, getValues, reset, patient, meta, addToast]);
 
     useEffect(() => {
         autosaveTimerRef.current = setInterval(() => {
+            // El error ya quedo registrado en `unsavedError` dentro de doSave;
+            // aqui solo se evita el unhandled rejection.
             doSave(false).catch(() => {});
         }, 30000);
 
@@ -367,6 +473,7 @@ export default function ConsultationForm({ patient, consultation, meta }) {
         setRequiredErrors(missing);
         if (missing.size > 0) {
             setMissingLabels(labels);
+            setFirstMissingField([...missing][0] ?? null);
             setShowRequiredModal(true);
             return false;
         }
@@ -381,13 +488,39 @@ export default function ConsultationForm({ patient, consultation, meta }) {
             if (!consultationId && saved?.id) {
                 navigate(`/consulta/${saved.id}`);
             }
+        } catch {
+            // doSave ya mostro el detalle y marco los campos en rojo.
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    /**
+     * Guardado parcial explicito: persiste lo que haya sin exigir campos completos.
+     *
+     * No fuerza el estado: una consulta ya completada no debe volver a borrador
+     * solo por pulsar "Guardar".
+     */
+    const handleSaveDraft = async () => {
+        setSaving(true);
+        try {
+            await doSave(true);
+        } catch {
+            // doSave ya notifico el error.
         } finally {
             setSaving(false);
         }
     };
 
     const handleGeneratePdf = async () => {
-        const current = consultationId ?? (await doSave(true, 'borrador'))?.id;
+        let current = consultationId;
+        if (!current) {
+            try {
+                current = (await doSave(true, 'borrador'))?.id;
+            } catch {
+                return;
+            }
+        }
         if (!current) return;
 
         try {
@@ -437,9 +570,22 @@ export default function ConsultationForm({ patient, consultation, meta }) {
         { field: 'avcc', label: 'AV.CC lejos', advKey: 'consulta:col_avcc' },
     ].filter((c) => !c.advKey || !isAdvanced(c.advKey) || refractionAdv.open);
 
-    const rxUsoFields = filterFields(['esfera', 'cilindro', 'eje', 'add', 'avcc'], { cilindro: 'consulta:rx_uso_cilindro', avcc: 'consulta:rx_uso_avcc' });
+    const rxUsoFields = filterFields(RX_USO_COLUMNS, { cilindro: 'consulta:rx_uso_cilindro', avcc: 'consulta:rx_uso_avcc' });
     const subjFields = filterFields(['esfera', 'cilindro', 'eje', 'avl'], { esfera: 'consulta:subj_esfera', eje: 'consulta:subj_eje', avl: 'consulta:subj_avl' });
-    const rxFinalFields = filterFields(['esfera', 'cilindro', 'eje', 'add', 'avl', 'prisma', 'base', 'dnp'], { avl: 'consulta:rx_final_avl', prisma: 'consulta:rx_final_prisma', base: 'consulta:rx_final_base' });
+    // Distancia va tras ADD; AV, prisma y base cierran la tabla.
+    const rxFinalFields = filterFields(
+        ['esfera', 'cilindro', 'eje', 'add', 'distancia', 'dnp', 'avl', 'av', 'prisma', 'base'],
+        { avl: 'consulta:rx_final_avl', prisma: 'consulta:rx_final_prisma', base: 'consulta:rx_final_base' }
+    );
+
+    // Recorrido de teclado pedido por la optica: los tres valores de OD, luego
+    // los tres de OI, y recien despues ADD y DNP/DP de ambos ojos.
+    const rxFinalTabOrder = [
+        'esfera_od', 'cilindro_od', 'eje_od',
+        'esfera_oi', 'cilindro_oi', 'eje_oi',
+        'add_od', 'add_oi',
+        'dnp_od', 'dnp_oi',
+    ];
 
     const refractionAdvKeys = [
         'consulta:col_avsc', 'consulta:col_avcc', 'consulta:rx_uso_cilindro', 'consulta:rx_uso_avcc',
@@ -472,8 +618,14 @@ export default function ConsultationForm({ patient, consultation, meta }) {
                         </span>
                     )}
                 </div>
+                {unsavedError && (
+                    <div className="w-full rounded-xl border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">
+                        <span className="font-semibold">Cambios sin guardar. </span>
+                        <span className="whitespace-pre-line">{unsavedError}</span>
+                    </div>
+                )}
                 <div className="hidden flex-wrap items-center gap-3 lg:flex">
-                    <Button type="button" variant="secondary" onClick={() => doSave(true)} loading={saving}>
+                    <Button type="button" variant="secondary" onClick={handleSaveDraft} loading={saving}>
                         <Clock size={18} /> Guardar borrador
                     </Button>
                     <Button type="button" variant="secondary" onClick={handleGeneratePdf}>
@@ -492,7 +644,7 @@ export default function ConsultationForm({ patient, consultation, meta }) {
                     <FormInput label="Cedula / RUC" name="doctor_license" register={register} placeholder="Registro o licencia" />
                     <FormSelect label="Plantilla impresion" name="print_template_key" register={register} options={templateOptions.map((item) => ({ value: item.key, label: item.name }))} />
                     <FormInput label="Codigo interno" name="patient_codigo" register={register} value={patient.codigo_interno ?? ''} disabled />
-                    <FormInput label="Paciente" name="patient_nombre" register={register} value={patient.nombre ?? ''} disabled />
+                    <FormInput label="Paciente" name="patient_nombre" register={register} value={patient.nombre_completo || patient.nombre || ''} disabled />
                     <FormInput label="Edad" name="patient_edad" register={register} value={patient.edad ? `${patient.edad} anos` : ''} disabled />
                     <FormInput label="Ocupacion" name="patient_ocupacion" register={register} value={patient.ocupacion ?? ''} disabled />
                     <div className="lg:col-span-2">
@@ -553,14 +705,76 @@ export default function ConsultationForm({ patient, consultation, meta }) {
                         </tbody>
                     </table>
                 </div>
-                <EyeFieldGroup prefix="rx_uso" fields={rxUsoFields} register={register} errors={{}} label="RX en uso" />
-                <EyeFieldGroup prefix="subj" fields={subjFields} register={register} errors={{}} label="Subjetivo" />
-                <EyeFieldGroup prefix="rx_final" fields={rxFinalFields} register={register} errors={{}} label="RX final" />
-                {advVisible('consulta:grp_vision_cerca', refractionAdv) && (
-                    <EyeFieldGroup prefix="vc" fields={['esfera', 'cilindro', 'eje', 'av', 'dnp', 'avcc']} register={register} errors={{}} label="Vision de cerca" />
-                )}
+                <div className="mb-6">
+                    <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-[#1a2a4a]/20 pb-1">
+                        <h3 className="text-sm font-semibold uppercase tracking-wider text-[#1a2a4a]">RX en uso</h3>
+                        <Button type="button" variant="secondary" onClick={() => rxUsoFieldArray.append(emptyRxUsoEntry())}>
+                            <Plus size={16} /> Agregar RX en uso
+                        </Button>
+                    </div>
+                    <div className="space-y-4">
+                        {rxUsoFieldArray.fields.map((field, index) => (
+                            <div key={field.id} className="rounded-2xl border border-slate-200 p-4">
+                                <div className="mb-2 flex items-center justify-between">
+                                    <span className="text-sm font-medium text-slate-700">RX en uso {index + 1}</span>
+                                    {rxUsoFieldArray.fields.length > 1 && (
+                                        <button type="button" className="text-sm text-rose-600" onClick={() => rxUsoFieldArray.remove(index)}>
+                                            <Trash2 size={16} className="inline-block" /> Quitar
+                                        </button>
+                                    )}
+                                </div>
+                                <EyeFieldGroup
+                                    fields={rxUsoFields}
+                                    register={register}
+                                    nameFor={(column, eye) => `rx_uso_entries.${index}.${column}_${eye}`}
+                                />
+                                <TextArea
+                                    label="Observación"
+                                    name={`rx_uso_entries.${index}.observacion`}
+                                    register={register}
+                                    rows={2}
+                                    placeholder="Notas sobre esta receta en uso."
+                                />
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
                 {advVisible('consulta:lente_anterior', refractionAdv) && (
-                    <TextArea label="Lente anterior" name="lente_anterior" register={register} rows={3} placeholder="Lente previo, marca, material y comparacion con receta anterior." />
+                    <div className="mb-6">
+                        <TextArea label="Lente anterior" name="lente_anterior" register={register} rows={3} placeholder="Lente previo, marca, material y comparacion con receta anterior." />
+                    </div>
+                )}
+
+                <EyeFieldGroup prefix="subj" fields={subjFields} register={register} label="Subjetivo" />
+
+                <EyeFieldGroup
+                    prefix="rx_final"
+                    fields={rxFinalFields}
+                    register={register}
+                    label="RX - Visión de Lejos"
+                    labelOverrides={{ avl: 'AV. CC' }}
+                    tabOrder={rxFinalTabOrder}
+                    footer={(
+                        <div className="mt-3">
+                            <TextArea
+                                label="Observaciones"
+                                name="rx_final_observaciones"
+                                register={register}
+                                rows={3}
+                                placeholder="Observaciones de la receta de lejos (aplican a ambos ojos)."
+                            />
+                        </div>
+                    )}
+                />
+
+                {advVisible('consulta:grp_vision_cerca', refractionAdv) && (
+                    <EyeFieldGroup
+                        prefix="vc"
+                        fields={['esfera', 'cilindro', 'eje', 'dnp', 'avcc']}
+                        register={register}
+                        label="RX - Visión de Cerca"
+                    />
                 )}
                 {hasRefractionAdvanced && (
                     <div className="mt-2">
@@ -841,7 +1055,7 @@ export default function ConsultationForm({ patient, consultation, meta }) {
 
             <div className="mobile-sticky-actions -mx-4 px-4 py-4 lg:hidden">
                 <div className="grid grid-cols-3 gap-2">
-                    <Button type="button" variant="secondary" className="justify-center" onClick={() => doSave(true)}>
+                    <Button type="button" variant="secondary" className="justify-center" onClick={handleSaveDraft}>
                         <Clock size={18} /> Guardar
                     </Button>
                     <Button type="button" variant="secondary" className="justify-center" onClick={handleGeneratePdf}>
@@ -854,7 +1068,7 @@ export default function ConsultationForm({ patient, consultation, meta }) {
             </div>
 
             <div className="hidden flex-wrap justify-end gap-3 pb-8 lg:flex">
-                <Button type="button" variant="secondary" onClick={() => doSave(true)}>
+                <Button type="button" variant="secondary" onClick={handleSaveDraft}>
                     <Clock size={20} /> Guardar borrador
                 </Button>
                 <Button type="button" variant="secondary" onClick={handleGeneratePdf}>
@@ -892,7 +1106,7 @@ export default function ConsultationForm({ patient, consultation, meta }) {
                     </ul>
                     <div className="flex justify-end gap-3">
                         <button
-                            onClick={() => { setShowRequiredModal(false); }}
+                            onClick={() => { setShowRequiredModal(false); scrollToField(firstMissingField); }}
                             className="px-4 py-2 bg-[#1a2a4a] text-white rounded-lg text-sm font-medium hover:bg-[#253a6a] transition-colors"
                         >
                             Entendido, voy a completarlos

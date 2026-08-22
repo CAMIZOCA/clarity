@@ -30,6 +30,10 @@ class PatientController extends Controller
             $filters['search'] = $q;
         }
 
+        $filters['sort'] = $request->input('sort') === PatientService::SORT_NOMBRE
+            ? PatientService::SORT_NOMBRE
+            : PatientService::SORT_ULTIMA_CONSULTA;
+
         $patients = $this->patientService->paginate($filters, AppConfig::PATIENTS_PER_PAGE);
 
         return response()->json(new PatientCollection($patients));
@@ -45,7 +49,10 @@ class PatientController extends Controller
 
         $patients = $this->patientService->search($q, 15);
 
-        $result = $patients->map(fn ($p) => array_merge($p->toArray(), ['edad' => $p->edad]));
+        $result = $patients->map(fn ($p) => array_merge($p->toArray(), [
+            'edad'            => $p->edad,
+            'nombre_completo' => $p->nombre_completo,
+        ]));
 
         return response()->json($result);
     }

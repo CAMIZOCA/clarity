@@ -25,7 +25,7 @@ class ExportController extends Controller
         $userId   = $request->input('user_id');
 
         $sales = Sale::query()
-            ->with(['patient:id,nombre,cedula', 'seller:id,name', 'items'])
+            ->with(['patient:id,nombre,apellido,cedula', 'seller:id,name', 'items'])
             ->whereNotIn('status', ['draft'])
             ->whereDate('created_at', '>=', $dateFrom)
             ->whereDate('created_at', '<=', $dateTo)

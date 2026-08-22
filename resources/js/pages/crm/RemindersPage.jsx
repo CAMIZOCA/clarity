@@ -58,7 +58,7 @@ function NewReminderModal({ open, onClose, onCreated }) {
 
     const handlePatientSelect = (patient) => {
         set('patient_id', patient.id);
-        set('patient_name', patient.nombre);
+        set('patient_name', patient.nombre_completo || patient.nombre);
     };
 
     const handleSave = async () => {
@@ -274,7 +274,7 @@ export default function RemindersPage() {
                                 {reminders.map(r => (
                                     <tr key={r.id} className="hover:bg-gray-50">
                                         <td className="px-4 py-3 font-medium text-gray-900">
-                                            {r.patient?.nombre ?? r.patient_name ?? '—'}
+                                            {r.patient?.nombre_completo ?? r.patient?.nombre ?? r.patient_name ?? '—'}
                                         </td>
                                         <td className="px-4 py-3 text-gray-600">{TYPE_LABELS[r.type] ?? r.type}</td>
                                         <td className="px-4 py-3 text-gray-600 capitalize">{r.channel}</td>

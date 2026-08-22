@@ -11,7 +11,7 @@ class GuaranteeReportController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $query = GuaranteeReport::with(['patient:id,nombre,cedula', 'optometrista:id,name', 'createdBy:id,name']);
+        $query = GuaranteeReport::with(['patient:id,nombre,apellido,cedula', 'optometrista:id,name', 'createdBy:id,name']);
 
         if ($patientId = $request->input('patient_id')) {
             $query->where('patient_id', $patientId);
@@ -37,7 +37,7 @@ class GuaranteeReportController extends Controller
         $data['created_by'] = $request->user()->id;
 
         $report = GuaranteeReport::create($data);
-        $report->load(['patient:id,nombre,cedula', 'optometrista:id,name']);
+        $report->load(['patient:id,nombre,apellido,cedula', 'optometrista:id,name']);
 
         return response()->json($report, 201);
     }
@@ -60,7 +60,7 @@ class GuaranteeReportController extends Controller
         ]);
 
         $guaranteeReport->update($data);
-        $guaranteeReport->load(['patient:id,nombre,cedula', 'optometrista:id,name']);
+        $guaranteeReport->load(['patient:id,nombre,apellido,cedula', 'optometrista:id,name']);
 
         return response()->json($guaranteeReport);
     }

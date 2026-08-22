@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Settings, Upload, Save, CheckSquare, Menu, SlidersHorizontal, Mail, Stethoscope, Send } from 'lucide-react';
+import { Settings, Upload, Save, CheckSquare, Menu, SlidersHorizontal, Mail, Stethoscope, Send, Sparkles, PlugZap } from 'lucide-react';
 import client from '../../api/client';
 import Button from '../../components/ui/Button';
 import { useToast } from '../../components/ui/Toast';
@@ -42,6 +42,21 @@ export default function SettingsPage() {
 
     const [testEmail, setTestEmail] = useState('');
     const [testingMail, setTestingMail] = useState(false);
+    const [testingOpenAi, setTestingOpenAi] = useState(false);
+
+    /** Guarda primero (la clave viaja cifrada al backend) y luego verifica contra OpenAI. */
+    const handleTestOpenAi = async () => {
+        setTestingOpenAi(true);
+        try {
+            await handleSave({ silent: true });
+            const res = await client.post('/ai/test-openai');
+            addToast(res.data?.message || 'Conexión correcta con OpenAI.', 'success');
+        } catch (err) {
+            addToast(err.response?.data?.message || 'No se pudo verificar la conexión con OpenAI.', 'error');
+        } finally {
+            setTestingOpenAi(false);
+        }
+    };
 
     const [form, setForm] = useState({
         clinic_name: '',
@@ -57,6 +72,7 @@ export default function SettingsPage() {
         mail_encryption: 'tls',
         mail_from_address: '',
         mail_from_name: '',
+        openai_api_key: '',
         required_fields: [],
         advanced_form_fields: DEFAULT_ADVANCED_FORM_FIELDS,
         menu_visible_sections: DEFAULT_MENU_VISIBLE_SECTIONS,
@@ -74,8 +90,9 @@ export default function SettingsPage() {
             mail_host: settings.mail_host || '',
             mail_port: settings.mail_port || '',
             mail_username: settings.mail_username || '',
-            // Nunca prellenar la contraseña: si hay una guardada llega el marcador '__stored__'.
+            // Nunca prellenar los secretos: si hay uno guardado llega el marcador '__stored__'.
             mail_password: '',
+            openai_api_key: '',
             mail_encryption: settings.mail_encryption ?? 'tls',
             mail_from_address: settings.mail_from_address || '',
             mail_from_name: settings.mail_from_name || '',
@@ -128,13 +145,17 @@ export default function SettingsPage() {
         }));
     };
 
-    const handleSave = async () => {
+    /** `silent` guarda sin avisar, para encadenar con una prueba de conexion. */
+    const handleSave = async ({ silent = false } = {}) => {
         setSaving(true);
         try {
             await client.post('/settings', form);
             refresh();
-            addToast('Configuración guardada', 'success');
-        } catch { addToast('Error al guardar', 'error'); }
+            if (!silent) addToast('Configuración guardada', 'success');
+        } catch (err) {
+            addToast('Error al guardar', 'error');
+            throw err;
+        }
         finally { setSaving(false); }
     };
 
@@ -183,6 +204,7 @@ export default function SettingsPage() {
                 <Tab active={tab === 'menu'} onClick={() => setTab('menu')} icon={Menu} label="Menu principal" />
                 <Tab active={tab === 'doctors'} onClick={() => setTab('doctors')} icon={Stethoscope} label="Doctores" />
                 <Tab active={tab === 'mail'} onClick={() => setTab('mail')} icon={Mail} label="Correo (SMTP)" />
+                <Tab active={tab === 'ai'} onClick={() => setTab('ai')} icon={Sparkles} label="Inteligencia artificial" />
             </div>
 
             {tab === 'general' && (
@@ -249,7 +271,7 @@ export default function SettingsPage() {
                     </div>
 
                     <div className="flex justify-end">
-                        <Button onClick={handleSave} loading={saving} size="lg">
+                        <Button onClick={() => handleSave().catch(() => {})} loading={saving} size="lg">
                             <Save size={18} /> Guardar configuración
                         </Button>
                     </div>
@@ -277,7 +299,7 @@ export default function SettingsPage() {
                         ))}
                     </div>
                     <div className="flex justify-end mt-6">
-                        <Button onClick={handleSave} loading={saving} size="lg">
+                        <Button onClick={() => handleSave().catch(() => {})} loading={saving} size="lg">
                             <Save size={18} /> Guardar configuración
                         </Button>
                     </div>
@@ -317,7 +339,7 @@ export default function SettingsPage() {
                         ))}
                     </div>
                     <div className="flex justify-end mt-6">
-                        <Button onClick={handleSave} loading={saving} size="lg">
+                        <Button onClick={() => handleSave().catch(() => {})} loading={saving} size="lg">
                             <Save size={18} /> Guardar configuración
                         </Button>
                     </div>
@@ -367,7 +389,7 @@ export default function SettingsPage() {
                         Inicio y Configuracion permanecen visibles para administradores. Las secciones y sus submenus se pueden ajustar por separado.
                     </div>
                     <div className="flex justify-end mt-6">
-                        <Button onClick={handleSave} loading={saving} size="lg">
+                        <Button onClick={() => handleSave().catch(() => {})} loading={saving} size="lg">
                             <Save size={18} /> Guardar configuración
                         </Button>
                     </div>
@@ -445,7 +467,50 @@ export default function SettingsPage() {
                     </div>
 
                     <div className="flex justify-end mt-6">
-                        <Button onClick={handleSave} loading={saving} size="lg">
+                        <Button onClick={() => handleSave().catch(() => {})} loading={saving} size="lg">
+                            <Save size={18} /> Guardar configuración
+                        </Button>
+                    </div>
+                </div>
+            )}
+
+            {tab === 'ai' && (
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+                    <h2 className="font-semibold text-gray-900 mb-2">Inteligencia artificial</h2>
+                    <p className="text-sm text-gray-500 mb-6">
+                        Clave de API de OpenAI, usada para la transcripción de audio en la consulta.
+                        Se guarda <strong>cifrada</strong> en la base de datos y nunca vuelve a mostrarse.
+                    </p>
+
+                    <div className="max-w-xl">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">API key de OpenAI</label>
+                        <input
+                            type="password"
+                            value={form.openai_api_key}
+                            onChange={e => set('openai_api_key', e.target.value)}
+                            autoComplete="new-password"
+                            placeholder={settings.openai_api_key === '__stored__' ? '•••••••• (guardada)' : 'sk-...'}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]"
+                        />
+                        <p className="text-xs text-gray-400 mt-1">
+                            {settings.openai_api_key === '__stored__'
+                                ? 'Hay una clave guardada. Déjalo vacío para conservarla.'
+                                : 'Todavía no hay ninguna clave configurada.'}
+                        </p>
+                    </div>
+
+                    <div className="mt-6 rounded-xl border border-gray-200 bg-gray-50 p-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Verificar credenciales</label>
+                        <Button variant="secondary" onClick={handleTestOpenAi} loading={testingOpenAi}>
+                            <PlugZap size={16} /> Probar conexión
+                        </Button>
+                        <p className="text-xs text-gray-400 mt-2">
+                            Guarda la clave y consulta la API de OpenAI para confirmar que es válida.
+                        </p>
+                    </div>
+
+                    <div className="flex justify-end mt-6">
+                        <Button onClick={() => handleSave().catch(() => {})} loading={saving} size="lg">
                             <Save size={18} /> Guardar configuración
                         </Button>
                     </div>

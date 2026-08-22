@@ -47,7 +47,7 @@ export default function AgendaPage() {
             });
             const mapped = res.data.map(a => ({
                 id: String(a.id),
-                title: a.titulo || a.patient?.nombre || 'Cita',
+                title: a.titulo || a.patient?.nombre_completo || a.patient?.nombre || 'Cita',
                 start: a.fecha_hora_inicio,
                 end: a.fecha_hora_fin,
                 backgroundColor: ESTADO_COLORS[a.estado] ?? '#3b82f6',

@@ -113,6 +113,26 @@ Schema::create('tabla_a_tabla_b', function (Blueprint $table) {
 | Queratometría | `string(100)` | "43.50 @ 90 / 44.00 @ 180" |
 | Datos oculares estructurados | `json` | {od: {...}, oi: {...}} |
 | Textos clínicos | `text` | recomendaciones, antecedentes |
+
+## ⚠️ `consultations` está al límite de fila de InnoDB
+
+La tabla tiene ~145 columnas y roza el límite de **8126 bytes por fila** de InnoDB.
+Ya hubo dos migraciones de reparación:
+
+- `2026_05_27_900000_reduce_consultations_row_size` — convirtió 32 VARCHAR a TEXT.
+- `2026_08_08_000001_add_missing_consultation_order_columns` — recreó 5 columnas que un
+  ALTER anterior no llegó a crear porque se quedó sin espacio de fila a mitad de camino.
+
+**Toda columna nueva en `consultations` debe ser `TEXT`, nunca `VARCHAR`.** En la fila,
+TEXT ocupa solo un puntero a la página de overflow. Las tablas hijas no tienen esta
+restricción: si el modelo lo permite, preferir una tabla relacionada antes que ensanchar
+`consultations`.
+
+Antes de aplicar una migración sobre esta tabla, revisar el SQL generado:
+
+```bash
+php artisan migrate --pretend
+```
 | Fecha de consulta | `date` | |
 | Datetime de cita | `dateTime` | |
 | Cédula | `string(20)` | "1234567890" |

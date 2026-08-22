@@ -9,6 +9,11 @@
 //
 // `requiredFields`: nombres de campo del formulario asociados a la key. Si alguno
 // está en `settings.required_fields`, el campo NUNCA se oculta (obligatorio gana).
+//
+// Las columnas de refracción (RX en uso, subjetivo, visión de lejos/cerca) siguen
+// siendo configurables, pero ya NO se ocultan por defecto: la óptica las usa todas.
+// Ver la migración 2026_08_22_000004_unhide_refraction_fields, que ademas depura
+// las keys ya guardadas en `settings`.
 
 export const FORM_ADVANCED_OPTIONS = [
     {
@@ -23,18 +28,18 @@ export const FORM_ADVANCED_OPTIONS = [
             { key: 'consulta:sec_tratamiento', label: 'Sección: Tratamiento', type: 'section', defaultAdvanced: true },
             // Campos / columnas sueltos
             { key: 'consulta:ultimo_control', label: 'Cabecera: Último control', type: 'field', defaultAdvanced: true },
-            { key: 'consulta:col_avsc', label: 'Refracción: columna AV.SC (lejos)', type: 'field', defaultAdvanced: true, requiredFields: ['avsc_od', 'avsc_oi'] },
-            { key: 'consulta:col_avcc', label: 'Refracción: columna AV.CC (lejos)', type: 'field', defaultAdvanced: true },
-            { key: 'consulta:rx_uso_cilindro', label: 'RX en uso: cilindro', type: 'field', defaultAdvanced: true },
-            { key: 'consulta:rx_uso_avcc', label: 'RX en uso: AV.CC', type: 'field', defaultAdvanced: true },
-            { key: 'consulta:subj_esfera', label: 'Subjetivo: esfera', type: 'field', defaultAdvanced: true },
-            { key: 'consulta:subj_eje', label: 'Subjetivo: eje', type: 'field', defaultAdvanced: true },
-            { key: 'consulta:subj_avl', label: 'Subjetivo: AVL', type: 'field', defaultAdvanced: true },
-            { key: 'consulta:rx_final_avl', label: 'RX final: AVL', type: 'field', defaultAdvanced: true },
-            { key: 'consulta:rx_final_prisma', label: 'RX final: prisma', type: 'field', defaultAdvanced: true },
-            { key: 'consulta:rx_final_base', label: 'RX final: base', type: 'field', defaultAdvanced: true },
-            { key: 'consulta:grp_vision_cerca', label: 'Grupo: Visión de cerca', type: 'field', defaultAdvanced: true },
-            { key: 'consulta:lente_anterior', label: 'Lente anterior', type: 'field', defaultAdvanced: true, requiredFields: ['lente_anterior'] },
+            { key: 'consulta:col_avsc', label: 'Refracción: columna AV.SC (lejos)', type: 'field', defaultAdvanced: false, requiredFields: ['avsc_od', 'avsc_oi'] },
+            { key: 'consulta:col_avcc', label: 'Refracción: columna AV.CC (lejos)', type: 'field', defaultAdvanced: false },
+            { key: 'consulta:rx_uso_cilindro', label: 'RX en uso: cilindro', type: 'field', defaultAdvanced: false },
+            { key: 'consulta:rx_uso_avcc', label: 'RX en uso: AV.CC', type: 'field', defaultAdvanced: false },
+            { key: 'consulta:subj_esfera', label: 'Subjetivo: esfera', type: 'field', defaultAdvanced: false },
+            { key: 'consulta:subj_eje', label: 'Subjetivo: eje', type: 'field', defaultAdvanced: false },
+            { key: 'consulta:subj_avl', label: 'Subjetivo: AVL', type: 'field', defaultAdvanced: false },
+            { key: 'consulta:rx_final_avl', label: 'RX final: AVL', type: 'field', defaultAdvanced: false },
+            { key: 'consulta:rx_final_prisma', label: 'RX final: prisma', type: 'field', defaultAdvanced: false },
+            { key: 'consulta:rx_final_base', label: 'RX final: base', type: 'field', defaultAdvanced: false },
+            { key: 'consulta:grp_vision_cerca', label: 'Grupo: Visión de cerca', type: 'field', defaultAdvanced: false },
+            { key: 'consulta:lente_anterior', label: 'Lente anterior', type: 'field', defaultAdvanced: false, requiredFields: ['lente_anterior'] },
             { key: 'consulta:queratometria', label: 'Queratometría (OD/OI)', type: 'field', defaultAdvanced: true },
             { key: 'consulta:examen_externo', label: 'Examen externo (OD/OI)', type: 'field', defaultAdvanced: true },
             { key: 'consulta:vision_colores', label: 'Visión de colores', type: 'field', defaultAdvanced: true },

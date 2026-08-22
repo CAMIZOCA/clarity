@@ -31,7 +31,9 @@ resources/js/
 │   │   ├── Badge.jsx          # Colores por estado/tipo predefinidos
 │   │   ├── Modal.jsx          # Tamaños: sm, md, lg, xl, 2xl
 │   │   ├── ConfirmModal.jsx   # Confirmar acciones destructivas
-│   │   ├── Toast.jsx          # Notificaciones (bottom-right, auto-close 3s)
+│   │   ├── Toast.jsx          # Notificaciones (bottom-right; errores 12s + sonido)
+│   │   ├── DateInput.jsx      # Fecha DD/MM/AAAA (emite YYYY-MM-DD)
+│   │   ├── ConnectionBanner.jsx # Aviso global de conexion perdida
 │   │   └── PatientAutocomplete.jsx  # Buscador de pacientes
 │   └── forms/
 │       ├── EyeFieldGroup.jsx  # Campos duales OD/OI para datos oculares
@@ -58,7 +60,7 @@ Sidebar: fondo `bg-navy`, activo `bg-white/20`, hover `hover:bg-white/10`
 ```jsx
 export default function ModuloListPage() {
   const { user, isAdmin } = useAuth();
-  const { showToast } = useToast();
+  const { addToast } = useToast();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -70,13 +72,13 @@ export default function ModuloListPage() {
     try {
       const { data } = await client.get('/modulo', { params: { search } });
       setItems(data.data); // data.data para paginados
-    } catch { showToast('Error al cargar', 'error'); }
+    } catch { addToast('Error al cargar', 'error'); }
     finally { setLoading(false); }
   };
 
   const handleDelete = async () => {
     await client.delete(`/modulo/${deleteModal.item.id}`);
-    showToast('Eliminado correctamente', 'success');
+    addToast('Eliminado correctamente', 'success');
     fetchItems();
     setDeleteModal({ open: false, item: null });
   };
@@ -118,7 +120,7 @@ export default function ModuloFormPage() {
   const onSubmit = async (data) => {
     if (isEditing) await client.patch(`/modulo/${id}`, data);
     else await client.post('/modulo', data);
-    showToast('Guardado', 'success');
+    addToast('Guardado', 'success');
     navigate('/modulo');
   };
 }
@@ -127,7 +129,7 @@ export default function ModuloFormPage() {
 ## Cliente HTTP
 
 ```javascript
-import client from '@/api/client'; // base URL = /api, CSRF automático
+import client from '../../api/client'; // base URL = /api, CSRF automático
 
 // GET con params
 const { data } = await client.get('/endpoint', { params: { search, page } });
@@ -166,7 +168,7 @@ const NuevaPagina = lazy(() => import('../pages/nuevo/NuevaPaginaListPage'));
 ## Autenticación y Roles
 
 ```jsx
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '../../contexts/AuthContext';
 
 const { user, isAdmin, isOptometra } = useAuth();
 
@@ -179,12 +181,46 @@ if (!isAdmin()) return <Navigate to="/dashboard" />;
 
 ## Toast Notifications
 
-```jsx
-import { useToast } from '@/components/ui/Toast';
-const { showToast } = useToast();
+**No existe alias `@/`**: todos los imports son rutas relativas.
 
-showToast('Mensaje', 'success');  // o 'error', 'info'
+```jsx
+import { useToast } from '../../components/ui/Toast';
+const { addToast } = useToast();
+
+addToast('Mensaje', 'success');  // o 'error', 'info'
+addToast('Fallo el guardado', 'error');  // dura 12 s y emite un sonido
 ```
+
+Firma: `addToast(mensaje, tipo = 'info', duracionMs?)`. Los errores duran 12 s
+y son descartables a mano; el resto se cierra solo a los 3 s.
+
+## Leer respuestas de la API
+
+Los API Resources envuelven en `data` y otros endpoints no. Usar siempre el helper:
+
+```jsx
+import { getPayload, getList, getPagination } from '../../api/response';
+
+const { data } = await client.get(`/patients/${id}`);
+setPatient(getPayload({ data }));   // tolera {data:{...}} y {...}
+```
+
+Leer `r.data` directo sobre un endpoint con Resource fue la causa de cinco bugs
+(pacientes que caian en `/pacientes/undefined`, menu de Administracion que
+desaparecia al recargar). Ante la duda, `getPayload`.
+
+## Fechas
+
+Toda fecha de calendario viaja como `YYYY-MM-DD` y se muestra `DD/MM/AAAA`.
+
+```jsx
+import { toDisplayDate, todayIso } from '../../utils/dates';
+import DateInput from '../../components/ui/DateInput';
+
+<DateInput control={control} name="fecha_nacimiento" label="Fecha de nacimiento" />
+```
+
+**Nunca** `new Date('YYYY-MM-DD')` a secas: en UTC-5 devuelve el dia anterior.
 
 ## Workflow para Nueva Página
 
