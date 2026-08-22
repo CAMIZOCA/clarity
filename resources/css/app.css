@@ -73,14 +73,23 @@ textarea {
 }
 
 .landing-page {
-    --landing-ink: #071923;
+    --landing-bg: #05070f;
+    --landing-bg-soft: #0b1226;
+    --landing-ink: #0a1120;
     --landing-navy: #0d2d4f;
-    --landing-blue: #135d8f;
-    --landing-cyan: #20b8c7;
-    --landing-green: #1f9f7a;
-    --landing-soft: #eef7f8;
-    --landing-line: #d9e8eb;
-    --landing-muted: #526c76;
+    --landing-grad-from: #2563eb;
+    --landing-grad-via: #22d3ee;
+    --landing-grad-to: #6366f1;
+    --landing-blue: #2563eb;
+    --landing-cyan: #22d3ee;
+    --landing-indigo: #6366f1;
+    --landing-green: #22c55e;
+    --landing-soft: #f3f6fb;
+    --landing-line: #e2e8f4;
+    --landing-muted: #4b5875;
+    --landing-on-dark-muted: rgba(255, 255, 255, 0.68);
+    --landing-on-dark-line: rgba(255, 255, 255, 0.12);
+    --landing-bg-translucent: rgba(5, 7, 15, 0.85);
     scroll-behavior: smooth;
 }
 
@@ -93,6 +102,103 @@ textarea {
         linear-gradient(90deg, rgba(13, 45, 79, 0.05) 1px, transparent 1px);
     background-size: 44px 44px;
     mask-image: linear-gradient(to bottom, black, transparent 82%);
+}
+
+.landing-grid-dark {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image:
+        linear-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+    background-size: 44px 44px;
+    mask-image: linear-gradient(to bottom, black, transparent 82%);
+}
+
+.landing-gradient-text {
+    background-image: linear-gradient(
+        95deg,
+        var(--landing-grad-from),
+        var(--landing-grad-via) 55%,
+        var(--landing-grad-to)
+    );
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+}
+
+.landing-gradient-bg {
+    background-image: linear-gradient(
+        135deg,
+        var(--landing-grad-from),
+        var(--landing-grad-via) 55%,
+        var(--landing-grad-to)
+    );
+}
+
+.landing-gradient-cta {
+    background-image: linear-gradient(
+        95deg,
+        var(--landing-grad-from),
+        var(--landing-grad-via) 50%,
+        var(--landing-grad-to)
+    );
+    background-size: 200% auto;
+    transition: background-position 420ms ease;
+}
+
+.landing-gradient-cta:hover {
+    background-position: 100% center;
+}
+
+.landing-glow {
+    position: relative;
+}
+
+.landing-glow::before {
+    content: '';
+    position: absolute;
+    inset: -20%;
+    z-index: -1;
+    opacity: 0;
+    background: radial-gradient(
+        closest-side,
+        rgba(34, 211, 238, 0.35),
+        rgba(99, 102, 241, 0.2) 60%,
+        transparent 80%
+    );
+    filter: blur(40px);
+    transition: opacity 220ms ease;
+}
+
+.landing-glow:hover::before {
+    opacity: 1;
+}
+
+.landing-glow-static::before {
+    opacity: 1;
+}
+
+.landing-stat-number {
+    font-size: clamp(2rem, 4vw, 2.75rem);
+    font-weight: 900;
+    line-height: 1;
+    background-image: linear-gradient(95deg, var(--landing-grad-from), var(--landing-grad-via));
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+}
+
+@keyframes landing-gradient-pan {
+    0% {
+        background-position: 0% center;
+    }
+    50% {
+        background-position: 100% center;
+    }
+    100% {
+        background-position: 0% center;
+    }
 }
 
 .landing-eyebrow {

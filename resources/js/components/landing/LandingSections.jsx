@@ -5,31 +5,40 @@ import { landingContent } from '../../data/landingContent';
 import { HeroMockup, ModuleMockup } from './Mockups';
 
 export function HeroSection() {
+    const [keyword, ...restWords] = landingContent.hero.title.split(' ');
     return (
-        <section className="relative isolate overflow-hidden bg-[radial-gradient(circle_at_72%_18%,rgba(38,192,211,0.18),transparent_34%),linear-gradient(135deg,#f8fbff_0%,#eef8fb_52%,#ffffff_100%)] px-5 pb-20 pt-32 lg:px-8 lg:pt-36">
-            <div className="landing-grid" />
+        <section className="relative isolate overflow-hidden bg-[var(--landing-bg)] px-5 pb-20 pt-32 lg:px-8 lg:pt-36">
+            <div className="landing-grid-dark" />
+            <div
+                className="pointer-events-none absolute -top-32 right-[-10%] h-[32rem] w-[32rem] rounded-full opacity-60 blur-3xl"
+                style={{ background: 'radial-gradient(closest-side, rgba(37,99,235,0.35), rgba(99,102,241,0.15), transparent 75%)' }}
+            />
+            <div
+                className="pointer-events-none absolute bottom-[-20%] left-[-10%] h-[26rem] w-[26rem] rounded-full opacity-50 blur-3xl"
+                style={{ background: 'radial-gradient(closest-side, rgba(34,211,238,0.28), transparent 75%)' }}
+            />
             <div className="relative mx-auto grid max-w-7xl items-center gap-12 lg:grid-cols-[0.9fr_1.1fr]">
                 <div className="landing-reveal">
-                    <p className="inline-flex items-center gap-2 rounded-full border border-cyan-200 bg-white/70 px-4 py-2 text-sm font-black text-[var(--landing-blue)] shadow-sm">
-                        <Sparkles size={16} />
+                    <p className="inline-flex items-center gap-2 rounded-full border border-[var(--landing-on-dark-line)] bg-white/8 px-4 py-2 text-sm font-black text-white/85 backdrop-blur">
+                        <Sparkles size={16} className="text-[var(--landing-cyan)]" />
                         {landingContent.hero.eyebrow}
                     </p>
-                    <h1 className="mt-6 max-w-4xl text-5xl font-black leading-[0.98] text-[var(--landing-ink)] sm:text-6xl lg:text-7xl">
-                        {landingContent.hero.title}
+                    <h1 className="mt-6 max-w-4xl text-5xl font-black leading-[0.98] text-white sm:text-6xl lg:text-7xl">
+                        <span className="landing-gradient-text">{keyword}</span> {restWords.join(' ')}
                     </h1>
-                    <p className="mt-6 max-w-2xl text-lg leading-8 text-[var(--landing-muted)] sm:text-xl">
+                    <p className="mt-6 max-w-2xl text-lg leading-8 text-white/68 sm:text-xl">
                         {landingContent.hero.subtitle}
                     </p>
                     <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                        <a href="#demo" className="inline-flex items-center justify-center gap-2 rounded-xl bg-[var(--landing-blue)] px-6 py-4 font-black text-white shadow-xl shadow-cyan-900/14 transition hover:-translate-y-0.5 hover:bg-[var(--landing-navy)]">
+                        <a href="#demo" className="landing-gradient-cta inline-flex items-center justify-center gap-2 rounded-full px-6 py-4 font-black text-white shadow-xl shadow-blue-900/30 transition hover:-translate-y-0.5">
                             {landingContent.hero.primaryCta}
                             <ArrowRight size={19} />
                         </a>
-                        <Link to="/login" className="inline-flex items-center justify-center rounded-xl border border-[var(--landing-line)] bg-white px-6 py-4 font-black text-[var(--landing-ink)] transition hover:-translate-y-0.5 hover:border-[var(--landing-cyan)]">
+                        <Link to="/login" className="inline-flex items-center justify-center rounded-full border border-[var(--landing-on-dark-line)] bg-white/5 px-6 py-4 font-black text-white transition hover:-translate-y-0.5 hover:border-[var(--landing-cyan)] hover:bg-white/10">
                             {landingContent.hero.secondaryCta}
                         </Link>
                     </div>
-                    <p className="mt-5 max-w-xl text-sm font-semibold leading-6 text-[var(--landing-muted)]">{landingContent.hero.trust}</p>
+                    <p className="mt-5 max-w-xl text-sm font-semibold leading-6 text-white/50">{landingContent.hero.trust}</p>
                 </div>
                 <HeroMockup />
             </div>
@@ -39,17 +48,33 @@ export function HeroSection() {
 
 export function TrustBar() {
     return (
-        <section className="border-y border-[var(--landing-line)] bg-white px-5 py-6 lg:px-8">
-            <div className="mx-auto grid max-w-7xl gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                {landingContent.trustItems.map(({ icon: Icon, title, text }) => (
-                    <div key={title} className="flex gap-3">
-                        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[var(--landing-soft)] text-[var(--landing-blue)]"><Icon size={21} /></span>
-                        <span>
-                            <span className="block font-black text-[var(--landing-ink)]">{title}</span>
-                            <span className="block text-sm leading-6 text-[var(--landing-muted)]">{text}</span>
-                        </span>
+        <section className="border-y border-[var(--landing-on-dark-line)] bg-[var(--landing-bg-soft)] px-5 py-10 lg:px-8">
+            <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[1fr_1.4fr] lg:items-center">
+                <div className="grid grid-cols-3 gap-6 border-b border-[var(--landing-on-dark-line)] pb-8 lg:border-b-0 lg:border-r lg:pb-0 lg:pr-8">
+                    <div>
+                        <span className="landing-stat-number">{landingContent.modules.length}</span>
+                        <p className="mt-1 text-xs font-bold uppercase tracking-[0.12em] text-white/50">Modulos</p>
                     </div>
-                ))}
+                    <div>
+                        <span className="landing-stat-number">{landingContent.roleBenefits.length}</span>
+                        <p className="mt-1 text-xs font-bold uppercase tracking-[0.12em] text-white/50">Roles cubiertos</p>
+                    </div>
+                    <div>
+                        <span className="landing-stat-number">{landingContent.platformCards.length}</span>
+                        <p className="mt-1 text-xs font-bold uppercase tracking-[0.12em] text-white/50">Areas clave</p>
+                    </div>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                    {landingContent.trustItems.map(({ icon: Icon, title, text }) => (
+                        <div key={title} className="flex gap-3">
+                            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white/8 text-[var(--landing-cyan)]"><Icon size={21} /></span>
+                            <span>
+                                <span className="block font-black text-white">{title}</span>
+                                <span className="block text-sm leading-6 text-white/60">{text}</span>
+                            </span>
+                        </div>
+                    ))}
+                </div>
             </div>
         </section>
     );
@@ -66,7 +91,7 @@ export function ProblemsSection() {
                 </div>
                 <div className="mt-10 grid gap-5 lg:grid-cols-2">
                     {landingContent.problems.map((item) => (
-                        <article key={item.problem} className="rounded-3xl border border-[var(--landing-line)] bg-white p-6 shadow-lg shadow-slate-900/5 transition hover:-translate-y-1">
+                        <article key={item.problem} className="landing-glow rounded-3xl border border-[var(--landing-line)] bg-white p-6 shadow-lg shadow-indigo-900/5 transition hover:-translate-y-1 hover:border-[var(--landing-cyan)]">
                             <div className="grid gap-4 sm:grid-cols-[0.85fr_1.15fr]">
                                 <div className="rounded-2xl bg-red-50 p-4">
                                     <p className="flex items-center gap-2 text-sm font-black uppercase tracking-[0.14em] text-red-700"><Minus size={16} /> Antes</p>
@@ -96,8 +121,10 @@ export function PlatformSection() {
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
                     {landingContent.platformCards.map(({ icon: Icon, label, text }) => (
-                        <article key={label} className="rounded-2xl bg-white p-5 shadow-lg shadow-slate-900/5 transition hover:-translate-y-1">
-                            <Icon className="text-[var(--landing-cyan)]" size={26} />
+                        <article key={label} className="landing-glow rounded-2xl bg-white p-5 shadow-lg shadow-indigo-900/5 transition hover:-translate-y-1">
+                            <span className="landing-gradient-bg grid h-11 w-11 place-items-center rounded-xl text-white">
+                                <Icon size={22} />
+                            </span>
                             <h3 className="mt-4 text-xl font-black text-[var(--landing-ink)]">{label}</h3>
                             <p className="mt-2 leading-7 text-[var(--landing-muted)]">{text}</p>
                         </article>
@@ -123,9 +150,9 @@ export function ModulesSection() {
                         const textOrder = index % 2 ? 'lg:order-2' : '';
                         const mockupOrder = index % 2 ? 'lg:order-1' : '';
                         return (
-                            <article key={module.id} className="grid gap-8 rounded-[2rem] border border-[var(--landing-line)] bg-white p-5 shadow-xl shadow-slate-900/6 lg:grid-cols-2 lg:p-8">
+                            <article className="landing-glow grid gap-8 rounded-[2rem] border border-[var(--landing-line)] bg-white p-5 shadow-xl shadow-indigo-900/6 lg:grid-cols-2 lg:p-8" key={module.id}>
                                 <div className={`flex flex-col justify-center ${textOrder}`}>
-                                    <span className="grid h-12 w-12 place-items-center rounded-xl bg-[var(--landing-soft)] text-[var(--landing-blue)]"><Icon size={25} /></span>
+                                    <span className="landing-gradient-bg grid h-12 w-12 place-items-center rounded-xl text-white"><Icon size={25} /></span>
                                     <h3 className="mt-5 text-3xl font-black text-[var(--landing-ink)]">{module.title}</h3>
                                     <p className="mt-4 font-bold leading-7 text-[var(--landing-ink)]">{module.problem}</p>
                                     <p className="mt-3 leading-7 text-[var(--landing-muted)]">{module.benefit}</p>
@@ -134,7 +161,7 @@ export function ModulesSection() {
                                             <span key={item} className="rounded-full bg-[var(--landing-soft)] px-3 py-1.5 text-sm font-bold text-[var(--landing-blue)]">{item}</span>
                                         ))}
                                     </div>
-                                    <a href="#demo" className="mt-7 inline-flex w-fit items-center gap-2 rounded-xl border border-[var(--landing-line)] px-5 py-3 font-black text-[var(--landing-ink)] transition hover:border-[var(--landing-cyan)] hover:bg-[var(--landing-soft)]">
+                                    <a href="#demo" className="landing-gradient-cta mt-7 inline-flex w-fit items-center gap-2 rounded-full px-5 py-3 font-black text-white transition hover:-translate-y-0.5">
                                         Ver este modulo en demo
                                         <ArrowRight size={18} />
                                     </a>
@@ -153,16 +180,16 @@ export function ModulesSection() {
 
 export function WorkflowSection() {
     return (
-        <section id="como-funciona" className="bg-[var(--landing-ink)] px-5 py-20 text-white lg:px-8">
+        <section id="como-funciona" className="bg-[var(--landing-bg-soft)] px-5 py-20 text-white lg:px-8">
             <div className="mx-auto max-w-7xl">
                 <div className="max-w-3xl">
-                    <p className="text-sm font-black uppercase tracking-[0.2em] text-cyan-200">Como funciona</p>
+                    <p className="text-sm font-black uppercase tracking-[0.2em] text-[var(--landing-cyan)]">Como funciona</p>
                     <h2 className="mt-3 text-4xl font-black leading-tight sm:text-5xl">Implementa, opera y mide con un flujo ordenado.</h2>
                 </div>
                 <div className="mt-12 grid gap-5 lg:grid-cols-4">
                     {landingContent.workflow.map((step, index) => (
-                        <article key={step.title} className="rounded-3xl border border-white/12 bg-white/6 p-6">
-                            <span className="text-5xl font-black text-cyan-200">{String(index + 1).padStart(2, '0')}</span>
+                        <article key={step.title} className="rounded-3xl border border-[var(--landing-on-dark-line)] bg-white/6 p-6 transition hover:border-[var(--landing-cyan)]">
+                            <span className="landing-gradient-text text-5xl font-black">{String(index + 1).padStart(2, '0')}</span>
                             <h3 className="mt-5 text-xl font-black">{step.title}</h3>
                             <p className="mt-3 leading-7 text-white/68">{step.text}</p>
                         </article>
@@ -183,8 +210,8 @@ export function RolesAndComparisonSection() {
                         <h2 className="landing-title">Cada rol ve valor en su propio flujo.</h2>
                         <div className="mt-8 grid gap-4 sm:grid-cols-2">
                             {landingContent.roleBenefits.map(({ role, icon: Icon, benefits }) => (
-                                <article key={role} className="rounded-2xl border border-[var(--landing-line)] bg-white p-5">
-                                    <Icon className="text-[var(--landing-cyan)]" size={25} />
+                                <article key={role} className="landing-glow rounded-2xl border border-[var(--landing-line)] bg-white p-5">
+                                    <Icon className="text-[var(--landing-blue)]" size={25} />
                                     <h3 className="mt-4 font-black text-[var(--landing-ink)]">{role}</h3>
                                     <div className="mt-3 space-y-2">
                                         {benefits.map((item) => (
@@ -225,13 +252,13 @@ export function GalleryAndExtrasSection() {
                 </div>
                 <div className="mt-10 grid gap-5 lg:grid-cols-3">
                     {landingContent.gallery.map((item) => (
-                        <article key={item.label} className="rounded-3xl border border-[var(--landing-line)] bg-[var(--landing-soft)] p-5">
+                        <article key={item.label} className="landing-glow rounded-3xl border border-[var(--landing-line)] bg-[var(--landing-soft)] p-5">
                             <div className="h-36 rounded-2xl bg-white p-4 shadow-inner">
                                 <div className="h-3 w-24 rounded-full bg-cyan-200" />
                                 <div className="mt-5 grid gap-2">
                                     <span className="h-3 rounded-full bg-slate-200" />
                                     <span className="h-3 w-4/5 rounded-full bg-slate-200" />
-                                    <span className="h-14 rounded-xl bg-[linear-gradient(90deg,var(--landing-blue),var(--landing-cyan))]" />
+                                    <span className="landing-gradient-bg h-14 rounded-xl" />
                                 </div>
                             </div>
                             <h3 className="mt-5 text-xl font-black text-[var(--landing-ink)]">{item.label}</h3>
@@ -241,8 +268,8 @@ export function GalleryAndExtrasSection() {
                 </div>
                 <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     {landingContent.additionalFeatures.map(({ icon: Icon, title, text }) => (
-                        <article key={title} className="rounded-2xl border border-[var(--landing-line)] bg-white p-5 shadow-sm">
-                            <Icon className="text-[var(--landing-cyan)]" size={24} />
+                        <article key={title} className="landing-glow rounded-2xl border border-[var(--landing-line)] bg-white p-5 shadow-sm">
+                            <Icon className="text-[var(--landing-blue)]" size={24} />
                             <h3 className="mt-4 font-black text-[var(--landing-ink)]">{title}</h3>
                             <p className="mt-2 text-sm leading-6 text-[var(--landing-muted)]">{text}</p>
                         </article>
@@ -263,10 +290,12 @@ export function FaqSection() {
                 </div>
                 <div className="grid gap-4">
                     {landingContent.faq.map((item) => (
-                        <details key={item.question} className="group rounded-2xl bg-white p-5 shadow-sm">
+                        <details key={item.question} className="group rounded-2xl bg-white p-5 shadow-sm transition open:shadow-md open:shadow-indigo-900/5">
                             <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-black text-[var(--landing-ink)]">
                                 {item.question}
-                                <Plus className="shrink-0 transition group-open:rotate-45" size={20} />
+                                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[var(--landing-soft)] text-[var(--landing-blue)] transition group-open:rotate-45">
+                                    <Plus size={18} />
+                                </span>
                             </summary>
                             <p className="mt-4 leading-7 text-[var(--landing-muted)]">{item.answer}</p>
                         </details>

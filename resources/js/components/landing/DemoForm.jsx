@@ -75,10 +75,10 @@ export default function DemoForm() {
     };
 
     return (
-        <section id="demo" className="bg-[var(--landing-ink)] px-5 py-20 text-white lg:px-8">
+        <section id="demo" className="bg-[var(--landing-bg)] px-5 py-20 text-white lg:px-8">
             <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.82fr_1.18fr] lg:items-start">
                 <div>
-                    <p className="text-sm font-black uppercase tracking-[0.2em] text-cyan-200">Solicita una demostracion</p>
+                    <p className="text-sm font-black uppercase tracking-[0.2em] text-[var(--landing-cyan)]">Solicita una demostracion</p>
                     <h2 className="mt-3 text-4xl font-black leading-tight sm:text-5xl">
                         Mira como Clarity encaja en la operacion de tu optica.
                     </h2>
@@ -87,7 +87,7 @@ export default function DemoForm() {
                     </p>
                     <div className="mt-8 rounded-3xl border border-white/12 bg-white/6 p-5">
                         <p className="font-black">Funciones de interes seleccionadas</p>
-                        <p className="mt-2 text-4xl font-black text-cyan-200">{selectedCount}</p>
+                        <p className="mt-2 text-4xl font-black text-[var(--landing-cyan)]">{selectedCount}</p>
                         <p className="mt-2 text-sm leading-6 text-white/62">Puedes elegir varias areas para orientar la demostracion.</p>
                     </div>
                 </div>
@@ -190,7 +190,7 @@ export default function DemoForm() {
                     <button
                         type="submit"
                         disabled={status === 'loading'}
-                        className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--landing-blue)] px-6 py-4 font-black text-white shadow-xl shadow-cyan-900/12 transition hover:bg-[var(--landing-navy)] disabled:cursor-not-allowed disabled:opacity-60"
+                        className="landing-gradient-cta mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full px-6 py-4 font-black text-white shadow-xl shadow-blue-900/20 transition disabled:cursor-not-allowed disabled:opacity-60"
                     >
                         {status === 'loading' ? <Loader2 className="animate-spin" size={18} /> : <Send size={18} />}
                         Enviar solicitud

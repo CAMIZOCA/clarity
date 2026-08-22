@@ -3,7 +3,7 @@ import { CheckCircle2, CircleDollarSign, Package, UserRound } from 'lucide-react
 
 export function HeroMockup() {
     return (
-        <div className="landing-float relative mx-auto max-w-4xl rounded-[1.75rem] border border-white/70 bg-white/88 p-4 shadow-2xl shadow-slate-900/16 backdrop-blur">
+        <div className="landing-float landing-glow landing-glow-static relative mx-auto max-w-4xl rounded-[1.75rem] border border-white/70 bg-white/88 p-4 shadow-2xl shadow-black/40 backdrop-blur">
             <div className="flex items-center justify-between border-b border-[var(--landing-line)] pb-4">
                 <div>
                     <p className="text-xs font-black uppercase tracking-[0.18em] text-[var(--landing-cyan)]">Panel demo</p>
