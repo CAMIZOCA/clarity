@@ -5,8 +5,8 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Appointment;
 use App\Models\Branch;
-use App\Models\Consultation;
 use App\Models\CashRegisterSession;
+use App\Models\Consultation;
 use App\Models\Expense;
 use App\Models\Inventory;
 use App\Models\InventoryMovement;
@@ -15,6 +15,7 @@ use App\Models\Patient;
 use App\Models\Payment;
 use App\Models\Sale;
 use App\Support\AppConfig;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -25,7 +26,7 @@ class ReportController extends Controller
 {
     public function dashboard(): JsonResponse
     {
-        $cacheKey = 'dashboard_stats_' . now()->format('Y-m-d-H-i');
+        $cacheKey = 'dashboard_stats_'.now()->format('Y-m-d-H-i');
         $cacheHit = Cache::has($cacheKey);
 
         $data = Cache::remember($cacheKey, AppConfig::CACHE_DASHBOARD, function () {
@@ -53,16 +54,16 @@ class ReportController extends Controller
                 ->get(['id', 'patient_id', 'titulo', 'fecha_hora_inicio', 'estado']);
 
             return [
-                'totalPacientes'   => $totalPacientes,
-                'consultasHoy'     => $consultasHoy,
-                'citasPendientes'  => $citasPendientes,
+                'totalPacientes' => $totalPacientes,
+                'consultasHoy' => $consultasHoy,
+                'citasPendientes' => $citasPendientes,
                 'ultimasConsultas' => $ultimasConsultas->values()->toArray(),
-                'proximasCitas'    => $proximasCitas->values()->toArray(),
+                'proximasCitas' => $proximasCitas->values()->toArray(),
             ];
         });
 
         return response()->json(array_merge($data, [
-            'cache_hit'    => $cacheHit,
+            'cache_hit' => $cacheHit,
             'generated_at' => now()->toISOString(),
         ]));
     }
@@ -70,7 +71,7 @@ class ReportController extends Controller
     public function consultations(Request $request): JsonResponse
     {
         $from = $request->input('from', now()->startOfMonth()->toDateString());
-        $to   = $request->input('to', now()->toDateString());
+        $to = $request->input('to', now()->toDateString());
 
         $query = Consultation::whereBetween('fecha_consulta', [$from, $to]);
 
@@ -78,7 +79,7 @@ class ReportController extends Controller
             $query->where('optometrista_id', $id);
         }
 
-        $total      = $query->count();
+        $total = $query->count();
         $completadas = (clone $query)->where('estado', 'completada')->count();
 
         $porDia = (clone $query)
@@ -93,7 +94,7 @@ class ReportController extends Controller
     public function diagnoses(Request $request): JsonResponse
     {
         $from = $request->input('from', now()->startOfYear()->toDateString());
-        $to   = $request->input('to', now()->toDateString());
+        $to = $request->input('to', now()->toDateString());
 
         $diagnoses = Consultation::whereBetween('fecha_consulta', [$from, $to])
             ->whereNotNull('diagnostico_cie10')
@@ -109,9 +110,9 @@ class ReportController extends Controller
     public function patients(Request $request): JsonResponse
     {
         $from = $request->input('from', now()->startOfMonth()->toDateString());
-        $to   = $request->input('to', now()->toDateString());
+        $to = $request->input('to', now()->toDateString());
 
-        $nuevos = Patient::whereBetween('created_at', [$from . ' 00:00:00', $to . ' 23:59:59'])->count();
+        $nuevos = Patient::whereBetween('created_at', [$from.' 00:00:00', $to.' 23:59:59'])->count();
 
         $conConsulta = Consultation::whereBetween('fecha_consulta', [$from, $to])
             ->distinct('patient_id')
@@ -125,14 +126,14 @@ class ReportController extends Controller
     public function exportCsv(Request $request): Response
     {
         $from = $request->input('from', now()->startOfMonth()->toDateString());
-        $to   = $request->input('to', now()->toDateString());
+        $to = $request->input('to', now()->toDateString());
 
         $consultations = Consultation::with(['patient:id,nombre,apellido,cedula', 'optometrista:id,name'])
             ->whereBetween('fecha_consulta', [$from, $to])
             ->orderBy('fecha_consulta')
             ->get();
 
-        $lines   = [];
+        $lines = [];
         $lines[] = implode(',', [
             'ID', 'N° Consulta', 'Fecha', 'Paciente', 'Cédula', 'Optómetra',
             'Diagnóstico CIE-10', 'Descripción', 'Estado',
@@ -143,11 +144,11 @@ class ReportController extends Controller
                 $c->id,
                 $c->numero_consulta,
                 $c->fecha_consulta->format('Y-m-d'),
-                '"' . str_replace('"', '""', $c->patient?->nombre ?? '') . '"',
+                '"'.str_replace('"', '""', $c->patient?->nombre_completo ?? '').'"',
                 $c->patient?->cedula ?? '',
-                '"' . str_replace('"', '""', $c->optometrista?->name ?? '') . '"',
+                '"'.str_replace('"', '""', $c->optometrista?->name ?? '').'"',
                 $c->diagnostico_cie10 ?? '',
-                '"' . str_replace('"', '""', $c->diagnostico_descripcion ?? '') . '"',
+                '"'.str_replace('"', '""', $c->diagnostico_descripcion ?? '').'"',
                 $c->estado,
             ]);
         }
@@ -155,8 +156,8 @@ class ReportController extends Controller
         $csv = implode("\n", $lines);
 
         return response($csv, 200, [
-            'Content-Type'        => 'text/csv; charset=UTF-8',
-            'Content-Disposition' => 'attachment; filename="consultas_' . $from . '_' . $to . '.csv"',
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="consultas_'.$from.'_'.$to.'.csv"',
         ]);
     }
 
@@ -169,12 +170,12 @@ class ReportController extends Controller
     public function salesReport(Request $request): JsonResponse
     {
         $dateFrom = $request->input('date_from', now()->startOfMonth()->toDateString());
-        $dateTo   = $request->input('date_to', now()->toDateString());
+        $dateTo = $request->input('date_to', now()->toDateString());
         $branchId = $request->input('branch_id');
-        $userId   = $request->input('user_id');
-        $groupBy  = $request->input('group_by', 'day');
+        $userId = $request->input('user_id');
+        $groupBy = $request->input('group_by', 'day');
 
-        $cacheKey = 'report_sales_' . md5("{$dateFrom}_{$dateTo}_{$branchId}_{$userId}_{$groupBy}");
+        $cacheKey = 'report_sales_'.md5("{$dateFrom}_{$dateTo}_{$branchId}_{$userId}_{$groupBy}");
 
         $data = Cache::remember($cacheKey, 300, function () use ($dateFrom, $dateTo, $branchId, $userId, $groupBy) {
             $isSqlite = DB::getDriverName() === 'sqlite';
@@ -182,8 +183,8 @@ class ReportController extends Controller
             // Base query — excluye borradores y canceladas
             $base = Sale::query()
                 ->whereNotIn('status', ['draft', 'cancelled'])
-                ->whereDate('created_at', '>=', $dateFrom)
-                ->whereDate('created_at', '<=', $dateTo);
+                ->whereDate('sales.created_at', '>=', $dateFrom)
+                ->whereDate('sales.created_at', '<=', $dateTo);
 
             if ($branchId) {
                 $base->where('branch_id', $branchId);
@@ -202,11 +203,11 @@ class ReportController extends Controller
                  COALESCE(SUM(cost_total), 0) as total_cost'
             )->first();
 
-            $totalAmount   = (float) $summary->total_amount;
-            $totalCost     = (float) $summary->total_cost;
-            $grossMargin   = $totalAmount - $totalCost;
+            $totalAmount = (float) $summary->total_amount;
+            $totalCost = (float) $summary->total_cost;
+            $grossMargin = $totalAmount - $totalCost;
             $grossMarginPct = $totalAmount > 0 ? round(($grossMargin / $totalAmount) * 100, 2) : 0;
-            $avgTicket     = $summary->total_sales > 0 ? round($totalAmount / $summary->total_sales, 2) : 0;
+            $avgTicket = $summary->total_sales > 0 ? round($totalAmount / $summary->total_sales, 2) : 0;
 
             // Canceladas
             $cancelled = Sale::query()
@@ -220,8 +221,8 @@ class ReportController extends Controller
             // Agrupación por período
             $periodExpr = match ($groupBy) {
                 'month' => $isSqlite ? "STRFTIME('%Y-%m', created_at)" : "DATE_FORMAT(created_at, '%Y-%m')",
-                'week'  => $isSqlite ? "STRFTIME('%Y-%W', created_at)" : "YEARWEEK(created_at)",
-                default => $isSqlite ? "DATE(created_at)" : "DATE(created_at)",
+                'week' => $isSqlite ? "STRFTIME('%Y-%W', created_at)" : 'YEARWEEK(created_at)',
+                default => $isSqlite ? 'DATE(created_at)' : 'DATE(created_at)',
             };
 
             $byPeriod = (clone $base)
@@ -251,35 +252,35 @@ class ReportController extends Controller
 
             return [
                 'summary' => [
-                    'total_sales'       => (int) $summary->total_sales,
-                    'total_amount'      => $totalAmount,
-                    'total_paid'        => (float) $summary->total_paid,
-                    'total_balance'     => (float) $summary->total_balance,
-                    'total_discount'    => (float) $summary->total_discount,
-                    'total_cost'        => $totalCost,
-                    'gross_margin'      => $grossMargin,
-                    'gross_margin_pct'  => $grossMarginPct,
-                    'avg_ticket'        => $avgTicket,
-                    'cancelled_count'   => (int) $cancelled->cnt,
-                    'cancelled_amount'  => (float) $cancelled->amt,
+                    'total_sales' => (int) $summary->total_sales,
+                    'total_amount' => $totalAmount,
+                    'total_paid' => (float) $summary->total_paid,
+                    'total_balance' => (float) $summary->total_balance,
+                    'total_discount' => (float) $summary->total_discount,
+                    'total_cost' => $totalCost,
+                    'gross_margin' => $grossMargin,
+                    'gross_margin_pct' => $grossMarginPct,
+                    'avg_ticket' => $avgTicket,
+                    'cancelled_count' => (int) $cancelled->cnt,
+                    'cancelled_amount' => (float) $cancelled->amt,
                 ],
-                'by_period'         => $byPeriod->map(fn ($r) => [
+                'by_period' => $byPeriod->map(fn ($r) => [
                     'period' => $r->period,
-                    'count'  => (int) $r->count,
+                    'count' => (int) $r->count,
                     'amount' => (float) $r->amount,
-                    'cost'   => (float) $r->cost,
-                ])->values(),
+                    'cost' => (float) $r->cost,
+                ])->values()->toArray(),
                 'by_payment_method' => $byMethod->map(fn ($r) => [
                     'method' => $r->method,
-                    'count'  => (int) $r->count,
+                    'count' => (int) $r->count,
                     'amount' => (float) $r->amount,
-                ])->values(),
+                ])->values()->toArray(),
                 'by_seller' => $bySeller->map(fn ($r) => [
                     'user_id' => $r->user_id,
-                    'name'    => $r->name,
-                    'count'   => (int) $r->count,
-                    'amount'  => (float) $r->amount,
-                ])->values(),
+                    'name' => $r->name,
+                    'count' => (int) $r->count,
+                    'amount' => (float) $r->amount,
+                ])->values()->toArray(),
             ];
         });
 
@@ -292,12 +293,12 @@ class ReportController extends Controller
      */
     public function inventoryReport(Request $request): JsonResponse
     {
-        $warehouseId  = $request->input('warehouse_id');
-        $branchId     = $request->input('branch_id');
-        $category     = $request->input('category');
+        $warehouseId = $request->input('warehouse_id');
+        $branchId = $request->input('branch_id');
+        $category = $request->input('category');
         $lowStockOnly = $request->boolean('low_stock_only', false);
 
-        $cacheKey = 'report_inventory_' . md5("{$warehouseId}_{$branchId}_{$category}_{$lowStockOnly}");
+        $cacheKey = 'report_inventory_'.md5("{$warehouseId}_{$branchId}_{$category}_{$lowStockOnly}");
 
         $data = Cache::remember($cacheKey, 300, function () use ($warehouseId, $branchId, $category, $lowStockOnly) {
             // Base: inventario con variantes y productos
@@ -361,7 +362,8 @@ class ReportController extends Controller
             $cutoff = now()->subDays(30)->toDateString();
             $noMovement = (clone $base)
                 ->selectRaw(
-                    'product_variants.sku,
+                    'inventory.product_variant_id,
+                     product_variants.sku,
                      products.name,
                      inventory.quantity,
                      inventory.warehouse_id'
@@ -377,43 +379,48 @@ class ReportController extends Controller
                 ->limit(50)
                 ->get();
 
-            // Última fecha de movimiento para los "sin movimiento"
-            $noMovementResult = $noMovement->map(function ($row) {
-                $last = InventoryMovement::where('product_variant_id', $row->product_variant_id ?? null)
-                    ->where('warehouse_id', $row->warehouse_id)
-                    ->orderByDesc('created_at')
-                    ->value('created_at');
+            // Última fecha de movimiento para los "sin movimiento", en un solo
+            // query: antes era uno por fila (hasta 50) dentro del closure cacheado.
+            $lastMovements = InventoryMovement::query()
+                ->whereIn('product_variant_id', $noMovement->pluck('product_variant_id')->filter()->unique())
+                ->selectRaw('product_variant_id, warehouse_id, MAX(created_at) as last_movement')
+                ->groupBy('product_variant_id', 'warehouse_id')
+                ->get()
+                ->keyBy(fn ($m) => $m->product_variant_id.'-'.$m->warehouse_id);
+
+            $noMovementResult = $noMovement->map(function ($row) use ($lastMovements) {
+                $last = $lastMovements->get($row->product_variant_id.'-'.$row->warehouse_id)?->last_movement;
 
                 return [
-                    'sku'           => $row->sku,
-                    'name'          => $row->name,
-                    'quantity'      => (int) $row->quantity,
-                    'last_movement' => $last ? \Carbon\Carbon::parse($last)->toDateString() : null,
+                    'sku' => $row->sku,
+                    'name' => $row->name,
+                    'quantity' => (int) $row->quantity,
+                    'last_movement' => $last ? Carbon::parse($last)->toDateString() : null,
                 ];
             });
 
             return [
                 'valuation' => [
-                    'total_cost_value'  => $totalCostVal,
-                    'total_sale_value'  => $totalSaleVal,
-                    'potential_margin'  => $totalSaleVal - $totalCostVal,
-                    'total_units'       => (int) $valuation->total_units,
-                    'total_skus'        => (int) $valuation->total_skus,
+                    'total_cost_value' => $totalCostVal,
+                    'total_sale_value' => $totalSaleVal,
+                    'potential_margin' => $totalSaleVal - $totalCostVal,
+                    'total_units' => (int) $valuation->total_units,
+                    'total_skus' => (int) $valuation->total_skus,
                 ],
                 'by_category' => $byCategory->map(fn ($r) => [
-                    'category'   => $r->category,
-                    'units'      => (int) $r->units,
+                    'category' => $r->category,
+                    'units' => (int) $r->units,
                     'cost_value' => (float) $r->cost_value,
                     'sale_value' => (float) $r->sale_value,
-                ])->values(),
+                ])->values()->toArray(),
                 'low_stock' => $lowStock->map(fn ($r) => [
-                    'sku'       => $r->sku,
-                    'name'      => $r->name,
-                    'quantity'  => (int) $r->quantity,
+                    'sku' => $r->sku,
+                    'name' => $r->name,
+                    'quantity' => (int) $r->quantity,
                     'min_stock' => (int) $r->min_stock,
                     'warehouse' => $r->warehouse_name,
-                ])->values(),
-                'no_movement_30d' => $noMovementResult->values(),
+                ])->values()->toArray(),
+                'no_movement_30d' => $noMovementResult->values()->toArray(),
             ];
         });
 
@@ -426,17 +433,17 @@ class ReportController extends Controller
      */
     public function labReport(Request $request): JsonResponse
     {
-        $dateFrom      = $request->input('date_from', now()->startOfMonth()->toDateString());
-        $dateTo        = $request->input('date_to', now()->toDateString());
+        $dateFrom = $request->input('date_from', now()->startOfMonth()->toDateString());
+        $dateTo = $request->input('date_to', now()->toDateString());
         $labSupplierId = $request->input('lab_supplier_id');
-        $branchId      = $request->input('branch_id');
+        $branchId = $request->input('branch_id');
 
-        $cacheKey = 'report_lab_' . md5("{$dateFrom}_{$dateTo}_{$labSupplierId}_{$branchId}");
+        $cacheKey = 'report_lab_'.md5("{$dateFrom}_{$dateTo}_{$labSupplierId}_{$branchId}");
 
         $data = Cache::remember($cacheKey, 300, function () use ($dateFrom, $dateTo, $labSupplierId, $branchId) {
             $base = LabOrder::query()
-                ->whereDate('created_at', '>=', $dateFrom)
-                ->whereDate('created_at', '<=', $dateTo);
+                ->whereDate('lab_orders.created_at', '>=', $dateFrom)
+                ->whereDate('lab_orders.created_at', '<=', $dateTo);
 
             if ($labSupplierId) {
                 $base->where('lab_supplier_id', $labSupplierId);
@@ -453,11 +460,11 @@ class ReportController extends Controller
                 ->groupBy('status')
                 ->pluck('total', 'status');
 
-            $total      = $statusCounts->sum();
-            $pending    = (int) ($statusCounts['pending']    ?? 0);
+            $total = $statusCounts->sum();
+            $pending = (int) ($statusCounts['pending'] ?? 0);
             $inProgress = (int) ($statusCounts['in_progress'] ?? 0);
-            $ready      = (int) ($statusCounts['ready']       ?? 0);
-            $delivered  = (int) ($statusCounts['delivered']   ?? 0);
+            $ready = (int) ($statusCounts['ready'] ?? 0);
+            $delivered = (int) ($statusCounts['delivered'] ?? 0);
 
             // Vencidas (con fecha estimada pasada y no entregadas/canceladas)
             $overdue = (clone $base)->overdue()->count();
@@ -493,19 +500,20 @@ class ReportController extends Controller
                     'lab_suppliers.name as lab_name,
                      COUNT(*) as total,
                      SUM(CASE WHEN lab_orders.status = \'delivered\' AND lab_orders.actual_delivery_date IS NOT NULL THEN '
-                        . ($isSqlite
+                        .($isSqlite
                             ? 'JULIANDAY(lab_orders.actual_delivery_date) - JULIANDAY(DATE(lab_orders.created_at))'
                             : 'DATEDIFF(lab_orders.actual_delivery_date, DATE(lab_orders.created_at))')
-                        . ' ELSE NULL END) as total_days,
+                        .' ELSE NULL END) as total_days,
                      SUM(CASE WHEN lab_orders.status = \'delivered\' AND lab_orders.actual_delivery_date IS NOT NULL THEN 1 ELSE 0 END) as delivered_count'
                 )
                 ->groupBy('lab_suppliers.name')
                 ->get()
                 ->map(function ($r) {
                     $avgDays = $r->delivered_count > 0 ? round($r->total_days / $r->delivered_count, 1) : null;
+
                     return [
                         'lab_name' => $r->lab_name ?? 'Sin laboratorio',
-                        'total'    => (int) $r->total,
+                        'total' => (int) $r->total,
                         'avg_days' => $avgDays,
                     ];
                 })
@@ -517,7 +525,7 @@ class ReportController extends Controller
                 ->with(['patient:id,nombre,apellido', 'labSupplier:id,name'])
                 ->selectRaw(
                     'lab_orders.*,'
-                    . ($isSqlite
+                    .($isSqlite
                         ? ' CAST(JULIANDAY(\'now\') - JULIANDAY(estimated_delivery_date) AS INTEGER) as days_overdue'
                         : ' DATEDIFF(CURDATE(), estimated_delivery_date) as days_overdue')
                 )
@@ -526,25 +534,25 @@ class ReportController extends Controller
                 ->get()
                 ->map(fn ($r) => [
                     'order_number' => $r->order_number,
-                    'patient'      => $r->patient?->nombre,
+                    'patient' => $r->patient?->nombre_completo,
                     'days_overdue' => (int) $r->days_overdue,
-                    'lab'          => $r->labSupplier?->name,
+                    'lab' => $r->labSupplier?->name,
                 ]);
 
             return [
                 'summary' => [
-                    'total_orders'       => (int) $total,
-                    'pending'            => $pending,
-                    'in_progress'        => $inProgress,
-                    'ready'              => $ready,
-                    'delivered'          => $delivered,
-                    'overdue'            => $overdue,
+                    'total_orders' => (int) $total,
+                    'pending' => $pending,
+                    'in_progress' => $inProgress,
+                    'ready' => $ready,
+                    'delivered' => $delivered,
+                    'overdue' => $overdue,
                     'avg_turnaround_days' => $avgTurnaround ? round((float) $avgTurnaround, 1) : null,
-                    'reprocess_count'    => $reprocessCount,
+                    'reprocess_count' => $reprocessCount,
                 ],
-                'by_status'      => $byStatus,
-                'by_lab'         => $byLab,
-                'overdue_orders' => $overdueOrders->values(),
+                'by_status' => $byStatus->toArray(),
+                'by_lab' => $byLab->toArray(),
+                'overdue_orders' => $overdueOrders->values()->toArray(),
             ];
         });
 
@@ -558,10 +566,10 @@ class ReportController extends Controller
     public function cashReport(Request $request): JsonResponse
     {
         $dateFrom = $request->input('date_from', now()->startOfMonth()->toDateString());
-        $dateTo   = $request->input('date_to', now()->toDateString());
+        $dateTo = $request->input('date_to', now()->toDateString());
         $branchId = $request->input('branch_id');
 
-        $cacheKey = 'report_cash_' . md5("{$dateFrom}_{$dateTo}_{$branchId}");
+        $cacheKey = 'report_cash_'.md5("{$dateFrom}_{$dateTo}_{$branchId}");
 
         $data = Cache::remember($cacheKey, 300, function () use ($dateFrom, $dateTo, $branchId) {
             $base = CashRegisterSession::query()
@@ -601,8 +609,8 @@ class ReportController extends Controller
                 ->get()
                 ->map(fn ($r) => [
                     'category' => $r->category,
-                    'count'    => (int) $r->count,
-                    'total'    => (float) $r->total,
+                    'count' => (int) $r->count,
+                    'total' => (float) $r->total,
                 ])
                 ->values();
 
@@ -632,37 +640,37 @@ class ReportController extends Controller
                 ->orderByDesc('cash_register_sessions.opened_at')
                 ->get()
                 ->map(fn ($r) => [
-                    'id'             => $r->id,
-                    'register'       => $r->register_name,
-                    'opened_by'      => $r->opened_by_name,
-                    'closed_by'      => $r->closed_by_name,
-                    'opened_at'      => $r->opened_at,
-                    'closed_at'      => $r->closed_at,
+                    'id' => $r->id,
+                    'register' => $r->register_name,
+                    'opened_by' => $r->opened_by_name,
+                    'closed_by' => $r->closed_by_name,
+                    'opened_at' => $r->opened_at?->toDateTimeString(),
+                    'closed_at' => $r->closed_at?->toDateTimeString(),
                     'opening_amount' => (float) $r->opening_amount,
-                    'total_sales'    => (float) $r->total_sales,
+                    'total_sales' => (float) $r->total_sales,
                     'total_expenses' => (float) $r->total_expenses,
-                    'expected_cash'  => (float) $r->expected_cash,
-                    'actual_cash'    => $r->actual_cash !== null ? (float) $r->actual_cash : null,
-                    'difference'     => $r->difference !== null ? (float) $r->difference : null,
-                    'status'         => $r->status,
+                    'expected_cash' => (float) $r->expected_cash,
+                    'actual_cash' => $r->actual_cash !== null ? (float) $r->actual_cash : null,
+                    'difference' => $r->difference !== null ? (float) $r->difference : null,
+                    'status' => $r->status,
                 ])
                 ->values();
 
             return [
                 'summary' => [
-                    'session_count'    => (int) $totals->session_count,
-                    'total_sales'      => (float) $totals->total_sales,
-                    'total_cash'       => (float) $totals->total_cash,
-                    'total_card'       => (float) $totals->total_card,
-                    'total_transfer'   => (float) $totals->total_transfer,
-                    'total_credit'     => (float) $totals->total_credit,
-                    'total_expenses'   => (float) $totals->total_expenses,
-                    'total_refunds'    => (float) $totals->total_refunds,
-                    'total_shortfall'  => (float) $totals->total_shortfall,
-                    'total_overage'    => (float) $totals->total_overage,
+                    'session_count' => (int) $totals->session_count,
+                    'total_sales' => (float) $totals->total_sales,
+                    'total_cash' => (float) $totals->total_cash,
+                    'total_card' => (float) $totals->total_card,
+                    'total_transfer' => (float) $totals->total_transfer,
+                    'total_credit' => (float) $totals->total_credit,
+                    'total_expenses' => (float) $totals->total_expenses,
+                    'total_refunds' => (float) $totals->total_refunds,
+                    'total_shortfall' => (float) $totals->total_shortfall,
+                    'total_overage' => (float) $totals->total_overage,
                 ],
-                'by_expense_category' => $byCategory,
-                'sessions'            => $sessions,
+                'by_expense_category' => $byCategory->toArray(),
+                'sessions' => $sessions->toArray(),
             ];
         });
 
@@ -676,7 +684,7 @@ class ReportController extends Controller
     public function branchComparison(Request $request): JsonResponse
     {
         $dateFrom = $request->input('date_from', now()->startOfMonth()->toDateString());
-        $dateTo   = $request->input('date_to', now()->toDateString());
+        $dateTo = $request->input('date_to', now()->toDateString());
 
         $branches = Branch::where('is_active', true)->orderBy('is_main', 'desc')->orderBy('name')->get();
 
@@ -691,9 +699,9 @@ class ReportController extends Controller
                 ->selectRaw('COUNT(*) as sales_count, COALESCE(SUM(total),0) as sales_amount')
                 ->first();
 
-            $salesCount  = (int) $salesAgg->sales_count;
+            $salesCount = (int) $salesAgg->sales_count;
             $salesAmount = (float) $salesAgg->sales_amount;
-            $avgTicket   = $salesCount > 0 ? round($salesAmount / $salesCount, 2) : 0;
+            $avgTicket = $salesCount > 0 ? round($salesAmount / $salesCount, 2) : 0;
 
             $labOrders = LabOrder::where('branch_id', $branch->id)
                 ->whereDate('created_at', '>=', $dateFrom)
@@ -706,19 +714,19 @@ class ReportController extends Controller
                 ->count();
 
             return [
-                'branch_id'   => $branch->id,
+                'branch_id' => $branch->id,
                 'branch_name' => $branch->name,
                 'sales_count' => $salesCount,
                 'sales_amount' => $salesAmount,
-                'avg_ticket'  => $avgTicket,
-                'lab_orders'  => $labOrders,
+                'avg_ticket' => $avgTicket,
+                'lab_orders' => $labOrders,
                 'new_patients' => $newPatients,
             ];
         })->values();
 
         return response()->json([
             'branches' => $result,
-            'period'   => ['from' => $dateFrom, 'to' => $dateTo],
+            'period' => ['from' => $dateFrom, 'to' => $dateTo],
         ]);
     }
 
@@ -728,14 +736,16 @@ class ReportController extends Controller
      */
     public function dashboardCommercial(Request $request): JsonResponse
     {
-        $cacheKey = 'report_dashboard_commercial_' . now()->format('Y-m-d-H-i');
+        $cacheKey = 'report_dashboard_commercial_'.now()->format('Y-m-d-H-i');
 
         $data = Cache::remember($cacheKey, 60, function () {
-            $today     = now()->toDateString();
+            $today = now()->toDateString();
             $monthStart = now()->startOfMonth()->toDateString();
             $lastMonthStart = now()->subMonth()->startOfMonth()->toDateString();
-            $lastMonthEnd   = now()->subMonth()->endOfMonth()->toDateString();
-            $weekStart  = now()->startOfWeek()->toDateString();
+            $lastMonthEnd = now()->subMonth()->endOfMonth()->toDateString();
+            $weekStart = now()->startOfWeek()->toDateString();
+            $yesterday = now()->subDay()->toDateString();
+            $weekAgo = now()->subDays(6)->toDateString();
 
             $isSqlite = DB::getDriverName() === 'sqlite';
 
@@ -748,7 +758,7 @@ class ReportController extends Controller
 
             $newPatientsToday = Patient::whereDate('created_at', $today)->count();
 
-            $todayCount  = (int) $todaySales->cnt;
+            $todayCount = (int) $todaySales->cnt;
             $todayAmount = (float) $todaySales->amount;
 
             // Mes actual
@@ -759,7 +769,7 @@ class ReportController extends Controller
                 ->selectRaw('COUNT(*) as cnt, COALESCE(SUM(total),0) as amount')
                 ->first();
 
-            $monthCount  = (int) $monthSales->cnt;
+            $monthCount = (int) $monthSales->cnt;
             $monthAmount = (float) $monthSales->amount;
 
             // Mes anterior (para comparativa)
@@ -774,7 +784,7 @@ class ReportController extends Controller
                 : null;
 
             // Pendientes
-            $labReady   = LabOrder::where('status', 'ready')->count();
+            $labReady = LabOrder::where('status', 'ready')->count();
             $labOverdue = LabOrder::overdue()->count();
 
             $balancePending = Sale::query()
@@ -784,14 +794,14 @@ class ReportController extends Controller
                 ->first();
 
             // Inventario crítico
-            $lowStock    = Inventory::whereRaw('quantity <= min_stock AND quantity > 0')->count();
-            $outOfStock  = Inventory::where('quantity', '<=', 0)->count();
+            $lowStock = Inventory::whereRaw('quantity <= min_stock AND quantity > 0')->count();
+            $outOfStock = Inventory::where('quantity', '<=', 0)->count();
 
             // Top vendedores de la semana
             $topSellers = Sale::query()
                 ->whereNotIn('status', ['draft', 'cancelled'])
-                ->whereDate('created_at', '>=', $weekStart)
-                ->whereDate('created_at', '<=', $today)
+                ->whereDate('sales.created_at', '>=', $weekStart)
+                ->whereDate('sales.created_at', '<=', $today)
                 ->join('users', 'sales.user_id', '=', 'users.id')
                 ->selectRaw('users.name, COUNT(*) as count, COALESCE(SUM(sales.total),0) as amount')
                 ->groupBy('users.name')
@@ -799,9 +809,9 @@ class ReportController extends Controller
                 ->limit(5)
                 ->get()
                 ->map(fn ($r) => [
-                    'name'   => $r->name,
+                    'name' => $r->name,
                     'amount' => (float) $r->amount,
-                    'count'  => (int) $r->count,
+                    'count' => (int) $r->count,
                 ])
                 ->values();
 
@@ -815,38 +825,105 @@ class ReportController extends Controller
                 ->orderByRaw($hourExpr)
                 ->get()
                 ->map(fn ($r) => [
-                    'hour'   => (int) $r->hour,
-                    'count'  => (int) $r->count,
+                    'hour' => (int) $r->hour,
+                    'count' => (int) $r->count,
                     'amount' => (float) $r->amount,
                 ])
                 ->values();
 
+            // Ayer, para el delta de las tarjetas de hoy
+            $yesterdaySales = Sale::query()
+                ->whereNotIn('status', ['draft', 'cancelled'])
+                ->whereDate('created_at', $yesterday)
+                ->selectRaw('COUNT(*) as cnt, COALESCE(SUM(total),0) as amount')
+                ->first();
+
+            $yesterdayCount = (int) $yesterdaySales->cnt;
+            $yesterdayAmount = (float) $yesterdaySales->amount;
+            $yesterdayTicket = $yesterdayCount > 0 ? $yesterdayAmount / $yesterdayCount : 0;
+            $todayTicket = $todayCount > 0 ? $todayAmount / $todayCount : 0;
+
+            $deltaPct = fn (float $current, float $previous) => $previous > 0
+                ? round((($current - $previous) / $previous) * 100, 1)
+                : null;
+
+            // Serie de los ultimos 7 dias para el grafico de barras
+            $dayExpr = $isSqlite ? 'DATE(created_at)' : 'DATE(created_at)';
+            $salesByDay = Sale::query()
+                ->whereNotIn('status', ['draft', 'cancelled'])
+                ->whereDate('created_at', '>=', $weekAgo)
+                ->whereDate('created_at', '<=', $today)
+                ->selectRaw("{$dayExpr} as day, COUNT(*) as count, COALESCE(SUM(total),0) as amount")
+                ->groupByRaw($dayExpr)
+                ->orderByRaw($dayExpr)
+                ->get()
+                ->map(fn ($r) => [
+                    'day' => (string) $r->day,
+                    'count' => (int) $r->count,
+                    'amount' => (float) $r->amount,
+                ])
+                ->values();
+
+            // Resumen financiero del mes en curso
+            $monthFinancial = Sale::query()
+                ->whereNotIn('status', ['draft', 'cancelled'])
+                ->whereDate('created_at', '>=', $monthStart)
+                ->whereDate('created_at', '<=', $today)
+                ->selectRaw(
+                    'COALESCE(SUM(total), 0) as gross,
+                     COALESCE(SUM(discount_total), 0) as discounts,
+                     COALESCE(SUM(cost_total), 0) as cost'
+                )
+                ->first();
+
+            $gross = (float) $monthFinancial->gross;
+            $cost = (float) $monthFinancial->cost;
+            $margin = round($gross - $cost, 2);
+            $marginPct = $gross > 0 ? round(($margin / $gross) * 100, 1) : 0;
+
+            $newPatientsMonth = Patient::whereDate('created_at', '>=', $monthStart)
+                ->whereDate('created_at', '<=', $today)
+                ->count();
+
             return [
                 'today' => [
-                    'sales_count'  => $todayCount,
+                    'sales_count' => $todayCount,
                     'sales_amount' => $todayAmount,
-                    'avg_ticket'   => $todayCount > 0 ? round($todayAmount / $todayCount, 2) : 0,
+                    'avg_ticket' => round($todayTicket, 2),
                     'new_patients' => $newPatientsToday,
+                    'sales_delta_pct' => $deltaPct($todayAmount, $yesterdayAmount),
+                    'avg_ticket_delta_pct' => $deltaPct($todayTicket, $yesterdayTicket),
                 ],
                 'month' => [
-                    'sales_amount'       => $monthAmount,
-                    'sales_count'        => $monthCount,
-                    'avg_ticket'         => $monthCount > 0 ? round($monthAmount / $monthCount, 2) : 0,
-                    'vs_last_month_pct'  => $vsLastMonthPct,
+                    'sales_amount' => $monthAmount,
+                    'sales_count' => $monthCount,
+                    'avg_ticket' => $monthCount > 0 ? round($monthAmount / $monthCount, 2) : 0,
+                    'vs_last_month_pct' => $vsLastMonthPct,
+                    'new_patients' => $newPatientsMonth,
+                ],
+                'financial' => [
+                    'gross' => $gross,
+                    'discounts' => (float) $monthFinancial->discounts,
+                    'cost_of_sales' => $cost,
+                    'gross_margin' => $margin,
+                    'gross_margin_pct' => $marginPct,
+                    'last_month_amount' => (float) $lastMonthAmount,
+                    'vs_last_month_pct' => $vsLastMonthPct,
                 ],
                 'pending' => [
-                    'lab_orders_ready'     => $labReady,
-                    'lab_orders_overdue'   => $labOverdue,
-                    'sales_with_balance'   => (int) $balancePending->cnt,
+                    'lab_orders_ready' => $labReady,
+                    'lab_orders_overdue' => $labOverdue,
+                    'sales_with_balance' => (int) $balancePending->cnt,
                     'total_pending_balance' => (float) $balancePending->total_balance,
                 ],
                 'inventory' => [
-                    'low_stock_count'    => $lowStock,
+                    'low_stock_count' => $lowStock,
                     'out_of_stock_count' => $outOfStock,
                 ],
-                'top_sellers_week'     => $topSellers,
-                'sales_by_hour_today'  => $byHour,
-                'generated_at'         => now()->toISOString(),
+                'top_sellers_week' => $topSellers->toArray(),
+                'sales_by_day' => $salesByDay->toArray(),
+                'sales_by_hour_today' => $byHour->toArray(),
+                'generated_at' => now()->toISOString(),
             ];
         });
 

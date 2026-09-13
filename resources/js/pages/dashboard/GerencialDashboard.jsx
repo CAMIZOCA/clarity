@@ -10,6 +10,7 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import AiSalesAnalysis from '../../components/ai/AiSalesAnalysis';
 import client from '../../api/client';
+import ErrorState from '../../components/ui/ErrorState';
 
 // ────────────────────────────────────────────────────────────────
 // Helpers
@@ -145,14 +146,18 @@ export default function GerencialDashboard() {
     const [loading, setLoading]     = useState(true);
     const [lastUpdate, setLastUpdate] = useState(null);
     const [aiEnabled, setAiEnabled] = useState(false);
+    const [error, setError]         = useState(false);
 
     const fetchData = useCallback(() => {
+        setError(false);
         getDashboardCommercial()
             .then(r => {
                 setData(r.data);
                 setLastUpdate(new Date());
             })
-            .catch(() => {})
+            // Un catch vacio hacia que un 500 se viera igual que un dia sin
+            // ventas: todas las tarjetas en $0.00 y ninguna senal de fallo.
+            .catch(() => setError(true))
             .finally(() => setLoading(false));
     }, []);
 
@@ -178,12 +183,14 @@ export default function GerencialDashboard() {
         return () => clearInterval(t);
     }, [lastUpdate]);
 
-    const kpis         = data?.kpis         || {};
-    const salesByDay   = data?.salesByDay   || [];
-    const salesByHour  = data?.salesByHour  || [];
-    const topSellers   = data?.topSellers   || [];
-    const alerts       = data?.alerts       || {};
-    const financial    = data?.financial    || {};
+    const todayKpis    = data?.today     || {};
+    const monthKpis    = data?.month     || {};
+    const pending      = data?.pending   || {};
+    const inventory    = data?.inventory || {};
+    const financial    = data?.financial || {};
+    const topSellers   = data?.top_sellers_week    || [];
+    const salesByHour  = data?.sales_by_hour_today || [];
+    const salesByDay   = (data?.sales_by_day || []).map(d => ({ period: d.day, amount: d.amount }));
 
     const maxSale = Math.max(...salesByDay.map(d => d.amount), 1);
 
@@ -219,20 +226,32 @@ export default function GerencialDashboard() {
                 </div>
             </div>
 
+            {error && (
+                <div className="mb-6">
+                    <ErrorState
+                        compact
+                        message={data
+                            ? 'No se pudo actualizar. Los datos mostrados son los de la ultima carga correcta.'
+                            : 'El servidor respondio con un error. Intente nuevamente en unos segundos.'}
+                        onRetry={() => { setLoading(true); fetchData(); }}
+                    />
+                </div>
+            )}
+
             {/* ── AI Sales Analysis ── */}
             {!loading && data && (
                 <AiSalesAnalysis
                     aiEnabled={aiEnabled}
                     salesData={{
                         summary: {
-                            total_amount:     financial.ventasBrutas ?? 0,
-                            total_sales:      kpis.totalVentas ?? 0,
-                            avg_ticket:       kpis.ticketPromedio ?? 0,
-                            gross_margin_pct: financial.margenPct ?? 0,
-                            total_discount:   financial.descuentos ?? 0,
+                            total_amount:     financial.gross ?? 0,
+                            total_sales:      monthKpis.sales_count ?? 0,
+                            avg_ticket:       monthKpis.avg_ticket ?? 0,
+                            gross_margin_pct: financial.gross_margin_pct ?? 0,
+                            total_discount:   financial.discounts ?? 0,
                         },
-                        vs_previous: financial.vsAnterior
-                            ? `${financial.vsAnteriorPct?.toFixed(1)}% (${financial.vsAnterior})`
+                        vs_previous: financial.vs_last_month_pct != null
+                            ? `${financial.vs_last_month_pct.toFixed(1)}% (${money(financial.last_month_amount)})`
                             : undefined,
                     }}
                 />
@@ -249,31 +268,31 @@ export default function GerencialDashboard() {
                         <KpiCard
                             icon={DollarSign}
                             label="Ventas hoy"
-                            value={money(kpis.ventasHoy)}
-                            delta={kpis.ventasHoyDelta}
+                            value={money(todayKpis.sales_amount)}
+                            delta={todayKpis.sales_delta_pct ?? undefined}
                             deltaLabel="vs ayer"
                             color="bg-emerald-500"
                         />
                         <KpiCard
                             icon={ShoppingCart}
                             label="Ticket promedio"
-                            value={money(kpis.ticketPromedio)}
-                            delta={kpis.ticketDelta}
-                            deltaLabel="vs mes anterior"
+                            value={money(todayKpis.avg_ticket)}
+                            delta={todayKpis.avg_ticket_delta_pct ?? undefined}
+                            deltaLabel="vs ayer"
                             color="bg-blue-500"
                         />
                         <KpiCard
                             icon={Users}
                             label="Pacientes nuevos"
-                            value={kpis.pacientesNuevos ?? 0}
-                            sub={`este mes: ${kpis.pacientesNuevosMes ?? 0}`}
+                            value={todayKpis.new_patients ?? 0}
+                            sub={`este mes: ${monthKpis.new_patients ?? 0}`}
                             color="bg-[#1a2a4a]"
                         />
                         <KpiCard
                             icon={FlaskConical}
-                            label="Órdenes pendientes"
-                            value={kpis.ordenesPendientes ?? 0}
-                            sub={`${kpis.ordenesAtrasadas ?? 0} atrasadas`}
+                            label="Órdenes listas"
+                            value={pending.lab_orders_ready ?? 0}
+                            sub={`${pending.lab_orders_overdue ?? 0} atrasadas`}
                             color="bg-amber-500"
                         />
                     </>
@@ -284,7 +303,7 @@ export default function GerencialDashboard() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
                 {/* Ventas por día */}
                 <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-200 p-5">
-                    <h2 className="font-semibold text-gray-900 mb-4">Ventas del mes — {month}</h2>
+                    <h2 className="font-semibold text-gray-900 mb-4">Ventas — últimos 7 días</h2>
                     {loading ? (
                         <Skeleton className="h-32 w-full" />
                     ) : salesByDay.length === 0 ? (
@@ -308,27 +327,27 @@ export default function GerencialDashboard() {
                     ) : (
                         <div className="divide-y divide-gray-50">
                             <AlertRow
-                                level={alerts.ordenesAtrasadas > 0 ? 'red' : 'blue'}
+                                level={pending.lab_orders_overdue > 0 ? 'red' : 'blue'}
                                 label="Órdenes de lab atrasadas"
-                                count={alerts.ordenesAtrasadas ?? 0}
+                                count={pending.lab_orders_overdue ?? 0}
                                 to="/laboratorio"
                             />
                             <AlertRow
                                 level="yellow"
                                 label="Productos con stock bajo"
-                                count={alerts.productosStockBajo ?? 0}
+                                count={inventory.low_stock_count ?? 0}
                                 to="/inventario/stock"
                             />
                             <AlertRow
                                 level="yellow"
                                 label="Ventas con saldo pendiente"
-                                count={alerts.ventasSaldoPendiente ?? 0}
+                                count={pending.sales_with_balance ?? 0}
                                 to="/ventas"
                             />
                             <AlertRow
                                 level="blue"
                                 label="Órdenes listas para entregar"
-                                count={alerts.ordenesListas ?? 0}
+                                count={pending.lab_orders_ready ?? 0}
                                 to="/laboratorio"
                             />
                         </div>
@@ -350,8 +369,8 @@ export default function GerencialDashboard() {
                     ) : (
                         <div className="space-y-3">
                             {topSellers.map((seller, idx) => {
-                                const maxAmount = topSellers[0]?.total ?? 1;
-                                const widthPct  = Math.max((seller.total / maxAmount) * 100, 4);
+                                const maxAmount = topSellers[0]?.amount ?? 1;
+                                const widthPct  = Math.max((seller.amount / maxAmount) * 100, 4);
                                 const medals    = ['🥇', '🥈', '🥉'];
                                 return (
                                     <div key={seller.id ?? idx} className="flex items-center gap-3">
@@ -362,7 +381,7 @@ export default function GerencialDashboard() {
                                             <div className="flex items-center justify-between mb-1">
                                                 <p className="text-sm font-medium text-gray-800 truncate">{seller.name}</p>
                                                 <p className="text-sm font-bold text-gray-900 ml-2 flex-shrink-0">
-                                                    {money(seller.total)}
+                                                    {money(seller.amount)}
                                                 </p>
                                             </div>
                                             <div className="flex items-center gap-2">
@@ -401,32 +420,32 @@ export default function GerencialDashboard() {
                         <div className="space-y-0 font-mono text-sm">
                             <div className="flex justify-between py-1.5 border-b border-gray-50">
                                 <span className="text-gray-600">Ventas brutas</span>
-                                <span className="font-semibold text-gray-900">{money(financial.ventasBrutas)}</span>
+                                <span className="font-semibold text-gray-900">{money(financial.gross)}</span>
                             </div>
                             <div className="flex justify-between py-1.5 border-b border-gray-50">
                                 <span className="text-gray-600">Descuentos</span>
-                                <span className="text-red-500">-{money(financial.descuentos)}</span>
+                                <span className="text-red-500">-{money(financial.discounts)}</span>
                             </div>
                             <div className="flex justify-between py-1.5 border-b border-gray-100">
                                 <span className="text-gray-600">Costo de ventas</span>
-                                <span className="text-red-500">-{money(financial.costoVentas)}</span>
+                                <span className="text-red-500">-{money(financial.cost_of_sales)}</span>
                             </div>
                             <div className="flex justify-between py-2 mt-1 bg-emerald-50 rounded-lg px-2">
                                 <span className="font-bold text-gray-800">Margen bruto</span>
                                 <span className="font-bold text-emerald-700">
-                                    {money(financial.margenBruto)}
-                                    {financial.margenPct !== undefined && (
+                                    {money(financial.gross_margin)}
+                                    {financial.gross_margin_pct !== undefined && (
                                         <span className="text-emerald-500 ml-1 font-normal">
-                                            ({pct(financial.margenPct)})
+                                            ({pct(financial.gross_margin_pct)})
                                         </span>
                                     )}
                                 </span>
                             </div>
-                            {financial.vsAnterior !== undefined && (
+                            {financial.vs_last_month_pct != null && (
                                 <div className="flex items-center gap-2 mt-3 text-xs text-gray-500">
                                     <span>vs mes anterior:</span>
-                                    <DeltaBadge value={financial.vsAnteriorPct} />
-                                    <span className="text-gray-400">{money(financial.vsAnterior)}</span>
+                                    <DeltaBadge value={financial.vs_last_month_pct} />
+                                    <span className="text-gray-400">{money(financial.last_month_amount)}</span>
                                 </div>
                             )}
                         </div>

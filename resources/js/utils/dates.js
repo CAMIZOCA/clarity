@@ -7,7 +7,8 @@
  * parseos de este modulo anclan la hora al mediodia local.
  */
 
-const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})/;
+const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
+const ISO_DATETIME = /^(\d{4})-(\d{2})-(\d{2})[T ]\d{2}:\d{2}/;
 const DISPLAY_DATE = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
 
 function pad(value) {
@@ -33,6 +34,14 @@ export function parseDate(value) {
         const [, year, month, day] = iso;
         const date = new Date(Number(year), Number(month) - 1, Number(day), 12, 0, 0);
         return Number.isNaN(date.getTime()) ? null : date;
+    }
+
+    // Un timestamp con hora no es una fecha de calendario: anclarlo al
+    // mediodia local descartaba la hora real y toda marca horaria se
+    // mostraba como 12:00. Aqui se deja que el motor aplique la zona.
+    if (ISO_DATETIME.test(raw)) {
+        const parsed = new Date(raw.includes('T') ? raw : raw.replace(' ', 'T'));
+        return Number.isNaN(parsed.getTime()) ? null : parsed;
     }
 
     const display = raw.match(DISPLAY_DATE);
@@ -84,6 +93,19 @@ export function calculateAge(value) {
     }
 
     return age >= 0 ? age : null;
+}
+
+/**
+ * Timestamp -> `YYYY-MM-DDTHH:mm` en hora local, que es lo que espera
+ * `<input type="datetime-local">`.
+ *
+ * Recortar la cadena ISO con `.slice(0, 16)` mostraba la hora UTC dentro
+ * del input, y al reenviarla la cita se corria una vez por cada edicion.
+ */
+export function toDateTimeLocal(value, fallback = '') {
+    const date = parseDate(value);
+    if (!date) return fallback;
+    return `${toIsoDate(date)}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
 /** `DD/MM/AAAA HH:MM` para timestamps completos. */

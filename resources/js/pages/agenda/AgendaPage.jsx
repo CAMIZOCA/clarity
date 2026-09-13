@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -11,6 +11,7 @@ import Button from '../../components/ui/Button';
 import PatientAutocomplete from '../../components/ui/PatientAutocomplete';
 import ConfirmModal from '../../components/ui/ConfirmModal';
 import { useToast } from '../../components/ui/Toast';
+import { toDateTimeLocal } from '../../utils/dates';
 
 const ESTADO_COLORS = {
     pendiente: '#3b82f6',
@@ -36,6 +37,10 @@ export default function AgendaPage() {
     const [editing, setEditing] = useState(null);
     const [form, setForm] = useState(emptyForm());
     const [saving, setSaving] = useState(false);
+    const calendarRef = useRef(null);
+
+    /** Sin esto una cita recien creada no aparecia hasta cambiar de vista. */
+    const refetch = () => calendarRef.current?.getApi()?.refetchEvents();
 
     const fetchEvents = useCallback(async (info, successCb, failureCb) => {
         try {
@@ -55,10 +60,11 @@ export default function AgendaPage() {
                 extendedProps: { ...a },
             }));
             successCb(mapped);
-        } catch {
-            failureCb();
+        } catch (err) {
+            addToast('No se pudieron cargar las citas del período.', 'error');
+            failureCb(err);
         }
-    }, []);
+    }, [addToast]);
 
     const openNew = (selectInfo) => {
         const f = emptyForm();
@@ -77,8 +83,8 @@ export default function AgendaPage() {
             patient_id: a.patient_id || '',
             patient: a.patient || null,
             titulo: a.titulo || '',
-            fecha_hora_inicio: a.fecha_hora_inicio?.slice(0, 16) || '',
-            fecha_hora_fin: a.fecha_hora_fin?.slice(0, 16) || '',
+            fecha_hora_inicio: toDateTimeLocal(a.fecha_hora_inicio),
+            fecha_hora_fin: toDateTimeLocal(a.fecha_hora_fin),
             notas: a.notas || '',
             estado: a.estado || 'pendiente',
         });
@@ -112,6 +118,7 @@ export default function AgendaPage() {
                 addToast('Cita creada', 'success');
             }
             setModalOpen(false);
+            refetch();
         } catch (err) {
             addToast(err.response?.data?.message || 'Error al guardar', 'error');
         } finally {
@@ -126,6 +133,7 @@ export default function AgendaPage() {
             addToast('Cita eliminada', 'success');
             setModalOpen(false);
             setConfirmOpen(false);
+            refetch();
         } catch {
             addToast('Error al eliminar', 'error');
         }
@@ -145,6 +153,7 @@ export default function AgendaPage() {
 
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
                 <FullCalendar
+                    ref={calendarRef}
                     plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
                     initialView="timeGridWeek"
                     locale={esLocale}

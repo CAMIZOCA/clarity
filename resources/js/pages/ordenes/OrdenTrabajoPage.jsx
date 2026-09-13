@@ -1,8 +1,10 @@
 import React, { useState, useCallback } from 'react';
-import { ClipboardList, Eye, RefreshCw, AlertCircle, CheckCircle } from 'lucide-react';
+import { ClipboardList, Eye, RefreshCw, AlertCircle, CheckCircle, Save } from 'lucide-react';
 import PatientAutocomplete from '../../components/ui/PatientAutocomplete';
 import OrdenTrabajoPdf from '../../components/pdf/OrdenTrabajoPdf';
 import client from '../../api/client';
+import { createLabOrder, getLabSuppliers } from '../../api/sales';
+import { useToast } from '../../components/ui/Toast';
 import { useSettings } from '../../contexts/SettingsContext';
 import { AdvancedToggleButton, useAdvancedToggle } from '../../components/forms/AdvancedFieldsToggle';
 import { useAdvancedFields } from '../../hooks/useAdvancedFields';
@@ -20,6 +22,41 @@ const SPECS_DEFAULT = {
     color_uv: false, polarizado: false, espejados: false,
     comp_w: false, tac40: false,
     n149: false, n156: false, n161: false, n167: false, n174: false,
+};
+
+/** Etiquetas legibles para el laboratorio, derivadas de los checkboxes. */
+const MATERIAL_LABELS  = { cristal: 'Cristal', cr39: 'CR-39', poly: 'Policarbonato', phoenix: 'Phoenix' };
+const DESIGN_LABELS    = { monofocal: 'Monofocal', bifocal: 'Bifocal', progresivos: 'Progresivo', invisible: 'Invisible', flapptop: 'Flat-top', ocupacional: 'Ocupacional' };
+const TREATMENT_LABELS = {
+    antirreflejo: 'Antirreflejo', luz_azul: 'Luz azul', uv: 'UV', 'fotocromático': 'Fotocromático',
+    antirrayas: 'Antirrayas', hidrof: 'Hidrofóbico', polarizado: 'Polarizado', espejados: 'Espejado',
+    optifog: 'Optifog', deluxe: 'Deluxe',
+};
+
+const labelsFrom = (specs, dictionary) =>
+    Object.entries(dictionary).filter(([key]) => specs[key]).map(([, label]) => label);
+
+const trunc = (value, max) => {
+    const text = String(value ?? '').trim();
+    return text ? text.slice(0, max) : null;
+};
+
+const num = (value) => {
+    if (value === null || value === undefined || value === '') return null;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+};
+
+/**
+ * El eje solo viaja si esta dentro del rango que valida la API (0-180).
+ *
+ * El 92% de las consultas importadas tiene ejes fuera de rango; enviarlos
+ * tal cual haria fallar el guardado con un 422 por un dato heredado que el
+ * usuario no escribio. Se omite el campo y se deja constancia en las notas.
+ */
+const axisInRange = (value) => {
+    const parsed = num(value);
+    return parsed !== null && parsed >= 0 && parsed <= 180 ? parsed : null;
 };
 
 function SpecCheckbox({ label, name, checked, onChange }) {
@@ -113,6 +150,9 @@ export default function OrdenTrabajoPage() {
     const [loadingConsulta, setLoadingConsulta] = useState(false);
     const [noConsulta, setNoConsulta] = useState(false);
     const [showPdf, setShowPdf] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [savedOrder, setSavedOrder] = useState(null);
+    const { addToast } = useToast();
 
     const [specs, setSpecs] = useState({ ...SPECS_DEFAULT });
     const [orden, setOrden] = useState({
@@ -197,6 +237,98 @@ export default function OrdenTrabajoPage() {
 
     const handleOrdenChange = (name, value) => {
         setOrden(prev => ({ ...prev, [name]: value }));
+    };
+
+    /**
+     * Persiste la orden en el modulo de laboratorio.
+     *
+     * La pantalla existia solo para imprimir: al salir se perdia todo y el
+     * kanban de /laboratorio nunca veia estas ordenes, pese a que el backend
+     * `lab-orders` ya estaba escrito de punta a punta.
+     */
+    const handleSave = async () => {
+        if (!paciente?.id) {
+            addToast('Seleccione un paciente antes de guardar la orden.', 'error');
+            return;
+        }
+
+        setSaving(true);
+        try {
+            // La LAB es texto libre; se enlaza con el proveedor si coincide el nombre.
+            let labSupplierId = null;
+            const labName = String(orden.lab ?? '').trim();
+            if (labName) {
+                try {
+                    const res = await getLabSuppliers();
+                    const suppliers = res.data?.data ?? res.data ?? [];
+                    const match = (Array.isArray(suppliers) ? suppliers : []).find(
+                        (item) => String(item.name ?? '').toLowerCase() === labName.toLowerCase()
+                    );
+                    labSupplierId = match?.id ?? null;
+                } catch {
+                    labSupplierId = null;
+                }
+            }
+
+            const material  = labelsFrom(specs, MATERIAL_LABELS).join(' + ');
+            const design    = labelsFrom(specs, DESIGN_LABELS).join(' + ');
+            const treatment = labelsFrom(specs, TREATMENT_LABELS).join(' + ');
+
+            const droppedAxis = [
+                ['OD', consulta?.rx_final_eje_od],
+                ['OI', consulta?.rx_final_eje_oi],
+            ].filter(([, value]) => num(value) !== null && axisInRange(value) === null)
+             .map(([eye, value]) => `eje ${eye} ${value}`);
+
+            const technicalNotes = [
+                orden.nota,
+                orden.entrega ? `Entrega: ${orden.entrega}` : '',
+                orden.alt ? `Altura: ${orden.alt}` : '',
+                orden.dnp ? `DNP: ${orden.dnp}` : '',
+                droppedAxis.length ? `Fuera de rango, no guardado: ${droppedAxis.join(', ')}` : '',
+            ].filter(Boolean).join('\n');
+
+            const internalNotes = [
+                `Orden ${orden.numero} — ${orden.fecha}`,
+                labName && !labSupplierId ? `Laboratorio (sin registrar): ${labName}` : '',
+                orden.dr ? `Dr.: ${orden.dr}` : '',
+                orden.fac ? `Factura: ${orden.fac}` : '',
+                orden.rc ? `R.C.: ${orden.rc}` : '',
+                orden.valor ? `Valor: ${orden.valor}` : '',
+                orden.abono ? `Abono: ${orden.abono}` : '',
+                orden.saldo ? `Saldo: ${orden.saldo}` : '',
+                orden.forma_pago ? `Forma de pago: ${orden.forma_pago}` : '',
+            ].filter(Boolean).join('\n');
+
+            const res = await createLabOrder({
+                patient_id:       paciente.id,
+                consultation_id:  consulta?.id ?? null,
+                lab_supplier_id:  labSupplierId,
+                od_sphere:        num(consulta?.rx_final_esfera_od),
+                od_cylinder:      num(consulta?.rx_final_cilindro_od),
+                od_axis:          axisInRange(consulta?.rx_final_eje_od),
+                od_add:           num(consulta?.rx_final_add_od),
+                oi_sphere:        num(consulta?.rx_final_esfera_oi),
+                oi_cylinder:      num(consulta?.rx_final_cilindro_oi),
+                oi_axis:          axisInRange(consulta?.rx_final_eje_oi),
+                oi_add:           num(consulta?.rx_final_add_oi),
+                frame_description: trunc(orden.armazon, 200),
+                lens_type:        trunc(design, 60),
+                lens_material:    trunc(material, 60),
+                lens_treatment:   trunc(treatment, 150),
+                lens_design:      trunc(orden.especif, 60),
+                technical_notes:  technicalNotes || null,
+                internal_notes:   internalNotes || null,
+            });
+
+            const created = res.data?.data ?? res.data;
+            setSavedOrder(created);
+            addToast(`Orden guardada (${created?.order_number ?? 'sin número'}). Ya aparece en Laboratorio.`, 'success');
+        } catch (err) {
+            addToast(err.response?.data?.message || 'No se pudo guardar la orden.', 'error');
+        } finally {
+            setSaving(false);
+        }
     };
 
     const ordenConSpecs = { ...orden, specs };
@@ -385,13 +517,24 @@ export default function OrdenTrabajoPage() {
             </div>
 
             <div className="mobile-sticky-actions -mx-4 px-4 py-4 md:static md:mx-0 md:px-0 md:py-0 md:bg-transparent md:border-0 md:backdrop-blur-0 md:shadow-none">
-                <button
-                    onClick={() => setShowPdf(true)}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#1a2a4a] px-6 py-3 text-base font-semibold text-white shadow-lg transition-colors hover:bg-[#243a6a] md:w-auto"
-                >
-                    <Eye size={18} />
-                    Vista Previa e Imprimir
-                </button>
+                <div className="flex w-full flex-col gap-3 md:w-auto md:flex-row">
+                    <button
+                        onClick={() => setShowPdf(true)}
+                        className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#1a2a4a] px-6 py-3 text-base font-semibold text-white shadow-lg transition-colors hover:bg-[#243a6a] md:w-auto"
+                    >
+                        <Eye size={18} />
+                        Vista Previa e Imprimir
+                    </button>
+                    <button
+                        onClick={handleSave}
+                        disabled={saving || !paciente}
+                        title={paciente ? undefined : 'Seleccione un paciente para guardar la orden'}
+                        className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#1a2a4a] px-6 py-3 text-base font-semibold text-[#1a2a4a] transition-colors hover:bg-[#1a2a4a]/5 disabled:cursor-not-allowed disabled:opacity-50 md:w-auto"
+                    >
+                        <Save size={18} />
+                        {saving ? 'Guardando...' : savedOrder ? 'Guardar de nuevo' : 'Guardar orden'}
+                    </button>
+                </div>
             </div>
 
             {showPdf && (

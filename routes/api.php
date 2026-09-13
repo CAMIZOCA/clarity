@@ -219,3 +219,13 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/imports/{operation}', [SystemMaintenanceController::class, 'showImport']);
     });
 });
+
+// Sin esto, cualquier /api/* mal escrito cae en el catch-all de la SPA
+// (routes/web.php) y devuelve 200 con el HTML del index, lo que enmascara
+// el error: axios ve un 200 y entrega HTML como si fueran datos.
+//
+// No sirve Route::fallback(): Laravel ordena los fallback al final de TODAS
+// las rutas, o sea despues del catch-all de web.php, que ganaria igual. Una
+// ruta normal al cierre de este archivo si se registra antes.
+Route::any('{unmatched}', fn () => response()->json(['message' => 'Endpoint no encontrado.'], 404))
+    ->where('unmatched', '.*');

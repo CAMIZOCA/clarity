@@ -46,19 +46,22 @@ class ConsultationMetaController extends Controller
                 ->orderBy('name')
                 ->get(['id', 'name', 'codigo', 'registro_senescyt'])
                 ->map(fn ($user) => [
-                    'id'                => $user->id,
-                    'label'             => $user->name,
-                    'code'              => $user->codigo,
-                    'name'              => $user->name,
-                    'codigo'            => $user->codigo,
+                    'id' => $user->id,
+                    'label' => $user->name,
+                    'code' => $user->codigo,
+                    'name' => $user->name,
+                    'codigo' => $user->codigo,
                     'registro_senescyt' => $user->registro_senescyt,
                 ])
                 ->values();
 
+            // Todo lo cacheado debe ser array puro: config/cache.php restringe las
+            // clases deserializables, asi que un Collection/Model guardado aqui
+            // vuelve como __PHP_Incomplete_Class en el segundo request.
             return [
-                'catalogs' => $catalogs,
-                'templates' => $templates,
-                'optometrists' => $optometrists,
+                'catalogs' => $catalogs->toArray(),
+                'templates' => $templates->toArray(),
+                'optometrists' => $optometrists->toArray(),
                 'ophthalmoscopy_distances' => ['200 mt', '6 mt', '3 mt', '1 mt', '50 cm', '40 cm', '33 cm', '20 cm'],
                 'ophthalmoscopy_rows' => ['Sin Rx', 'OI con Rx', 'OI Add +3.00'],
             ];

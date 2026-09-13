@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -14,7 +15,7 @@ use Spatie\Permission\Traits\HasRoles;
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable, HasApiTokens, HasRoles;
+    use HasApiTokens, HasFactory, HasRoles, Notifiable;
 
     protected $fillable = [
         'name',
@@ -24,6 +25,7 @@ class User extends Authenticatable
         'codigo',
         'registro_senescyt',
         'firma_digital',
+        'branch_id',
     ];
 
     protected $hidden = ['password', 'remember_token'];
@@ -39,6 +41,11 @@ class User extends Authenticatable
     public function getFirmaDigitalUrlAttribute(): ?string
     {
         return $this->firma_digital ? Storage::url($this->firma_digital) : null;
+    }
+
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class);
     }
 
     public function consultations(): HasMany

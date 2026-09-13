@@ -49,6 +49,27 @@ const defaultRecommendation = () => ({
 
 const RX_USO_COLUMNS = ['esfera', 'cilindro', 'eje', 'add', 'avcc'];
 
+const isBlank = (value) => value === null || value === undefined || String(value).trim() === '';
+
+/**
+ * Descarta las filas de diagnostico y recomendacion que el usuario nunca lleno.
+ *
+ * El formulario nace con dos diagnosticos y una recomendacion en blanco, y la
+ * API los valida como obligatorios en cuanto el array viene con elementos: sin
+ * este filtro, guardar un borrador intacto (o el autoguardado de 30 s)
+ * respondia 422 pidiendo una descripcion que nadie escribio.
+ */
+function stripEmptyModuleRows(values) {
+    const diagnoses = (values.diagnoses ?? []).filter(
+        (row) => !isBlank(row?.description) || !isBlank(row?.code) || !isBlank(row?.notes) || !isBlank(row?.catalog_item_id)
+    );
+    const recommendations = (values.recommendations_list ?? []).filter(
+        (row) => !isBlank(row?.text) || !isBlank(row?.catalog_item_id)
+    );
+
+    return { ...values, diagnoses, recommendations_list: recommendations };
+}
+
 const emptyRxUsoEntry = () => RX_USO_COLUMNS.reduce(
     (entry, column) => ({ ...entry, [`${column}_od`]: '', [`${column}_oi`]: '' }),
     { observacion: '' }
@@ -394,10 +415,10 @@ export default function ConsultationForm({ patient, consultation, meta }) {
         if (!consultationId && !hasClinicalData && !showMsg) return null;
 
         try {
-            const payload = {
+            const payload = stripEmptyModuleRows({
                 ...values,
                 estado: forceStatus ?? values.estado ?? 'borrador',
-            };
+            });
 
             let response;
             if (consultationId) {

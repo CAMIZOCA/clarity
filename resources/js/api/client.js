@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { notifyToast } from '../components/ui/Toast';
 
 const debugEnabled = import.meta.env.DEV || window.location.hostname.endsWith('.test');
 
@@ -7,6 +8,34 @@ function debugLog(label, payload) {
     console.groupCollapsed(`[HTTP Debug] ${label}`);
     console.log(payload);
     console.groupEnd();
+}
+
+/**
+ * Red de seguridad para los 5xx.
+ *
+ * Sin esto un 500 era indistinguible de 'no hay datos': las pantallas hacian
+ * .catch(() => setData(null)) y el usuario veia $0.00 creyendo que no hubo
+ * ventas. Cada pagina puede seguir mostrando su propio estado de error; este
+ * aviso solo garantiza que ningun fallo del servidor pase inadvertido.
+ *
+ * Pasar `skipErrorToast: true` en la config de la peticion lo desactiva para
+ * los casos en que el 5xx es esperado.
+ */
+function notifyServerError(error) {
+    const status = error.response?.status;
+
+    if (error.config?.skipErrorToast) return;
+    if (error.code === 'ERR_CANCELED' || axios.isCancel?.(error)) return;
+    if (status && status < 500) return;
+    // Sin red ya avisa ConnectionBanner; no dupliquemos la senal.
+    if (!status && navigator.onLine === false) return;
+
+    notifyToast(
+        status
+            ? `Error del servidor (${status}). Los datos mostrados pueden estar incompletos.`
+            : 'No se pudo contactar al servidor. Intente nuevamente.',
+        'error'
+    );
 }
 
 const client = axios.create({
@@ -97,6 +126,7 @@ function attachDebugInterceptors(instance, name) {
                     .filter((entry) => entry.startsWith('XSRF-TOKEN=') || entry.includes('session'))
                     .map((entry) => entry.split('=')[0]),
             });
+            notifyServerError(error);
             return Promise.reject(error);
         }
     );

@@ -12,7 +12,7 @@ x-app-environment: &app-environment
   APP_URL: '${APP_URL}'
   APP_LOCALE: '${APP_LOCALE:-es}'
   APP_FALLBACK_LOCALE: '${APP_FALLBACK_LOCALE:-es}'
-  APP_TIMEZONE: '${APP_TIMEZONE:-UTC}'
+  APP_TIMEZONE: '${APP_TIMEZONE:-America/Guayaquil}'
 
   # El servidor es MariaDB, pero la conexion se declara como mysql a proposito:
   # varias migraciones y servicios se ramifican con getDriverName() === 'mysql'

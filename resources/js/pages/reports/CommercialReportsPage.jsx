@@ -11,6 +11,8 @@ import {
     exportSales,
     exportInventory,
 } from '../../api/reports';
+import ErrorState from '../../components/ui/ErrorState';
+import { useToast } from '../../components/ui/Toast';
 import { format, startOfMonth } from 'date-fns';
 
 // ────────────────────────────────────────────────────────────────
@@ -20,6 +22,13 @@ const money  = (n) => `$${Number(n ?? 0).toFixed(2)}`;
 const pct    = (n) => `${Number(n ?? 0).toFixed(1)}%`;
 const today  = () => format(new Date(), 'yyyy-MM-dd');
 const firstDayOfMonth = () => format(startOfMonth(new Date()), 'yyyy-MM-dd');
+
+/** Los nombres de filtro son los que lee ReportController: date_from / date_to. */
+const defaultRange = () => ({ date_from: firstDayOfMonth(), date_to: today() });
+
+/** `2026-09-08 19:30:00` → `19:30`; null → guion. */
+const timeOf = (value) => (value ? String(value).slice(11, 16) || '—' : '—');
+const dateOf = (value) => (value ? String(value).slice(0, 10) : '—');
 
 function Skeleton({ className = '' }) {
     return <div className={`animate-pulse bg-gray-200 rounded ${className}`} />;
@@ -38,6 +47,43 @@ function TabButton({ active, onClick, icon: Icon, label }) {
             <Icon size={16} />
             {label}
         </button>
+    );
+}
+
+/** Rango de fechas compartido por las pestañas que filtran por periodo. */
+function RangeFilters({ filters, setFilters, onApply, children }) {
+    return (
+        <div className="bg-white rounded-2xl border border-gray-200 p-5">
+            <div className="flex flex-wrap gap-4 items-end">
+                <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Desde</label>
+                    <input
+                        type="date"
+                        value={filters.date_from}
+                        onChange={e => setFilters(f => ({ ...f, date_from: e.target.value }))}
+                        className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]/30"
+                    />
+                </div>
+                <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Hasta</label>
+                    <input
+                        type="date"
+                        value={filters.date_to}
+                        onChange={e => setFilters(f => ({ ...f, date_to: e.target.value }))}
+                        className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]/30"
+                    />
+                </div>
+                <div className="flex gap-2 ml-auto">
+                    <button
+                        onClick={onApply}
+                        className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg text-sm hover:bg-gray-50 transition-colors"
+                    >
+                        <RefreshCw size={14} /> Aplicar
+                    </button>
+                    {children}
+                </div>
+            </div>
+        </div>
     );
 }
 
@@ -128,7 +174,7 @@ function DataTable({ columns = [], rows = [], loading = false }) {
                         <tr key={i} className="hover:bg-gray-50 transition-colors">
                             {columns.map(col => (
                                 <td key={col.key} className={`px-4 py-3 text-gray-700 ${col.className ?? ''}`}>
-                                    {col.render ? col.render(row[col.key], row) : (row[col.key] ?? '—')}
+                                    {col.render ? col.render(row[col.key], row, i) : (row[col.key] ?? '—')}
                                 </td>
                             ))}
                         </tr>
@@ -145,167 +191,169 @@ function DataTable({ columns = [], rows = [], loading = false }) {
 function PaymentBreakdown({ data = [], loading }) {
     if (loading) return <div className="grid grid-cols-2 gap-2">{[...Array(4)].map((_, i) => <Skeleton key={i} className="h-14" />)}</div>;
     if (!data.length) return <p className="text-sm text-gray-400">Sin datos</p>;
-    const total = data.reduce((s, d) => s + (d.total ?? 0), 0);
+    const total = data.reduce((s, d) => s + (d.amount ?? 0), 0);
     return (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {data.map((item, i) => (
                 <div key={i} className="bg-gray-50 rounded-xl p-3">
-                    <p className="text-xs text-gray-500 truncate">{item.method}</p>
-                    <p className="text-lg font-bold text-gray-900">{money(item.total)}</p>
-                    <p className="text-xs text-gray-400">{pct(total ? (item.total / total) * 100 : 0)}</p>
+                    <p className="text-xs text-gray-500 truncate capitalize">{item.method}</p>
+                    <p className="text-lg font-bold text-gray-900">{money(item.amount)}</p>
+                    <p className="text-xs text-gray-400">{pct(total ? (item.amount / total) * 100 : 0)}</p>
                 </div>
             ))}
         </div>
     );
 }
 
-// ────────────────────────────────────────────────────────────────
-// Tab: Ventas
-// ────────────────────────────────────────────────────────────────
-function SalesTab() {
-    const [filters, setFilters] = useState({
-        from: firstDayOfMonth(),
-        to: today(),
-        seller_id: '',
-    });
+/**
+ * Carga de un reporte con estado de error explicito.
+ *
+ * Antes cada pestaña hacia `.catch(() => setData(null))`: un 500 quedaba
+ * indistinguible de un periodo sin ventas y el usuario leia "$0.00" como si
+ * fuera el dato real. Ahora un fallo se ve y se puede reintentar.
+ */
+function useReport(fetcher, params) {
     const [data, setData]       = useState(null);
     const [loading, setLoading] = useState(false);
-    const [exporting, setExporting] = useState(false);
+    const [error, setError]     = useState(false);
 
     const load = useCallback(() => {
         setLoading(true);
-        getSalesReport(filters)
+        setError(false);
+        fetcher(params)
             .then(r => setData(r.data))
-            .catch(() => setData(null))
+            .catch(() => { setData(null); setError(true); })
             .finally(() => setLoading(false));
-    }, [filters]);
+        // `fetcher` es una funcion estable importada del modulo de API.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [params]);
 
     useEffect(() => { load(); }, [load]);
 
-    const handleExport = async () => {
+    return { data, loading, error, reload: load };
+}
+
+/** Descarga un blob de exportacion como archivo. */
+function useExport(exporter, filename) {
+    const [exporting, setExporting] = useState(false);
+    const { addToast } = useToast();
+
+    const run = async (params) => {
         setExporting(true);
         try {
-            const response = await exportSales(filters);
+            const response = await exporter(params);
             const url  = window.URL.createObjectURL(new Blob([response.data]));
             const link = document.createElement('a');
             link.href = url;
-            link.setAttribute('download', 'ventas.xlsx');
+            link.setAttribute('download', filename);
             document.body.appendChild(link);
             link.click();
             link.remove();
             window.URL.revokeObjectURL(url);
         } catch {
-            alert('Error al exportar. Intente nuevamente.');
+            addToast('No se pudo generar el archivo. Intente nuevamente.', 'error');
         } finally {
             setExporting(false);
         }
     };
 
-    const salesCols = [
-        { key: 'date',       label: 'Fecha' },
-        { key: 'invoice',    label: 'Factura/Recibo' },
-        { key: 'customer',   label: 'Cliente' },
-        { key: 'seller',     label: 'Vendedor' },
-        { key: 'subtotal',   label: 'Subtotal',  render: v => money(v), className: 'text-right font-mono' },
-        { key: 'discount',   label: 'Descuento', render: v => money(v), className: 'text-right font-mono text-red-500' },
-        { key: 'total',      label: 'Total',     render: v => money(v), className: 'text-right font-mono font-semibold' },
-        { key: 'status',     label: 'Estado' },
-    ];
+    return { exporting, run };
+}
+
+// ────────────────────────────────────────────────────────────────
+// Tab: Ventas
+// ────────────────────────────────────────────────────────────────
+function SalesTab() {
+    const [filters, setFilters] = useState(defaultRange);
+    const [applied, setApplied] = useState(filters);
+    const { data, loading, error, reload } = useReport(getSalesReport, applied);
+    const { exporting, run: runExport } = useExport(exportSales, 'ventas.xlsx');
 
     const topSellersCols = [
         { key: 'position',  label: '#',        sortable: false, render: (_, __, idx) => idx + 1 },
         { key: 'name',      label: 'Vendedor' },
         { key: 'count',     label: 'Ventas',   render: v => v ?? 0 },
-        { key: 'total',     label: 'Total',    render: v => money(v), className: 'font-mono font-semibold' },
+        { key: 'amount',    label: 'Total',    render: v => money(v), className: 'font-mono font-semibold' },
     ];
+
+    const summary = data?.summary;
 
     return (
         <div className="space-y-6">
-            {/* Filters */}
-            <div className="bg-white rounded-2xl border border-gray-200 p-5">
-                <div className="flex flex-wrap gap-4 items-end">
-                    <div>
-                        <label className="block text-xs font-medium text-gray-500 mb-1">Desde</label>
-                        <input
-                            type="date"
-                            value={filters.from}
-                            onChange={e => setFilters(f => ({ ...f, from: e.target.value }))}
-                            className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]/30"
-                        />
+            <RangeFilters filters={filters} setFilters={setFilters} onApply={() => setApplied(filters)}>
+                <button
+                    onClick={() => runExport(applied)}
+                    disabled={exporting}
+                    className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm hover:bg-emerald-700 transition-colors disabled:opacity-60"
+                >
+                    <Download size={14} />
+                    {exporting ? 'Exportando...' : 'Exportar Excel'}
+                </button>
+            </RangeFilters>
+
+            {error ? <ErrorState onRetry={reload} /> : (
+                <>
+                    {/* Summary cards */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        {loading ? [...Array(4)].map((_, i) => <Skeleton key={i} className="h-20" />) : (
+                            <>
+                                {[
+                                    { label: 'Total ventas',    value: money(summary?.total_amount) },
+                                    { label: 'Núm. ventas',     value: summary?.total_sales ?? 0 },
+                                    { label: 'Ticket promedio', value: money(summary?.avg_ticket) },
+                                    { label: 'Descuentos',      value: money(summary?.total_discount) },
+                                ].map(card => (
+                                    <div key={card.label} className="bg-white rounded-2xl border border-gray-200 p-4">
+                                        <p className="text-xs text-gray-500">{card.label}</p>
+                                        <p className="text-xl font-bold text-gray-900 mt-1">{card.value}</p>
+                                    </div>
+                                ))}
+                            </>
+                        )}
                     </div>
-                    <div>
-                        <label className="block text-xs font-medium text-gray-500 mb-1">Hasta</label>
-                        <input
-                            type="date"
-                            value={filters.to}
-                            onChange={e => setFilters(f => ({ ...f, to: e.target.value }))}
-                            className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]/30"
-                        />
+
+                    {/* Margen */}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                        {loading ? [...Array(3)].map((_, i) => <Skeleton key={i} className="h-20" />) : (
+                            <>
+                                <div className="bg-white rounded-2xl border border-gray-200 p-4">
+                                    <p className="text-xs text-gray-500">Costo total</p>
+                                    <p className="text-xl font-bold text-gray-900 mt-1">{money(summary?.total_cost)}</p>
+                                </div>
+                                <div className="bg-white rounded-2xl border border-gray-200 p-4">
+                                    <p className="text-xs text-gray-500">Margen bruto</p>
+                                    <p className="text-xl font-bold text-emerald-700 mt-1">{money(summary?.gross_margin)}</p>
+                                </div>
+                                <div className="bg-white rounded-2xl border border-gray-200 p-4">
+                                    <p className="text-xs text-gray-500">Margen %</p>
+                                    <p className="text-xl font-bold text-gray-900 mt-1">{pct(summary?.gross_margin_pct)}</p>
+                                </div>
+                            </>
+                        )}
                     </div>
-                    <div className="flex gap-2 ml-auto">
-                        <button
-                            onClick={load}
-                            className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg text-sm hover:bg-gray-50 transition-colors"
-                        >
-                            <RefreshCw size={14} /> Aplicar
-                        </button>
-                        <button
-                            onClick={handleExport}
-                            disabled={exporting}
-                            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm hover:bg-emerald-700 transition-colors disabled:opacity-60"
-                        >
-                            <Download size={14} />
-                            {exporting ? 'Exportando...' : 'Exportar Excel'}
-                        </button>
+
+                    {/* Sales by period chart */}
+                    <div className="bg-white rounded-2xl border border-gray-200 p-5">
+                        <h3 className="font-semibold text-gray-900 mb-4">Ventas por período</h3>
+                        {loading
+                            ? <Skeleton className="h-24" />
+                            : <HBarChart data={data?.by_period ?? []} labelKey="period" valueKey="amount" />
+                        }
                     </div>
-                </div>
-            </div>
 
-            {/* Summary cards */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                {loading ? [...Array(4)].map((_, i) => <Skeleton key={i} className="h-20" />) : (
-                    <>
-                        {[
-                            { label: 'Total ventas',    value: money(data?.summary?.total) },
-                            { label: 'Núm. ventas',     value: data?.summary?.count ?? 0 },
-                            { label: 'Ticket promedio', value: money(data?.summary?.avgTicket) },
-                            { label: 'Descuentos',      value: money(data?.summary?.discounts) },
-                        ].map(card => (
-                            <div key={card.label} className="bg-white rounded-2xl border border-gray-200 p-4">
-                                <p className="text-xs text-gray-500">{card.label}</p>
-                                <p className="text-xl font-bold text-gray-900 mt-1">{card.value}</p>
-                            </div>
-                        ))}
-                    </>
-                )}
-            </div>
+                    {/* Payment method breakdown */}
+                    <div className="bg-white rounded-2xl border border-gray-200 p-5">
+                        <h3 className="font-semibold text-gray-900 mb-4">Desglose por método de pago</h3>
+                        <PaymentBreakdown data={data?.by_payment_method ?? []} loading={loading} />
+                    </div>
 
-            {/* Sales by period chart */}
-            <div className="bg-white rounded-2xl border border-gray-200 p-5">
-                <h3 className="font-semibold text-gray-900 mb-4">Ventas por período</h3>
-                {loading
-                    ? <Skeleton className="h-24" />
-                    : <HBarChart data={data?.byPeriod ?? []} labelKey="period" valueKey="amount" />
-                }
-            </div>
-
-            {/* Payment method breakdown */}
-            <div className="bg-white rounded-2xl border border-gray-200 p-5">
-                <h3 className="font-semibold text-gray-900 mb-4">Desglose por método de pago</h3>
-                <PaymentBreakdown data={data?.byPaymentMethod ?? []} loading={loading} />
-            </div>
-
-            {/* Top sellers */}
-            <div className="bg-white rounded-2xl border border-gray-200 p-5">
-                <h3 className="font-semibold text-gray-900 mb-4">Top vendedores</h3>
-                <DataTable columns={topSellersCols} rows={data?.topSellers ?? []} loading={loading} />
-            </div>
-
-            {/* Sales table */}
-            <div className="bg-white rounded-2xl border border-gray-200 p-5">
-                <h3 className="font-semibold text-gray-900 mb-4">Detalle de ventas</h3>
-                <DataTable columns={salesCols} rows={data?.sales ?? []} loading={loading} />
-            </div>
+                    {/* Top sellers */}
+                    <div className="bg-white rounded-2xl border border-gray-200 p-5">
+                        <h3 className="font-semibold text-gray-900 mb-4">Top vendedores</h3>
+                        <DataTable columns={topSellersCols} rows={data?.by_seller ?? []} loading={loading} />
+                    </div>
+                </>
+            )}
         </div>
     );
 }
@@ -313,60 +361,36 @@ function SalesTab() {
 // ────────────────────────────────────────────────────────────────
 // Tab: Inventario
 // ────────────────────────────────────────────────────────────────
+const NO_PARAMS = {};
+
 function InventoryTab() {
-    const [data, setData]       = useState(null);
-    const [loading, setLoading] = useState(false);
-    const [exporting, setExporting] = useState(false);
-
-    const load = useCallback(() => {
-        setLoading(true);
-        getInventoryReport()
-            .then(r => setData(r.data))
-            .catch(() => setData(null))
-            .finally(() => setLoading(false));
-    }, []);
-
-    useEffect(() => { load(); }, [load]);
-
-    const handleExport = async () => {
-        setExporting(true);
-        try {
-            const response = await exportInventory();
-            const url  = window.URL.createObjectURL(new Blob([response.data]));
-            const link = document.createElement('a');
-            link.href = url;
-            link.setAttribute('download', 'inventario.xlsx');
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-            window.URL.revokeObjectURL(url);
-        } catch {
-            alert('Error al exportar. Intente nuevamente.');
-        } finally {
-            setExporting(false);
-        }
-    };
+    const { data, loading, error, reload } = useReport(getInventoryReport, NO_PARAMS);
+    const { exporting, run: runExport } = useExport(exportInventory, 'inventario.xlsx');
 
     const lowStockCols = [
         { key: 'sku',       label: 'SKU' },
         { key: 'name',      label: 'Producto' },
-        { key: 'category',  label: 'Categoría' },
-        { key: 'stock',     label: 'Stock actual', className: 'font-semibold text-red-500' },
-        { key: 'minStock',  label: 'Stock mínimo' },
+        { key: 'warehouse', label: 'Bodega' },
+        { key: 'quantity',  label: 'Stock actual', className: 'font-semibold text-red-500' },
+        { key: 'min_stock', label: 'Stock mínimo' },
     ];
 
     const noMovCols = [
-        { key: 'sku',      label: 'SKU' },
-        { key: 'name',     label: 'Producto' },
-        { key: 'stock',    label: 'Stock', render: v => money(v) },
-        { key: 'lastMove', label: 'Último movimiento' },
+        { key: 'sku',           label: 'SKU' },
+        { key: 'name',          label: 'Producto' },
+        { key: 'quantity',      label: 'Stock' },
+        { key: 'last_movement', label: 'Último movimiento' },
     ];
 
     const byCatCols = [
-        { key: 'category', label: 'Categoría' },
-        { key: 'count',    label: 'Productos' },
-        { key: 'value',    label: 'Valor total', render: v => money(v), className: 'font-mono font-semibold' },
+        { key: 'category',   label: 'Categoría' },
+        { key: 'units',      label: 'Unidades' },
+        { key: 'cost_value', label: 'Valor costo', render: v => money(v), className: 'font-mono' },
+        { key: 'sale_value', label: 'Valor venta', render: v => money(v), className: 'font-mono font-semibold' },
     ];
+
+    const valuation = data?.valuation;
+    const lowStock  = data?.low_stock ?? [];
 
     return (
         <div className="space-y-6">
@@ -374,11 +398,11 @@ function InventoryTab() {
             <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-gray-900">Inventario</h3>
                 <div className="flex gap-2">
-                    <button onClick={load} className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg text-sm hover:bg-gray-50">
+                    <button onClick={reload} className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg text-sm hover:bg-gray-50">
                         <RefreshCw size={14} /> Actualizar
                     </button>
                     <button
-                        onClick={handleExport}
+                        onClick={() => runExport()}
                         disabled={exporting}
                         className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm hover:bg-emerald-700 disabled:opacity-60"
                     >
@@ -387,43 +411,47 @@ function InventoryTab() {
                 </div>
             </div>
 
-            {/* Valorization */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                {loading ? [...Array(3)].map((_, i) => <Skeleton key={i} className="h-20" />) : (
-                    <>
-                        <div className="bg-white rounded-2xl border border-gray-200 p-4">
-                            <p className="text-xs text-gray-500">Valorización total (costo)</p>
-                            <p className="text-xl font-bold text-gray-900 mt-1">{money(data?.valorizacionCosto)}</p>
-                        </div>
-                        <div className="bg-white rounded-2xl border border-gray-200 p-4">
-                            <p className="text-xs text-gray-500">Valorización total (venta)</p>
-                            <p className="text-xl font-bold text-gray-900 mt-1">{money(data?.valorizacionVenta)}</p>
-                        </div>
-                        <div className="bg-white rounded-2xl border border-gray-200 p-4">
-                            <p className="text-xs text-gray-500">Productos con stock bajo</p>
-                            <p className="text-xl font-bold text-red-600 mt-1">{data?.stockBajoCount ?? 0}</p>
-                        </div>
-                    </>
-                )}
-            </div>
+            {error ? <ErrorState onRetry={reload} /> : (
+                <>
+                    {/* Valorization */}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                        {loading ? [...Array(3)].map((_, i) => <Skeleton key={i} className="h-20" />) : (
+                            <>
+                                <div className="bg-white rounded-2xl border border-gray-200 p-4">
+                                    <p className="text-xs text-gray-500">Valorización total (costo)</p>
+                                    <p className="text-xl font-bold text-gray-900 mt-1">{money(valuation?.total_cost_value)}</p>
+                                </div>
+                                <div className="bg-white rounded-2xl border border-gray-200 p-4">
+                                    <p className="text-xs text-gray-500">Valorización total (venta)</p>
+                                    <p className="text-xl font-bold text-gray-900 mt-1">{money(valuation?.total_sale_value)}</p>
+                                </div>
+                                <div className="bg-white rounded-2xl border border-gray-200 p-4">
+                                    <p className="text-xs text-gray-500">Productos con stock bajo</p>
+                                    <p className="text-xl font-bold text-red-600 mt-1">{lowStock.length}</p>
+                                </div>
+                            </>
+                        )}
+                    </div>
 
-            {/* Low stock */}
-            <div className="bg-white rounded-2xl border border-gray-200 p-5">
-                <h3 className="font-semibold text-gray-900 mb-4 text-red-600">Productos con stock bajo</h3>
-                <DataTable columns={lowStockCols} rows={data?.stockBajo ?? []} loading={loading} />
-            </div>
+                    {/* Low stock */}
+                    <div className="bg-white rounded-2xl border border-gray-200 p-5">
+                        <h3 className="font-semibold mb-4 text-red-600">Productos con stock bajo</h3>
+                        <DataTable columns={lowStockCols} rows={lowStock} loading={loading} />
+                    </div>
 
-            {/* No movement */}
-            <div className="bg-white rounded-2xl border border-gray-200 p-5">
-                <h3 className="font-semibold text-gray-900 mb-4">Sin movimiento (últimos 30 días)</h3>
-                <DataTable columns={noMovCols} rows={data?.sinMovimiento ?? []} loading={loading} />
-            </div>
+                    {/* No movement */}
+                    <div className="bg-white rounded-2xl border border-gray-200 p-5">
+                        <h3 className="font-semibold text-gray-900 mb-4">Sin movimiento (últimos 30 días)</h3>
+                        <DataTable columns={noMovCols} rows={data?.no_movement_30d ?? []} loading={loading} />
+                    </div>
 
-            {/* By category */}
-            <div className="bg-white rounded-2xl border border-gray-200 p-5">
-                <h3 className="font-semibold text-gray-900 mb-4">Por categoría</h3>
-                <DataTable columns={byCatCols} rows={data?.porCategoria ?? []} loading={loading} />
-            </div>
+                    {/* By category */}
+                    <div className="bg-white rounded-2xl border border-gray-200 p-5">
+                        <h3 className="font-semibold text-gray-900 mb-4">Por categoría</h3>
+                        <DataTable columns={byCatCols} rows={data?.by_category ?? []} loading={loading} />
+                    </div>
+                </>
+            )}
         </div>
     );
 }
@@ -432,83 +460,82 @@ function InventoryTab() {
 // Tab: Laboratorio
 // ────────────────────────────────────────────────────────────────
 function LabTab() {
-    const [filters, setFilters] = useState({ from: firstDayOfMonth(), to: today() });
-    const [data, setData]       = useState(null);
-    const [loading, setLoading] = useState(false);
-
-    const load = useCallback(() => {
-        setLoading(true);
-        getLabReport(filters)
-            .then(r => setData(r.data))
-            .catch(() => setData(null))
-            .finally(() => setLoading(false));
-    }, [filters]);
-
-    useEffect(() => { load(); }, [load]);
+    const [filters, setFilters] = useState(defaultRange);
+    const [applied, setApplied] = useState(filters);
+    const { data, loading, error, reload } = useReport(getLabReport, applied);
 
     const lateOrdersCols = [
-        { key: 'id',         label: 'ID' },
-        { key: 'patient',    label: 'Paciente' },
-        { key: 'lab',        label: 'Laboratorio' },
-        { key: 'dueDate',    label: 'Fecha prometida' },
-        { key: 'daysLate',   label: 'Días atrasado', render: v => <span className="text-red-500 font-semibold">{v}</span> },
+        { key: 'order_number', label: 'Orden' },
+        { key: 'patient',      label: 'Paciente' },
+        { key: 'lab',          label: 'Laboratorio' },
+        { key: 'days_overdue', label: 'Días atrasado', render: v => <span className="text-red-500 font-semibold">{v}</span> },
     ];
 
     const labPerfCols = [
-        { key: 'lab',        label: 'Laboratorio' },
-        { key: 'total',      label: 'Total' },
-        { key: 'delivered',  label: 'Entregadas' },
-        { key: 'late',       label: 'Atrasadas', render: v => <span className={v > 0 ? 'text-red-500' : 'text-green-600'}>{v}</span> },
-        { key: 'avgDays',    label: 'Días promedio' },
+        { key: 'lab_name', label: 'Laboratorio' },
+        { key: 'total',    label: 'Órdenes' },
+        { key: 'avg_days', label: 'Días promedio', render: v => (v ?? '—') },
     ];
 
-    const statuses = data?.porEstado ?? [];
+    const statuses = data?.by_status ?? [];
+    const summary  = data?.summary;
 
     return (
         <div className="space-y-6">
-            {/* Filters */}
-            <div className="bg-white rounded-2xl border border-gray-200 p-5">
-                <div className="flex flex-wrap gap-4 items-end">
-                    <div>
-                        <label className="block text-xs font-medium text-gray-500 mb-1">Desde</label>
-                        <input type="date" value={filters.from} onChange={e => setFilters(f => ({ ...f, from: e.target.value }))}
-                            className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]/30" />
+            <RangeFilters filters={filters} setFilters={setFilters} onApply={() => setApplied(filters)} />
+
+            {error ? <ErrorState onRetry={reload} /> : (
+                <>
+                    {/* Summary */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        {loading ? [...Array(4)].map((_, i) => <Skeleton key={i} className="h-20" />) : (
+                            <>
+                                {[
+                                    { label: 'Órdenes totales', value: summary?.total_orders ?? 0, tone: 'text-gray-900' },
+                                    { label: 'Pendientes',      value: summary?.pending ?? 0,      tone: 'text-gray-900' },
+                                    { label: 'Atrasadas',       value: summary?.overdue ?? 0,      tone: 'text-red-600' },
+                                    { label: 'Días promedio',   value: summary?.avg_turnaround_days ?? '—', tone: 'text-gray-900' },
+                                ].map(card => (
+                                    <div key={card.label} className="bg-white rounded-2xl border border-gray-200 p-4">
+                                        <p className="text-xs text-gray-500">{card.label}</p>
+                                        <p className={`text-2xl font-bold mt-1 ${card.tone}`}>{card.value}</p>
+                                    </div>
+                                ))}
+                            </>
+                        )}
                     </div>
-                    <div>
-                        <label className="block text-xs font-medium text-gray-500 mb-1">Hasta</label>
-                        <input type="date" value={filters.to} onChange={e => setFilters(f => ({ ...f, to: e.target.value }))}
-                            className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]/30" />
+
+                    {/* Status breakdown */}
+                    <div className="bg-white rounded-2xl border border-gray-200 p-5">
+                        <h3 className="font-semibold text-gray-900 mb-4">Órdenes por estado</h3>
+                        {loading ? <Skeleton className="h-20" /> : (
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                {statuses.length === 0
+                                    ? <p className="text-sm text-gray-400">Sin datos para el período seleccionado</p>
+                                    : statuses.map(s => (
+                                        <div key={s.status} className="bg-gray-50 rounded-xl p-3">
+                                            <p className="text-xs text-gray-500 capitalize">{s.status}</p>
+                                            <p className="text-lg font-bold text-gray-900">{s.total}</p>
+                                        </div>
+                                    ))
+                                }
+                            </div>
+                        )}
                     </div>
-                    <button onClick={load} className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg text-sm hover:bg-gray-50">
-                        <RefreshCw size={14} /> Aplicar
-                    </button>
-                </div>
-            </div>
 
-            {/* Status summary */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                {loading
-                    ? [...Array(4)].map((_, i) => <Skeleton key={i} className="h-20" />)
-                    : statuses.map(s => (
-                        <div key={s.status} className="bg-white rounded-2xl border border-gray-200 p-4">
-                            <p className="text-xs text-gray-500 capitalize">{s.status}</p>
-                            <p className="text-2xl font-bold text-gray-900 mt-1">{s.count}</p>
-                        </div>
-                    ))
-                }
-            </div>
+                    {/* Late orders */}
+                    <div className="bg-white rounded-2xl border border-gray-200 p-5">
+                        <h3 className="font-semibold mb-4 text-red-600">Órdenes atrasadas</h3>
+                        <DataTable columns={lateOrdersCols} rows={data?.overdue_orders ?? []} loading={loading} />
+                    </div>
 
-            {/* Late orders */}
-            <div className="bg-white rounded-2xl border border-gray-200 p-5">
-                <h3 className="font-semibold text-gray-900 mb-4 text-red-600">Órdenes atrasadas</h3>
-                <DataTable columns={lateOrdersCols} rows={data?.ordenesAtrasadas ?? []} loading={loading} />
-            </div>
-
-            {/* Performance per lab */}
-            <div className="bg-white rounded-2xl border border-gray-200 p-5">
-                <h3 className="font-semibold text-gray-900 mb-4">Rendimiento por laboratorio</h3>
-                <DataTable columns={labPerfCols} rows={data?.porLaboratorio ?? []} loading={loading} />
-            </div>
+                    {/* Performance per lab */}
+                    <div className="bg-white rounded-2xl border border-gray-200 p-5">
+                        <h3 className="font-semibold text-gray-900 mb-4">Rendimiento por laboratorio</h3>
+                        <DataTable columns={labPerfCols} rows={data?.by_lab ?? []} loading={loading} />
+                    </div>
+                </>
+            )}
         </div>
     );
 }
@@ -517,95 +544,85 @@ function LabTab() {
 // Tab: Caja
 // ────────────────────────────────────────────────────────────────
 function CashTab() {
-    const [filters, setFilters] = useState({ from: firstDayOfMonth(), to: today() });
-    const [data, setData]       = useState(null);
-    const [loading, setLoading] = useState(false);
-
-    const load = useCallback(() => {
-        setLoading(true);
-        getCashReport(filters)
-            .then(r => setData(r.data))
-            .catch(() => setData(null))
-            .finally(() => setLoading(false));
-    }, [filters]);
-
-    useEffect(() => { load(); }, [load]);
+    const [filters, setFilters] = useState(defaultRange);
+    const [applied, setApplied] = useState(filters);
+    const { data, loading, error, reload } = useReport(getCashReport, applied);
 
     const sessionCols = [
-        { key: 'date',       label: 'Fecha' },
-        { key: 'openedBy',   label: 'Abierta por' },
-        { key: 'openTime',   label: 'Apertura' },
-        { key: 'closeTime',  label: 'Cierre' },
-        { key: 'openAmount', label: 'Monto apertura', render: v => money(v), className: 'font-mono' },
-        { key: 'closeAmount',label: 'Monto cierre',   render: v => money(v), className: 'font-mono font-semibold' },
-        { key: 'status',     label: 'Estado' },
+        { key: 'opened_at',      label: 'Fecha',          render: v => dateOf(v) },
+        { key: 'register',       label: 'Caja' },
+        { key: 'opened_by',      label: 'Abierta por' },
+        { key: 'opening_amount', label: 'Monto apertura', render: v => money(v), className: 'font-mono' },
+        { key: 'actual_cash',    label: 'Monto cierre',   render: v => (v === null || v === undefined ? '—' : money(v)), className: 'font-mono font-semibold' },
+        { key: 'difference',     label: 'Diferencia',     render: v => (v === null || v === undefined ? '—' : money(v)), className: 'font-mono' },
+        { key: 'closed_at',      label: 'Cierre',         render: v => timeOf(v) },
+        { key: 'status',         label: 'Estado' },
     ];
 
     const expenseCols = [
-        { key: 'date',        label: 'Fecha' },
-        { key: 'description', label: 'Descripción' },
-        { key: 'category',    label: 'Categoría' },
-        { key: 'amount',      label: 'Monto', render: v => money(v), className: 'font-mono font-semibold' },
+        { key: 'category', label: 'Categoría' },
+        { key: 'count',    label: 'Gastos' },
+        { key: 'total',    label: 'Monto', render: v => money(v), className: 'font-mono font-semibold' },
     ];
+
+    const summary = data?.summary;
+
+    // El backend entrega totales planos por metodo, no una lista.
+    const paymentTotals = summary ? [
+        { method: 'Efectivo',      amount: summary.total_cash },
+        { method: 'Tarjeta',       amount: summary.total_card },
+        { method: 'Transferencia', amount: summary.total_transfer },
+        { method: 'Crédito',       amount: summary.total_credit },
+    ] : [];
+
+    const ingresos = Number(summary?.total_sales ?? 0);
+    const gastos   = Number(summary?.total_expenses ?? 0);
 
     return (
         <div className="space-y-6">
-            {/* Filters */}
-            <div className="bg-white rounded-2xl border border-gray-200 p-5">
-                <div className="flex flex-wrap gap-4 items-end">
-                    <div>
-                        <label className="block text-xs font-medium text-gray-500 mb-1">Desde</label>
-                        <input type="date" value={filters.from} onChange={e => setFilters(f => ({ ...f, from: e.target.value }))}
-                            className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]/30" />
+            <RangeFilters filters={filters} setFilters={setFilters} onApply={() => setApplied(filters)} />
+
+            {error ? <ErrorState onRetry={reload} /> : (
+                <>
+                    {/* Summary */}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                        {loading ? [...Array(3)].map((_, i) => <Skeleton key={i} className="h-20" />) : (
+                            <>
+                                <div className="bg-white rounded-2xl border border-gray-200 p-4">
+                                    <p className="text-xs text-gray-500">Ingresos totales</p>
+                                    <p className="text-xl font-bold text-emerald-700 mt-1">{money(ingresos)}</p>
+                                </div>
+                                <div className="bg-white rounded-2xl border border-gray-200 p-4">
+                                    <p className="text-xs text-gray-500">Gastos del período</p>
+                                    <p className="text-xl font-bold text-red-600 mt-1">{money(gastos)}</p>
+                                </div>
+                                <div className="bg-white rounded-2xl border border-gray-200 p-4">
+                                    <p className="text-xs text-gray-500">Saldo neto</p>
+                                    <p className="text-xl font-bold text-gray-900 mt-1">{money(ingresos - gastos)}</p>
+                                </div>
+                            </>
+                        )}
                     </div>
-                    <div>
-                        <label className="block text-xs font-medium text-gray-500 mb-1">Hasta</label>
-                        <input type="date" value={filters.to} onChange={e => setFilters(f => ({ ...f, to: e.target.value }))}
-                            className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]/30" />
+
+                    {/* Payment totals */}
+                    <div className="bg-white rounded-2xl border border-gray-200 p-5">
+                        <h3 className="font-semibold text-gray-900 mb-4">Totales por método de pago</h3>
+                        <PaymentBreakdown data={paymentTotals} loading={loading} />
                     </div>
-                    <button onClick={load} className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg text-sm hover:bg-gray-50">
-                        <RefreshCw size={14} /> Aplicar
-                    </button>
-                </div>
-            </div>
 
-            {/* Summary */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                {loading ? [...Array(3)].map((_, i) => <Skeleton key={i} className="h-20" />) : (
-                    <>
-                        <div className="bg-white rounded-2xl border border-gray-200 p-4">
-                            <p className="text-xs text-gray-500">Ingresos totales</p>
-                            <p className="text-xl font-bold text-emerald-700 mt-1">{money(data?.totalIngresos)}</p>
-                        </div>
-                        <div className="bg-white rounded-2xl border border-gray-200 p-4">
-                            <p className="text-xs text-gray-500">Gastos del período</p>
-                            <p className="text-xl font-bold text-red-600 mt-1">{money(data?.totalGastos)}</p>
-                        </div>
-                        <div className="bg-white rounded-2xl border border-gray-200 p-4">
-                            <p className="text-xs text-gray-500">Saldo neto</p>
-                            <p className="text-xl font-bold text-gray-900 mt-1">{money((data?.totalIngresos ?? 0) - (data?.totalGastos ?? 0))}</p>
-                        </div>
-                    </>
-                )}
-            </div>
+                    {/* Sessions */}
+                    <div className="bg-white rounded-2xl border border-gray-200 p-5">
+                        <h3 className="font-semibold text-gray-900 mb-4">Historial de sesiones de caja</h3>
+                        <DataTable columns={sessionCols} rows={data?.sessions ?? []} loading={loading} />
+                    </div>
 
-            {/* Payment totals */}
-            <div className="bg-white rounded-2xl border border-gray-200 p-5">
-                <h3 className="font-semibold text-gray-900 mb-4">Totales por método de pago</h3>
-                <PaymentBreakdown data={data?.porMetodoPago ?? []} loading={loading} />
-            </div>
-
-            {/* Sessions */}
-            <div className="bg-white rounded-2xl border border-gray-200 p-5">
-                <h3 className="font-semibold text-gray-900 mb-4">Historial de sesiones de caja</h3>
-                <DataTable columns={sessionCols} rows={data?.sesiones ?? []} loading={loading} />
-            </div>
-
-            {/* Expenses */}
-            <div className="bg-white rounded-2xl border border-gray-200 p-5">
-                <h3 className="font-semibold text-gray-900 mb-4">Gastos del período</h3>
-                <DataTable columns={expenseCols} rows={data?.gastos ?? []} loading={loading} />
-            </div>
+                    {/* Expenses by category */}
+                    <div className="bg-white rounded-2xl border border-gray-200 p-5">
+                        <h3 className="font-semibold text-gray-900 mb-4">Gastos por categoría</h3>
+                        <DataTable columns={expenseCols} rows={data?.by_expense_category ?? []} loading={loading} />
+                    </div>
+                </>
+            )}
         </div>
     );
 }

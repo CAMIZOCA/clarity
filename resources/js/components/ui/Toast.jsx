@@ -47,6 +47,18 @@ function playErrorSound() {
     }
 }
 
+/**
+ * Puente para avisar desde fuera de React (el interceptor de axios en api/client.js).
+ *
+ * Se registra al montar el provider y se limpia al desmontarlo, asi que si no
+ * hay provider montado la llamada simplemente no hace nada.
+ */
+let externalAddToast = null;
+
+export function notifyToast(message, type = 'info', duration = null) {
+    externalAddToast?.(message, type, duration);
+}
+
 export function ToastProvider({ children }) {
     const [toasts, setToasts] = useState([]);
     const timersRef = useRef(new Map());
@@ -78,6 +90,11 @@ export function ToastProvider({ children }) {
 
         return id;
     }, []);
+
+    useEffect(() => {
+        externalAddToast = addToast;
+        return () => { externalAddToast = null; };
+    }, [addToast]);
 
     useEffect(() => {
         const timers = timersRef.current;

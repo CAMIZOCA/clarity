@@ -50,6 +50,24 @@ function getSellablePrice(product) {
     return Number(variant?.sale_price ?? product?.sale_price ?? product?.price ?? 0);
 }
 
+/**
+ * Stock disponible de la variante vendible, o null si no se puede resolver.
+ *
+ * La API nunca devolvio `product.stock`, asi que el modal mostraba siempre
+ * "Stock disponible: ?". El dato real viaja en variants[].inventory[], con una
+ * fila por bodega: hay que sumar (quantity - reserved) y acotarlo a la bodega
+ * de la venta cuando esta ya tiene una asignada.
+ */
+function getSellableStock(product, warehouseId = null) {
+    const variant = getSellableVariant(product);
+    const rows = variant?.inventory ?? product?.inventory ?? null;
+    if (!Array.isArray(rows)) return null;
+
+    return rows
+        .filter((row) => !warehouseId || Number(row.warehouse_id) === Number(warehouseId))
+        .reduce((sum, row) => sum + (Number(row.quantity ?? 0) - Number(row.reserved ?? 0)), 0);
+}
+
 export default function PosPage() {
     const { user } = useAuth();
 
@@ -603,7 +621,7 @@ export default function PosPage() {
                                         </div>
                                         <div className="text-right">
                                             <p className="font-semibold text-green-700">${fmt(getSellablePrice(p))}</p>
-                                            <p className="text-xs text-gray-400">Stock: {p.stock ?? p.stock_total ?? '?'}</p>
+                                            <p className="text-xs text-gray-400">Stock: {getSellableStock(p, sale?.warehouse_id) ?? '?'}</p>
                                         </div>
                                     </li>
                                 ))}
@@ -868,7 +886,16 @@ export default function PosPage() {
                         <div className="bg-gray-50 rounded-xl p-4">
                             <p className="font-semibold text-gray-900 text-lg">{addModal.product.name || addModal.product.nombre}</p>
                             <p className="text-sm text-gray-500">SKU: {getSellableVariant(addModal.product)?.sku || addModal.product.sku || '—'} · Precio: ${fmt(getSellablePrice(addModal.product))}</p>
-                            <p className="text-sm text-gray-500">Stock disponible: {addModal.product.stock ?? '?'}</p>
+                                                        {(() => {
+                                const stock = getSellableStock(addModal.product, sale?.warehouse_id);
+                                const insufficient = stock !== null && addQty > stock;
+                                return (
+                                    <p className={`text-sm ${insufficient ? 'font-medium text-red-600' : 'text-gray-500'}`}>
+                                        Stock disponible: {stock ?? '?'}
+                                        {insufficient && ' — la cantidad supera el stock'}
+                                    </p>
+                                );
+                            })()}
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div>

@@ -6,9 +6,10 @@ use App\Enums\Permission;
 use App\Events\LabOrderReady;
 use App\Http\Controllers\Api\Concerns\ApiResponses;
 use App\Http\Controllers\Controller;
-use App\Models\LabSupplier;
 use App\Models\LabOrder;
 use App\Models\LabOrderHistory;
+use App\Models\LabSupplier;
+use App\Models\Sale;
 use App\Support\AppConfig;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -19,7 +20,7 @@ class LabOrderController extends Controller
 
     public function suppliers(Request $request): JsonResponse
     {
-        if (!$request->user()->can(Permission::LAB_ORDERS_VIEW->value)) {
+        if (! $request->user()->can(Permission::LAB_ORDERS_VIEW->value)) {
             return $this->forbidden();
         }
 
@@ -35,16 +36,16 @@ class LabOrderController extends Controller
      * Transiciones de estado permitidas en el flujo de laboratorio.
      */
     private const STATUS_TRANSITIONS = [
-        'draft'      => ['pending', 'cancelled'],
-        'pending'    => ['sent', 'cancelled'],
-        'sent'       => ['processing', 'cancelled'],
+        'draft' => ['pending', 'cancelled'],
+        'pending' => ['sent', 'cancelled'],
+        'sent' => ['processing', 'cancelled'],
         'processing' => ['received', 'reprocess', 'cancelled'],
-        'received'   => ['qc', 'reprocess'],
-        'qc'         => ['ready', 'reprocess'],
-        'ready'      => ['delivered'],
-        'delivered'  => [],
-        'reprocess'  => ['pending', 'cancelled'],
-        'cancelled'  => [],
+        'received' => ['qc', 'reprocess'],
+        'qc' => ['ready', 'reprocess'],
+        'ready' => ['delivered'],
+        'delivered' => [],
+        'reprocess' => ['pending', 'cancelled'],
+        'cancelled' => [],
     ];
 
     /**
@@ -53,7 +54,7 @@ class LabOrderController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        if (!$request->user()->can(Permission::LAB_ORDERS_VIEW->value)) {
+        if (! $request->user()->can(Permission::LAB_ORDERS_VIEW->value)) {
             return $this->forbidden();
         }
 
@@ -93,49 +94,49 @@ class LabOrderController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
-        if (!$request->user()->can(Permission::LAB_ORDERS_CREATE->value)) {
+        if (! $request->user()->can(Permission::LAB_ORDERS_CREATE->value)) {
             return $this->forbidden();
         }
 
         $validated = $request->validate([
-            'sale_id'                  => ['nullable', 'integer', 'exists:sales,id'],
-            'patient_id'               => ['nullable', 'integer', 'exists:patients,id'],
-            'consultation_id'          => ['nullable', 'integer', 'exists:consultations,id'],
-            'lab_supplier_id'          => ['nullable', 'integer', 'exists:lab_suppliers,id'],
-            'branch_id'                => ['nullable', 'integer', 'exists:branches,id'],
-            'assigned_to'              => ['nullable', 'integer', 'exists:users,id'],
-            'priority'                 => ['nullable', 'in:normal,urgent,express'],
-            'od_sphere'                => ['nullable', 'numeric'],
-            'od_cylinder'              => ['nullable', 'numeric'],
-            'od_axis'                  => ['nullable', 'numeric', 'min:0', 'max:180'],
-            'od_add'                   => ['nullable', 'numeric'],
-            'od_prism'                 => ['nullable', 'numeric'],
-            'oi_sphere'                => ['nullable', 'numeric'],
-            'oi_cylinder'              => ['nullable', 'numeric'],
-            'oi_axis'                  => ['nullable', 'numeric', 'min:0', 'max:180'],
-            'oi_add'                   => ['nullable', 'numeric'],
-            'oi_prism'                 => ['nullable', 'numeric'],
-            'pd_far'                   => ['nullable', 'numeric'],
-            'pd_near'                  => ['nullable', 'numeric'],
-            'height_od'                => ['nullable', 'numeric'],
-            'height_oi'                => ['nullable', 'numeric'],
-            'frame_description'        => ['nullable', 'string', 'max:500'],
-            'lens_type'                => ['nullable', 'string', 'max:100'],
-            'lens_material'            => ['nullable', 'string', 'max:100'],
-            'lens_treatment'           => ['nullable', 'string', 'max:100'],
-            'lens_design'              => ['nullable', 'string', 'max:100'],
-            'estimated_delivery_date'  => ['nullable', 'date'],
-            'lab_cost'                 => ['nullable', 'numeric', 'min:0'],
-            'technical_notes'          => ['nullable', 'string'],
-            'internal_notes'           => ['nullable', 'string'],
+            'sale_id' => ['nullable', 'integer', 'exists:sales,id'],
+            'patient_id' => ['nullable', 'integer', 'exists:patients,id'],
+            'consultation_id' => ['nullable', 'integer', 'exists:consultations,id'],
+            'lab_supplier_id' => ['nullable', 'integer', 'exists:lab_suppliers,id'],
+            'branch_id' => ['nullable', 'integer', 'exists:branches,id'],
+            'assigned_to' => ['nullable', 'integer', 'exists:users,id'],
+            'priority' => ['nullable', 'in:normal,urgent'],
+            'od_sphere' => ['nullable', 'numeric'],
+            'od_cylinder' => ['nullable', 'numeric'],
+            'od_axis' => ['nullable', 'numeric', 'min:0', 'max:180'],
+            'od_add' => ['nullable', 'numeric'],
+            'od_prism' => ['nullable', 'numeric'],
+            'oi_sphere' => ['nullable', 'numeric'],
+            'oi_cylinder' => ['nullable', 'numeric'],
+            'oi_axis' => ['nullable', 'numeric', 'min:0', 'max:180'],
+            'oi_add' => ['nullable', 'numeric'],
+            'oi_prism' => ['nullable', 'numeric'],
+            'pd_far' => ['nullable', 'numeric'],
+            'pd_near' => ['nullable', 'numeric'],
+            'height_od' => ['nullable', 'numeric'],
+            'height_oi' => ['nullable', 'numeric'],
+            'frame_description' => ['nullable', 'string', 'max:200'],
+            'lens_type' => ['nullable', 'string', 'max:60'],
+            'lens_material' => ['nullable', 'string', 'max:60'],
+            'lens_treatment' => ['nullable', 'string', 'max:100'],
+            'lens_design' => ['nullable', 'string', 'max:60'],
+            'estimated_delivery_date' => ['nullable', 'date'],
+            'lab_cost' => ['nullable', 'numeric', 'min:0'],
+            'technical_notes' => ['nullable', 'string'],
+            'internal_notes' => ['nullable', 'string'],
         ]);
 
         $validated['created_by'] = $request->user()->id;
-        $validated['status']     = 'draft';
+        $validated['status'] = 'draft';
 
         // Si viene de una venta, intentar pre-llenar datos de la consulta asociada
-        if (!empty($validated['sale_id'])) {
-            $sale = \App\Models\Sale::with('consultation')->find($validated['sale_id']);
+        if (! empty($validated['sale_id'])) {
+            $sale = Sale::with('consultation')->find($validated['sale_id']);
 
             if ($sale) {
                 if (empty($validated['patient_id']) && $sale->patient_id) {
@@ -150,18 +151,18 @@ class LabOrderController extends Controller
 
                 // Pre-llenar receta desde la consulta si existe y no se enviaron datos
                 $consultation = $sale->consultation;
-                if ($consultation && !isset($validated['od_sphere'])) {
+                if ($consultation && ! isset($validated['od_sphere'])) {
                     $validated = array_merge([
-                        'od_sphere'   => $consultation->od_esfera ?? null,
+                        'od_sphere' => $consultation->od_esfera ?? null,
                         'od_cylinder' => $consultation->od_cilindro ?? null,
-                        'od_axis'     => $consultation->od_eje ?? null,
-                        'od_add'      => $consultation->od_adicion ?? null,
-                        'oi_sphere'   => $consultation->oi_esfera ?? null,
+                        'od_axis' => $consultation->od_eje ?? null,
+                        'od_add' => $consultation->od_adicion ?? null,
+                        'oi_sphere' => $consultation->oi_esfera ?? null,
                         'oi_cylinder' => $consultation->oi_cilindro ?? null,
-                        'oi_axis'     => $consultation->oi_eje ?? null,
-                        'oi_add'      => $consultation->oi_adicion ?? null,
-                        'pd_far'      => $consultation->dp_lejos ?? null,
-                        'pd_near'     => $consultation->dp_cerca ?? null,
+                        'oi_axis' => $consultation->oi_eje ?? null,
+                        'oi_add' => $consultation->oi_adicion ?? null,
+                        'pd_far' => $consultation->dp_lejos ?? null,
+                        'pd_near' => $consultation->dp_cerca ?? null,
                     ], $validated);
                 }
             }
@@ -172,11 +173,11 @@ class LabOrderController extends Controller
         // Registrar en historial
         LabOrderHistory::create([
             'lab_order_id' => $order->id,
-            'user_id'      => $request->user()->id,
-            'old_status'   => null,
-            'new_status'   => 'draft',
-            'notes'        => 'Orden creada.',
-            'created_at'   => now(),
+            'user_id' => $request->user()->id,
+            'old_status' => null,
+            'new_status' => 'draft',
+            'notes' => 'Orden creada.',
+            'created_at' => now(),
         ]);
 
         return $this->created(
@@ -191,7 +192,7 @@ class LabOrderController extends Controller
      */
     public function show(Request $request, LabOrder $labOrder): JsonResponse
     {
-        if (!$request->user()->can(Permission::LAB_ORDERS_VIEW->value)) {
+        if (! $request->user()->can(Permission::LAB_ORDERS_VIEW->value)) {
             return $this->forbidden();
         }
 
@@ -215,31 +216,31 @@ class LabOrderController extends Controller
      */
     public function updateStatus(Request $request, LabOrder $labOrder): JsonResponse
     {
-        if (!$request->user()->can(Permission::LAB_ORDERS_MANAGE->value)) {
+        if (! $request->user()->can(Permission::LAB_ORDERS_MANAGE->value)) {
             return $this->forbidden();
         }
 
         $validated = $request->validate([
-            'status'            => ['required', 'string', 'in:' . implode(',', array_keys(AppConfig::LAB_ORDER_STATUSES))],
-            'notes'             => ['nullable', 'string', 'max:500'],
+            'status' => ['required', 'string', 'in:'.implode(',', array_keys(AppConfig::LAB_ORDER_STATUSES))],
+            'notes' => ['nullable', 'string', 'max:500'],
             'actual_delivery_date' => ['nullable', 'date'],
         ]);
 
         $currentStatus = $labOrder->status;
-        $newStatus     = $validated['status'];
+        $newStatus = $validated['status'];
 
         // Validar transición permitida
         $allowed = self::STATUS_TRANSITIONS[$currentStatus] ?? [];
-        if (!in_array($newStatus, $allowed)) {
+        if (! in_array($newStatus, $allowed)) {
             return response()->json([
                 'message' => "No se puede pasar del estado '{$currentStatus}' al estado '{$newStatus}'. "
-                    . "Transiciones permitidas: " . (empty($allowed) ? 'ninguna' : implode(', ', $allowed)) . ".",
+                    .'Transiciones permitidas: '.(empty($allowed) ? 'ninguna' : implode(', ', $allowed)).'.',
             ], 422);
         }
 
         $updateData = ['status' => $newStatus];
 
-        if ($newStatus === 'delivered' && !empty($validated['actual_delivery_date'])) {
+        if ($newStatus === 'delivered' && ! empty($validated['actual_delivery_date'])) {
             $updateData['actual_delivery_date'] = $validated['actual_delivery_date'];
         } elseif ($newStatus === 'delivered') {
             $updateData['actual_delivery_date'] = now()->toDateString();
@@ -250,11 +251,11 @@ class LabOrderController extends Controller
         // Registrar en historial
         LabOrderHistory::create([
             'lab_order_id' => $labOrder->id,
-            'user_id'      => $request->user()->id,
-            'old_status'   => $currentStatus,
-            'new_status'   => $newStatus,
-            'notes'        => $validated['notes'] ?? null,
-            'created_at'   => now(),
+            'user_id' => $request->user()->id,
+            'old_status' => $currentStatus,
+            'new_status' => $newStatus,
+            'notes' => $validated['notes'] ?? null,
+            'created_at' => now(),
         ]);
 
         // Emitir evento si está lista para entrega
@@ -264,7 +265,7 @@ class LabOrderController extends Controller
 
         return $this->ok(
             $labOrder->fresh()->load(['history.user']),
-            "Estado actualizado a: " . AppConfig::LAB_ORDER_STATUSES[$newStatus] . "."
+            'Estado actualizado a: '.AppConfig::LAB_ORDER_STATUSES[$newStatus].'.'
         );
     }
 
@@ -274,7 +275,7 @@ class LabOrderController extends Controller
      */
     public function update(Request $request, LabOrder $labOrder): JsonResponse
     {
-        if (!$request->user()->can(Permission::LAB_ORDERS_EDIT->value)) {
+        if (! $request->user()->can(Permission::LAB_ORDERS_EDIT->value)) {
             return $this->forbidden();
         }
 
@@ -285,32 +286,32 @@ class LabOrderController extends Controller
         }
 
         $validated = $request->validate([
-            'lab_supplier_id'         => ['nullable', 'integer', 'exists:lab_suppliers,id'],
-            'assigned_to'             => ['nullable', 'integer', 'exists:users,id'],
-            'priority'                => ['nullable', 'in:normal,urgent,express'],
-            'od_sphere'               => ['nullable', 'numeric'],
-            'od_cylinder'             => ['nullable', 'numeric'],
-            'od_axis'                 => ['nullable', 'numeric', 'min:0', 'max:180'],
-            'od_add'                  => ['nullable', 'numeric'],
-            'od_prism'                => ['nullable', 'numeric'],
-            'oi_sphere'               => ['nullable', 'numeric'],
-            'oi_cylinder'             => ['nullable', 'numeric'],
-            'oi_axis'                 => ['nullable', 'numeric', 'min:0', 'max:180'],
-            'oi_add'                  => ['nullable', 'numeric'],
-            'oi_prism'                => ['nullable', 'numeric'],
-            'pd_far'                  => ['nullable', 'numeric'],
-            'pd_near'                 => ['nullable', 'numeric'],
-            'height_od'               => ['nullable', 'numeric'],
-            'height_oi'               => ['nullable', 'numeric'],
-            'frame_description'       => ['nullable', 'string', 'max:500'],
-            'lens_type'               => ['nullable', 'string', 'max:100'],
-            'lens_material'           => ['nullable', 'string', 'max:100'],
-            'lens_treatment'          => ['nullable', 'string', 'max:100'],
-            'lens_design'             => ['nullable', 'string', 'max:100'],
+            'lab_supplier_id' => ['nullable', 'integer', 'exists:lab_suppliers,id'],
+            'assigned_to' => ['nullable', 'integer', 'exists:users,id'],
+            'priority' => ['nullable', 'in:normal,urgent'],
+            'od_sphere' => ['nullable', 'numeric'],
+            'od_cylinder' => ['nullable', 'numeric'],
+            'od_axis' => ['nullable', 'numeric', 'min:0', 'max:180'],
+            'od_add' => ['nullable', 'numeric'],
+            'od_prism' => ['nullable', 'numeric'],
+            'oi_sphere' => ['nullable', 'numeric'],
+            'oi_cylinder' => ['nullable', 'numeric'],
+            'oi_axis' => ['nullable', 'numeric', 'min:0', 'max:180'],
+            'oi_add' => ['nullable', 'numeric'],
+            'oi_prism' => ['nullable', 'numeric'],
+            'pd_far' => ['nullable', 'numeric'],
+            'pd_near' => ['nullable', 'numeric'],
+            'height_od' => ['nullable', 'numeric'],
+            'height_oi' => ['nullable', 'numeric'],
+            'frame_description' => ['nullable', 'string', 'max:200'],
+            'lens_type' => ['nullable', 'string', 'max:60'],
+            'lens_material' => ['nullable', 'string', 'max:60'],
+            'lens_treatment' => ['nullable', 'string', 'max:100'],
+            'lens_design' => ['nullable', 'string', 'max:60'],
             'estimated_delivery_date' => ['nullable', 'date'],
-            'lab_cost'                => ['nullable', 'numeric', 'min:0'],
-            'technical_notes'         => ['nullable', 'string'],
-            'internal_notes'          => ['nullable', 'string'],
+            'lab_cost' => ['nullable', 'numeric', 'min:0'],
+            'technical_notes' => ['nullable', 'string'],
+            'internal_notes' => ['nullable', 'string'],
         ]);
 
         $labOrder->update($validated);
@@ -324,14 +325,14 @@ class LabOrderController extends Controller
      */
     public function destroy(Request $request, LabOrder $labOrder): JsonResponse
     {
-        if (!$request->user()->can(Permission::LAB_ORDERS_DELETE->value)) {
+        if (! $request->user()->can(Permission::LAB_ORDERS_DELETE->value)) {
             return $this->forbidden();
         }
 
-        if (!in_array($labOrder->status, ['draft', 'cancelled'])) {
+        if (! in_array($labOrder->status, ['draft', 'cancelled'])) {
             return response()->json([
                 'message' => "Solo se pueden eliminar órdenes en estado 'borrador' o 'cancelado'. "
-                    . "Estado actual: {$labOrder->status}.",
+                    ."Estado actual: {$labOrder->status}.",
             ], 422);
         }
 

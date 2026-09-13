@@ -5,8 +5,11 @@ namespace App\Http\Controllers\Api;
 use App\Enums\Permission;
 use App\Http\Controllers\Api\Concerns\ApiResponses;
 use App\Http\Controllers\Controller;
+use App\Models\Patient;
 use App\Models\Sale;
+use App\Models\SaleItem;
 use App\Services\SaleService;
+use App\Support\AppConfig;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -22,7 +25,7 @@ class SaleController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        if (!$request->user()->can(Permission::SALES_VIEW->value)) {
+        if (! $request->user()->can(Permission::SALES_VIEW->value)) {
             return $this->forbidden();
         }
 
@@ -52,13 +55,13 @@ class SaleController extends Controller
             $s = $request->search;
             $query->where(function ($q) use ($s) {
                 $q->where('sale_number', 'LIKE', "%{$s}%")
-                  ->orWhereHas('patient', fn ($p) => $p->where('nombre', 'LIKE', "%{$s}%")
-                                                        ->orWhere('cedula', 'LIKE', "%{$s}%"));
+                    ->orWhereHas('patient', fn ($p) => $p->where('nombre', 'LIKE', "%{$s}%")
+                        ->orWhere('cedula', 'LIKE', "%{$s}%"));
             });
         }
 
         // Usuarios no admin solo ven sus propias ventas (a menos que tengan permiso especial)
-        if (!$request->user()->hasRole('admin') && !$request->user()->can('reports.sales')) {
+        if (! $request->user()->hasRole('admin') && ! $request->user()->can('reports.sales')) {
             $query->where('user_id', $request->user()->id);
         }
 
@@ -73,18 +76,21 @@ class SaleController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
-        if (!$request->user()->can(Permission::SALES_CREATE->value)) {
+        if (! $request->user()->can(Permission::SALES_CREATE->value)) {
             return $this->forbidden();
         }
 
         $validated = $request->validate([
-            'patient_id'      => ['nullable', 'integer', 'exists:patients,id'],
+            'patient_id' => ['nullable', 'integer', 'exists:patients,id'],
             'consultation_id' => ['nullable', 'integer', 'exists:consultations,id'],
-            'branch_id'       => ['nullable', 'integer', 'exists:branches,id'],
-            'warehouse_id'    => ['nullable', 'integer', 'exists:warehouses,id'],
-            'notes'           => ['nullable', 'string', 'max:500'],
+            'branch_id' => ['nullable', 'integer', 'exists:branches,id'],
+            'warehouse_id' => ['nullable', 'integer', 'exists:warehouses,id'],
+            'notes' => ['nullable', 'string', 'max:500'],
         ]);
 
+        // SetActiveBranch expone la sucursal del header X-Branch-Id; si el POS no
+        // manda branch_id explicito, esa es la mejor pista disponible.
+        $validated['branch_id'] ??= $request->get('_active_branch_id');
         $validated['user_id'] = $request->user()->id;
         $sale = $this->saleService->createDraft($validated, $request->user()->id);
 
@@ -97,14 +103,14 @@ class SaleController extends Controller
      */
     public function show(Request $request, Sale $sale): JsonResponse
     {
-        if (!$request->user()->can(Permission::SALES_VIEW->value)) {
+        if (! $request->user()->can(Permission::SALES_VIEW->value)) {
             return $this->forbidden();
         }
 
         $sale->load(['patient', 'seller', 'branch', 'items.productVariant.product', 'payments', 'labOrders']);
 
         // Ocultar costos si no tiene permiso
-        if (!$request->user()->can(Permission::SALES_VIEW_COST->value)) {
+        if (! $request->user()->can(Permission::SALES_VIEW_COST->value)) {
             $sale->items->each(fn ($i) => $i->makeHidden(['cost_price']));
             $sale->makeHidden(['cost_total']);
         }
@@ -118,36 +124,36 @@ class SaleController extends Controller
      */
     public function addItem(Request $request, Sale $sale): JsonResponse
     {
-        if (!$request->user()->can(Permission::SALES_CREATE->value)) {
+        if (! $request->user()->can(Permission::SALES_CREATE->value)) {
             return $this->forbidden();
         }
 
-        if (!in_array($sale->status, ['draft', 'confirmed', 'partial'])) {
+        if (! in_array($sale->status, ['draft', 'confirmed', 'partial'])) {
             return response()->json([
-                'message' => 'No se pueden agregar items a una venta en estado: ' . $sale->status,
+                'message' => 'No se pueden agregar items a una venta en estado: '.$sale->status,
             ], 422);
         }
 
         $validated = $request->validate([
             'product_variant_id' => ['nullable', 'integer', 'exists:product_variants,id'],
-            'description'        => ['required', 'string', 'max:250'],
-            'quantity'           => ['required', 'numeric', 'min:0.01'],
-            'unit_price'         => ['required', 'numeric', 'min:0'],
-            'discount_pct'       => ['nullable', 'numeric', 'min:0', 'max:100'],
-            'taxable'            => ['nullable', 'boolean'],
-            'prescription_eye'   => ['nullable', 'in:OD,OI,ambos,N/A'],
-            'item_type'          => ['nullable', 'string'],
-            'notes'              => ['nullable', 'string'],
+            'description' => ['required', 'string', 'max:250'],
+            'quantity' => ['required', 'numeric', 'min:0.01'],
+            'unit_price' => ['required', 'numeric', 'min:0'],
+            'discount_pct' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'taxable' => ['nullable', 'boolean'],
+            'prescription_eye' => ['nullable', 'in:OD,OI,ambos,N/A'],
+            'item_type' => ['nullable', 'string'],
+            'notes' => ['nullable', 'string'],
         ]);
 
         // Verificar límite de descuento
         $discountPct = $validated['discount_pct'] ?? 0;
-        if ($discountPct > \App\Support\AppConfig::MAX_DISCOUNT_WITHOUT_APPROVAL) {
-            if (!$request->user()->can(Permission::SALES_DISCOUNT_LIMIT->value)) {
+        if ($discountPct > AppConfig::MAX_DISCOUNT_WITHOUT_APPROVAL) {
+            if (! $request->user()->can(Permission::SALES_DISCOUNT_LIMIT->value)) {
                 return response()->json([
                     'message' => "El descuento de {$discountPct}% supera el límite permitido de "
-                        . \App\Support\AppConfig::MAX_DISCOUNT_WITHOUT_APPROVAL
-                        . "% sin aprobación.",
+                        .AppConfig::MAX_DISCOUNT_WITHOUT_APPROVAL
+                        .'% sin aprobación.',
                 ], 422);
             }
         }
@@ -161,13 +167,13 @@ class SaleController extends Controller
      * Eliminar item de la venta.
      * DELETE /api/sales/{sale}/items/{item}
      */
-    public function removeItem(Request $request, Sale $sale, \App\Models\SaleItem $item): JsonResponse
+    public function removeItem(Request $request, Sale $sale, SaleItem $item): JsonResponse
     {
         if ($item->sale_id !== $sale->id) {
             return $this->notFound('El item no pertenece a esta venta.');
         }
 
-        if (!in_array($sale->status, ['draft', 'confirmed'])) {
+        if (! in_array($sale->status, ['draft', 'confirmed'])) {
             return response()->json([
                 'message' => 'No se pueden eliminar items de una venta ya procesada.',
             ], 422);
@@ -184,7 +190,7 @@ class SaleController extends Controller
      */
     public function processPayment(Request $request, Sale $sale): JsonResponse
     {
-        if (!$request->user()->can(Permission::SALES_CREATE->value)) {
+        if (! $request->user()->can(Permission::SALES_CREATE->value)) {
             return $this->forbidden();
         }
 
@@ -195,12 +201,12 @@ class SaleController extends Controller
         }
 
         $validated = $request->validate([
-            'method'         => ['required', 'in:cash,card,transfer,credit,coupon'],
-            'amount'         => ['required', 'numeric', 'min:0.01'],
-            'reference'      => ['nullable', 'string', 'max:100'],
-            'bank_name'      => ['nullable', 'string', 'max:100'],
+            'method' => ['required', 'in:cash,card,transfer,credit,coupon'],
+            'amount' => ['required', 'numeric', 'min:0.01'],
+            'reference' => ['nullable', 'string', 'max:100'],
+            'bank_name' => ['nullable', 'string', 'max:100'],
             'card_last_four' => ['nullable', 'string', 'size:4', 'regex:/^\d{4}$/'],
-            'notes'          => ['nullable', 'string', 'max:500'],
+            'notes' => ['nullable', 'string', 'max:500'],
         ]);
 
         try {
@@ -209,7 +215,7 @@ class SaleController extends Controller
 
             return $this->created([
                 'payment' => $payment,
-                'sale'    => $sale->only(['id', 'status', 'total', 'paid_amount', 'balance']),
+                'sale' => $sale->only(['id', 'status', 'total', 'paid_amount', 'balance']),
             ], 'Pago registrado exitosamente.');
         } catch (\Exception $e) {
             return response()->json(['message' => $e->getMessage()], 422);
@@ -222,7 +228,7 @@ class SaleController extends Controller
      */
     public function cancel(Request $request, Sale $sale): JsonResponse
     {
-        if (!$request->user()->can(Permission::SALES_CANCEL->value)) {
+        if (! $request->user()->can(Permission::SALES_CANCEL->value)) {
             return $this->forbidden();
         }
 
@@ -232,6 +238,7 @@ class SaleController extends Controller
 
         try {
             $sale = $this->saleService->cancelSale($sale, $validated['reason'], $request->user()->id);
+
             return $this->ok($sale, 'Venta cancelada.');
         } catch (\Exception $e) {
             return response()->json(['message' => $e->getMessage()], 422);
@@ -242,9 +249,9 @@ class SaleController extends Controller
      * Resumen de ventas de un paciente.
      * GET /api/sales/patient/{patient}
      */
-    public function patientSummary(Request $request, \App\Models\Patient $patient): JsonResponse
+    public function patientSummary(Request $request, Patient $patient): JsonResponse
     {
-        if (!$request->user()->can(Permission::SALES_VIEW->value)) {
+        if (! $request->user()->can(Permission::SALES_VIEW->value)) {
             return $this->forbidden();
         }
 

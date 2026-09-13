@@ -2,12 +2,18 @@
 
 namespace App\Services;
 
+use App\Models\Branch;
+use App\Models\CashRegisterSession;
 use App\Models\Payment;
+use App\Models\ProductVariant;
 use App\Models\Refund;
 use App\Models\Sale;
 use App\Models\SaleItem;
+use App\Models\User;
+use App\Models\Warehouse;
 use App\Support\AppConfig;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class SaleService extends BaseService
 {
@@ -20,33 +26,74 @@ class SaleService extends BaseService
      */
     public function createDraft(array $data, int $userId): Sale
     {
-        return $this->transaction(function () use ($data, $userId) {
+        $branchId = $this->resolveBranchId($data['branch_id'] ?? null, $userId);
+        $warehouseId = $this->resolveWarehouseId($data['warehouse_id'] ?? null, $branchId);
+
+        return $this->transaction(function () use ($data, $userId, $branchId, $warehouseId) {
             $sale = Sale::create([
-                'patient_id'      => $data['patient_id'] ?? null,
+                'patient_id' => $data['patient_id'] ?? null,
                 'consultation_id' => $data['consultation_id'] ?? null,
-                'branch_id'       => $data['branch_id'] ?? null,
-                'warehouse_id'    => $data['warehouse_id'] ?? null,
-                'user_id'         => $userId,
-                'status'          => 'draft',
-                'subtotal'        => 0,
-                'discount_total'  => 0,
-                'taxable_base'    => 0,
+                'branch_id' => $branchId,
+                'warehouse_id' => $warehouseId,
+                'user_id' => $userId,
+                'status' => 'draft',
+                'subtotal' => 0,
+                'discount_total' => 0,
+                'taxable_base' => 0,
                 'tax_exempt_base' => 0,
-                'tax_amount'      => 0,
-                'total'           => 0,
-                'paid_amount'     => 0,
-                'balance'         => 0,
-                'cost_total'      => 0,
-                'notes'           => $data['notes'] ?? null,
+                'tax_amount' => 0,
+                'total' => 0,
+                'paid_amount' => 0,
+                'balance' => 0,
+                'cost_total' => 0,
+                'notes' => $data['notes'] ?? null,
             ]);
 
             $this->logActivity('venta_iniciada', $sale, [
                 'sale_number' => $sale->sale_number,
-                'patient_id'  => $sale->patient_id,
+                'patient_id' => $sale->patient_id,
             ]);
 
             return $sale;
         });
+    }
+
+    /**
+     * Sucursal de la venta: la enviada, la del usuario, o la principal.
+     *
+     * Sin esto toda venta quedaba con branch_id null, y branchComparison
+     * — junto a cualquier reporte por sucursal — devolvia cero.
+     */
+    private function resolveBranchId(?int $branchId, int $userId): ?int
+    {
+        if ($branchId) {
+            return $branchId;
+        }
+
+        return User::find($userId)?->branch_id
+            ?? Branch::where('is_main', true)->value('id')
+            ?? Branch::where('is_active', true)->value('id');
+    }
+
+    /**
+     * Bodega de la venta: la enviada, o la marcada por defecto en la sucursal.
+     *
+     * Es lo que habilita el descuento de inventario: deductInventoryForSale()
+     * hace return temprano cuando warehouse_id es null, asi que una venta
+     * pagada nunca descontaba stock.
+     */
+    private function resolveWarehouseId(?int $warehouseId, ?int $branchId): ?int
+    {
+        if ($warehouseId) {
+            return $warehouseId;
+        }
+
+        return Warehouse::query()
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
+            ->where('is_active', true)
+            ->orderByDesc('is_default')
+            ->value('id')
+            ?? Warehouse::where('is_default', true)->value('id');
     }
 
     // ─── addItem ──────────────────────────────────────────────────────────────
@@ -56,42 +103,42 @@ class SaleService extends BaseService
      */
     public function addItem(Sale $sale, array $itemData): SaleItem
     {
-        if (!in_array($sale->status, ['draft', 'confirmed', 'partial'])) {
+        if (! in_array($sale->status, ['draft', 'confirmed', 'partial'])) {
             throw new \Exception("No se pueden agregar items a una venta en estado: {$sale->status}.");
         }
 
         return $this->transaction(function () use ($sale, $itemData) {
-            $quantity    = (float) $itemData['quantity'];
-            $unitPrice   = (float) $itemData['unit_price'];
+            $quantity = (float) $itemData['quantity'];
+            $unitPrice = (float) $itemData['unit_price'];
             $discountPct = (float) ($itemData['discount_pct'] ?? 0);
 
             $discountAmount = round($unitPrice * $quantity * ($discountPct / 100), 2);
-            $subtotal       = round(($unitPrice * $quantity) - $discountAmount, 2);
+            $subtotal = round(($unitPrice * $quantity) - $discountAmount, 2);
 
             // Recuperar costo desde la variante si está disponible
             $costPrice = 0;
-            $sku       = null;
-            if (!empty($itemData['product_variant_id'])) {
-                $variant   = \App\Models\ProductVariant::find($itemData['product_variant_id']);
+            $sku = null;
+            if (! empty($itemData['product_variant_id'])) {
+                $variant = ProductVariant::find($itemData['product_variant_id']);
                 $costPrice = $variant ? (float) $variant->cost_price : 0;
-                $sku       = $variant?->sku;
+                $sku = $variant?->sku;
             }
 
             $item = SaleItem::create([
-                'sale_id'            => $sale->id,
+                'sale_id' => $sale->id,
                 'product_variant_id' => $itemData['product_variant_id'] ?? null,
-                'description'        => $itemData['description'],
-                'sku'                => $sku,
-                'quantity'           => $quantity,
-                'unit_price'         => $unitPrice,
-                'cost_price'         => $costPrice,
-                'discount_pct'       => $discountPct,
-                'discount_amount'    => $discountAmount,
-                'subtotal'           => $subtotal,
-                'taxable'            => $itemData['taxable'] ?? true,
-                'prescription_eye'   => $itemData['prescription_eye'] ?? null,
-                'item_type'          => $itemData['item_type'] ?? null,
-                'notes'              => $itemData['notes'] ?? null,
+                'description' => $itemData['description'],
+                'sku' => $sku,
+                'quantity' => $quantity,
+                'unit_price' => $unitPrice,
+                'cost_price' => $costPrice,
+                'discount_pct' => $discountPct,
+                'discount_amount' => $discountAmount,
+                'subtotal' => $subtotal,
+                'taxable' => $itemData['taxable'] ?? true,
+                'prescription_eye' => $itemData['prescription_eye'] ?? 'N/A',
+                'item_type' => $itemData['item_type'] ?? 'product',
+                'notes' => $itemData['notes'] ?? null,
             ]);
 
             $this->recalculateTotals($sale);
@@ -123,22 +170,22 @@ class SaleService extends BaseService
         $sale->refresh();
         $sale->loadMissing('items.productVariant.product');
 
-        $subtotal      = 0;
+        $subtotal = 0;
         $discountTotal = 0;
-        $taxableBase   = 0;
-        $exemptBase    = 0;
-        $costTotal     = 0;
-        $requiresLab   = false;
+        $taxableBase = 0;
+        $exemptBase = 0;
+        $costTotal = 0;
+        $requiresLab = false;
 
         foreach ($sale->items as $item) {
-            $lineGross    = $item->unit_price * $item->quantity;
+            $lineGross = $item->unit_price * $item->quantity;
             $lineDiscount = $item->discount_amount;
             $lineSubtotal = $item->subtotal;
-            $lineCost     = (float) $item->cost_price * (float) $item->quantity;
+            $lineCost = (float) $item->cost_price * (float) $item->quantity;
 
-            $subtotal      += $lineGross;
+            $subtotal += $lineGross;
             $discountTotal += $lineDiscount;
-            $costTotal     += $lineCost;
+            $costTotal += $lineCost;
 
             if ($item->taxable) {
                 $taxableBase += $lineSubtotal;
@@ -147,7 +194,7 @@ class SaleService extends BaseService
             }
 
             // Detectar si requiere orden de laboratorio
-            if (!$requiresLab && $item->productVariant?->product) {
+            if (! $requiresLab && $item->productVariant?->product) {
                 $category = strtolower($item->productVariant->product->category ?? '');
                 if (in_array($category, ['luna', 'armazon', 'lente', 'lentes'])) {
                     $requiresLab = true;
@@ -155,10 +202,10 @@ class SaleService extends BaseService
             }
         }
 
-        $taxAmount  = round($taxableBase * AppConfig::IVA_RATE, 2);
-        $total      = round($taxableBase + $exemptBase + $taxAmount, 2);
+        $taxAmount = round($taxableBase * AppConfig::IVA_RATE, 2);
+        $total = round($taxableBase + $exemptBase + $taxAmount, 2);
         $paidAmount = (float) $sale->paid_amount;
-        $balance    = max(0, round($total - $paidAmount, 2));
+        $balance = max(0, round($total - $paidAmount, 2));
 
         // Determinar status
         $status = $sale->status;
@@ -173,15 +220,15 @@ class SaleService extends BaseService
         }
 
         $sale->update([
-            'subtotal'          => round($subtotal, 2),
-            'discount_total'    => round($discountTotal, 2),
-            'taxable_base'      => round($taxableBase, 2),
-            'tax_exempt_base'   => round($exemptBase, 2),
-            'tax_amount'        => $taxAmount,
-            'total'             => $total,
-            'balance'           => $balance,
-            'cost_total'        => round($costTotal, 2),
-            'status'            => $status,
+            'subtotal' => round($subtotal, 2),
+            'discount_total' => round($discountTotal, 2),
+            'taxable_base' => round($taxableBase, 2),
+            'tax_exempt_base' => round($exemptBase, 2),
+            'tax_amount' => $taxAmount,
+            'total' => $total,
+            'balance' => $balance,
+            'cost_total' => round($costTotal, 2),
+            'status' => $status,
             'requires_lab_order' => $requiresLab,
         ]);
     }
@@ -196,7 +243,7 @@ class SaleService extends BaseService
     public function processPayment(Sale $sale, array $paymentData, int $userId): Payment
     {
         return $this->transaction(function () use ($sale, $paymentData, $userId) {
-            $amount  = (float) $paymentData['amount'];
+            $amount = (float) $paymentData['amount'];
             $balance = (float) $sale->balance;
 
             if ($amount > $balance + 0.01) {
@@ -209,30 +256,30 @@ class SaleService extends BaseService
             $sessionId = $this->getActiveCashSessionId($userId);
 
             $payment = Payment::create([
-                'sale_id'                  => $sale->id,
+                'sale_id' => $sale->id,
                 'cash_register_session_id' => $sessionId,
-                'processed_by'             => $userId,
-                'method'                   => $paymentData['method'],
-                'amount'                   => $amount,
-                'reference'                => $paymentData['reference'] ?? null,
-                'bank_name'                => $paymentData['bank_name'] ?? null,
-                'card_last_four'           => $paymentData['card_last_four'] ?? null,
-                'notes'                    => $paymentData['notes'] ?? null,
-                'payment_type'             => 'sale',
-                'processed_at'             => now(),
-                'created_at'               => now(),
+                'processed_by' => $userId,
+                'method' => $paymentData['method'],
+                'amount' => $amount,
+                'reference' => $paymentData['reference'] ?? null,
+                'bank_name' => $paymentData['bank_name'] ?? null,
+                'card_last_four' => $paymentData['card_last_four'] ?? null,
+                'notes' => $paymentData['notes'] ?? null,
+                'payment_type' => 'sale',
+                'processed_at' => now(),
+                'created_at' => now(),
             ]);
 
             $newPaidAmount = round((float) $sale->paid_amount + $amount, 2);
-            $newBalance    = max(0, round((float) $sale->total - $newPaidAmount, 2));
+            $newBalance = max(0, round((float) $sale->total - $newPaidAmount, 2));
 
             $updateData = [
                 'paid_amount' => $newPaidAmount,
-                'balance'     => $newBalance,
+                'balance' => $newBalance,
             ];
 
             if ($newBalance <= 0) {
-                $updateData['status']  = 'paid';
+                $updateData['status'] = 'paid';
                 $updateData['paid_at'] = now();
 
                 // Descontar inventario al momento del pago completo
@@ -245,8 +292,8 @@ class SaleService extends BaseService
             $sale->update($updateData);
 
             $this->logActivity('pago_registrado', $sale, [
-                'method'     => $paymentData['method'],
-                'amount'     => $amount,
+                'method' => $paymentData['method'],
+                'amount' => $amount,
                 'new_status' => $updateData['status'] ?? $sale->status,
             ]);
 
@@ -272,23 +319,23 @@ class SaleService extends BaseService
             $wasPaid = $sale->status === 'paid';
 
             $sale->update([
-                'status'               => 'cancelled',
-                'cancellation_reason'  => $reason,
-                'cancelled_by'         => $cancelledBy,
-                'cancelled_at'         => now(),
+                'status' => 'cancelled',
+                'cancellation_reason' => $reason,
+                'cancelled_by' => $cancelledBy,
+                'cancelled_at' => now(),
             ]);
 
             // Si había pagos, crear reembolso pendiente
             $totalPaid = (float) $sale->paid_amount;
             if ($totalPaid > 0) {
                 Refund::create([
-                    'sale_id'        => $sale->id,
-                    'processed_by'   => $cancelledBy,
-                    'reason'         => 'cancellation',
-                    'reason_detail'  => $reason,
-                    'refund_amount'  => $totalPaid,
-                    'refund_method'  => 'pending',
-                    'notes'          => 'Reembolso generado automáticamente por cancelación de venta.',
+                    'sale_id' => $sale->id,
+                    'processed_by' => $cancelledBy,
+                    'reason' => 'cancellation',
+                    'reason_detail' => $reason,
+                    'refund_amount' => $totalPaid,
+                    'refund_method' => 'pending',
+                    'notes' => 'Reembolso generado automáticamente por cancelación de venta.',
                 ]);
             }
 
@@ -298,8 +345,8 @@ class SaleService extends BaseService
             }
 
             $this->logActivity('venta_cancelada', $sale, [
-                'reason'      => $reason,
-                'was_paid'    => $wasPaid,
+                'reason' => $reason,
+                'was_paid' => $wasPaid,
                 'refund_amount' => $totalPaid,
             ]);
 
@@ -319,8 +366,8 @@ class SaleService extends BaseService
         if ($discountPct > AppConfig::MAX_DISCOUNT_WITHOUT_APPROVAL && $approvedBy === null) {
             throw new \Exception(
                 "El descuento del {$discountPct}% supera el límite de "
-                . AppConfig::MAX_DISCOUNT_WITHOUT_APPROVAL
-                . "% permitido sin aprobación."
+                .AppConfig::MAX_DISCOUNT_WITHOUT_APPROVAL
+                .'% permitido sin aprobación.'
             );
         }
 
@@ -328,14 +375,14 @@ class SaleService extends BaseService
             $sale->load('items');
 
             foreach ($sale->items as $item) {
-                $lineGross      = (float) $item->unit_price * (float) $item->quantity;
+                $lineGross = (float) $item->unit_price * (float) $item->quantity;
                 $discountAmount = round($lineGross * ($discountPct / 100), 2);
-                $subtotal       = round($lineGross - $discountAmount, 2);
+                $subtotal = round($lineGross - $discountAmount, 2);
 
                 $item->update([
-                    'discount_pct'    => $discountPct,
+                    'discount_pct' => $discountPct,
                     'discount_amount' => $discountAmount,
-                    'subtotal'        => $subtotal,
+                    'subtotal' => $subtotal,
                 ]);
             }
 
@@ -347,7 +394,7 @@ class SaleService extends BaseService
 
             $this->logActivity('descuento_aplicado', $sale, [
                 'discount_pct' => $discountPct,
-                'approved_by'  => $approvedBy,
+                'approved_by' => $approvedBy,
             ]);
         });
     }
@@ -363,9 +410,9 @@ class SaleService extends BaseService
             ->whereNotIn('status', ['cancelled', 'draft'])
             ->get();
 
-        $totalCount      = $sales->count();
-        $totalAmount     = $sales->sum('total');
-        $pendingBalance  = Sale::where('patient_id', $patientId)
+        $totalCount = $sales->count();
+        $totalAmount = $sales->sum('total');
+        $pendingBalance = Sale::where('patient_id', $patientId)
             ->whereIn('status', ['partial', 'confirmed'])
             ->sum('balance');
 
@@ -390,10 +437,10 @@ class SaleService extends BaseService
             ->toArray();
 
         return [
-            'ventas_totales'     => $totalCount,
-            'monto_total'        => round((float) $totalAmount, 2),
-            'saldo_pendiente'    => round((float) $pendingBalance, 2),
-            'ultima_venta'       => $lastSale?->created_at?->toDateString(),
+            'ventas_totales' => $totalCount,
+            'monto_total' => round((float) $totalAmount, 2),
+            'saldo_pendiente' => round((float) $pendingBalance, 2),
+            'ultima_venta' => $lastSale?->created_at?->toDateString(),
             'productos_frecuentes' => $topProducts,
         ];
     }
@@ -408,12 +455,12 @@ class SaleService extends BaseService
         $sale->loadMissing('items');
         $warehouseId = $sale->warehouse_id;
 
-        if (!$warehouseId) {
+        if (! $warehouseId) {
             return;
         }
 
         foreach ($sale->items as $item) {
-            if (!$item->product_variant_id) {
+            if (! $item->product_variant_id) {
                 continue;
             }
 
@@ -424,20 +471,20 @@ class SaleService extends BaseService
 
             try {
                 $this->inventoryService->removeStock(
-                    variantId:     $item->product_variant_id,
-                    warehouseId:   $warehouseId,
-                    quantity:      $qty,
-                    type:          'sale',
-                    userId:        $userId,
-                    notes:         "Venta #{$sale->sale_number}",
+                    variantId: $item->product_variant_id,
+                    warehouseId: $warehouseId,
+                    quantity: $qty,
+                    type: 'sale',
+                    userId: $userId,
+                    notes: "Venta #{$sale->sale_number}",
                     referenceType: Sale::class,
-                    referenceId:   $sale->id,
+                    referenceId: $sale->id,
                 );
             } catch (\Exception $e) {
                 // Registrar advertencia pero no bloquear el pago
-                \Illuminate\Support\Facades\Log::warning(
+                Log::warning(
                     "No se pudo descontar inventario para variante {$item->product_variant_id} "
-                    . "en venta {$sale->sale_number}: " . $e->getMessage()
+                    ."en venta {$sale->sale_number}: ".$e->getMessage()
                 );
             }
         }
@@ -451,12 +498,12 @@ class SaleService extends BaseService
         $sale->loadMissing('items');
         $warehouseId = $sale->warehouse_id;
 
-        if (!$warehouseId) {
+        if (! $warehouseId) {
             return;
         }
 
         foreach ($sale->items as $item) {
-            if (!$item->product_variant_id) {
+            if (! $item->product_variant_id) {
                 continue;
             }
 
@@ -467,20 +514,20 @@ class SaleService extends BaseService
 
             try {
                 $this->inventoryService->addStock(
-                    variantId:     $item->product_variant_id,
-                    warehouseId:   $warehouseId,
-                    quantity:      $qty,
-                    type:          'return',
-                    userId:        $userId,
-                    unitCost:      (float) $item->cost_price,
-                    notes:         "Reversión por cancelación de venta #{$sale->sale_number}",
+                    variantId: $item->product_variant_id,
+                    warehouseId: $warehouseId,
+                    quantity: $qty,
+                    type: 'return',
+                    userId: $userId,
+                    unitCost: (float) $item->cost_price,
+                    notes: "Reversión por cancelación de venta #{$sale->sale_number}",
                     referenceType: Sale::class,
-                    referenceId:   $sale->id,
+                    referenceId: $sale->id,
                 );
             } catch (\Exception $e) {
-                \Illuminate\Support\Facades\Log::warning(
+                Log::warning(
                     "No se pudo revertir inventario para variante {$item->product_variant_id} "
-                    . "en venta {$sale->sale_number}: " . $e->getMessage()
+                    ."en venta {$sale->sale_number}: ".$e->getMessage()
                 );
             }
         }
@@ -491,7 +538,7 @@ class SaleService extends BaseService
      */
     private function getActiveCashSessionId(int $userId): ?int
     {
-        return \App\Models\CashRegisterSession::where('opened_by', $userId)
+        return CashRegisterSession::where('opened_by', $userId)
             ->where('status', 'open')
             ->value('id');
     }

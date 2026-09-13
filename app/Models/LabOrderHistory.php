@@ -8,6 +8,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class LabOrderHistory extends Model
 {
     /**
+     * La migracion crea la tabla en singular; sin esto Eloquent infiere
+     * `lab_order_histories` y el withCount('history') de LabOrderController
+     * revienta el indice entero con "Base table or view not found".
+     */
+    protected $table = 'lab_order_history';
+
+    /**
      * LabOrderHistory does not use updated_at.
      */
     public $timestamps = false;

@@ -59,6 +59,9 @@ return [
             'prefix_indexes' => true,
             'strict' => true,
             'engine' => null,
+            // Alineado con APP_TIMEZONE: sin esto NOW()/CURDATE() en los reportes
+            // devuelven el dia UTC y despues de las 19:00 locales cuentan mañana.
+            'timezone' => env('DB_TIMEZONE', '-05:00'),
             'options' => extension_loaded('pdo_mysql') ? array_filter([
                 (PHP_VERSION_ID >= 80500 ? Mysql::ATTR_SSL_CA : PDO::MYSQL_ATTR_SSL_CA) => env('MYSQL_ATTR_SSL_CA'),
             ]) : [],
@@ -79,6 +82,9 @@ return [
             'prefix_indexes' => true,
             'strict' => true,
             'engine' => null,
+            // Alineado con APP_TIMEZONE: sin esto NOW()/CURDATE() en los reportes
+            // devuelven el dia UTC y despues de las 19:00 locales cuentan mañana.
+            'timezone' => env('DB_TIMEZONE', '-05:00'),
             'options' => extension_loaded('pdo_mysql') ? array_filter([
                 (PHP_VERSION_ID >= 80500 ? Mysql::ATTR_SSL_CA : PDO::MYSQL_ATTR_SSL_CA) => env('MYSQL_ATTR_SSL_CA'),
             ]) : [],

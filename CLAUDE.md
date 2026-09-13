@@ -35,6 +35,10 @@ Stack principal: Laravel 13, PHP 8.3+, React 18, Vite 8 (rolldown), Tailwind CSS
 ### Base de datos
 
 - SQLite es la configuracion local por defecto; **MariaDB en produccion**.
+- Zona horaria: `America/Guayaquil` via `APP_TIMEZONE` (`config/app.php` y las conexiones
+  mysql/mariadb de `config/database.php`). La BD guarda hora local, no UTC. Estuvo fijada en
+  `'UTC'` a mano, y despues de las 19:00 locales todo `whereDate('created_at', today)` contaba
+  el dia siguiente.
 - Sesiones, cache y colas usan el driver de base de datos. No se requiere Redis.
 - La BD local **contiene datos reales importados** (~3.500 pacientes, ~4.500 consultas).
   No borrar registros ni cambiar contraseñas para pruebas: crear un usuario temporal
@@ -107,14 +111,48 @@ clinica a proposito (`tests/Unit/ValidOpticalPrescriptionTest.php`).
 Cualquier mutacion de catalogos debe llamar a `Cache::forget(ConsultationMetaController::CACHE_KEY)`,
 como ya hace `CatalogController`.
 
-### 7. Nombre del paciente
+### 7. Nunca cachear Collections ni modelos Eloquent
+
+`config/cache.php` restringe las clases deserializables (`serializable_classes`), y en
+produccion el store es `database`, que serializa el valor. Un `Cache::remember()` que
+devuelve una `Collection` o un modelo **escribe bien y lee corrupto**: a partir del segundo
+request llega `{"__PHP_Incomplete_Class_Name": "..."}`.
+
+Sintoma tipico: la pantalla funciona una vez y despues se vacia sola hasta que expira el TTL,
+asi que parece intermitente. Vacio `/api/consultations-meta` (selects de Medico, Plantilla y
+Diagnosticos en blanco) y los cinco reportes comerciales en $0.00.
+
+**Todo closure de cache debe cerrar con `->toArray()`** y no dejar objetos Carbon sueltos
+(`->toDateTimeString()`). Lo cubren `tests/Feature/ConsultationMetaCacheTest.php` y
+`tests/Feature/CommercialReportsTest.php`, que fuerzan el store de base de datos porque la
+suite corre con `CACHE_STORE=array` y ese store guarda objetos en memoria sin reproducir el fallo.
+
+### 8. Columnas NOT NULL con default no aceptan `null` explicito
+
+`sale_items.prescription_eye` e `item_type` son NOT NULL con `default()`. `SaleService::addItem()`
+les pasaba `$data['x'] ?? null`, y un `null` explicito **no** cae al default: con `'strict' => true`
+el insert aborta. Agregar cualquier producto en el POS respondia 500.
+
+Al escribir una columna opcional, el fallback debe ser el default de la columna, no `null`.
+
+### 9. Nombre del paciente
 
 `patients.nombre` es el **nombre de pila** y `patients.apellido` el apellido. Los registros
 historicos guardan el nombre completo en `nombre` con `apellido` vacio. Para mostrar, usar
 siempre el accessor `nombre_completo` (esta en `$appends`, viaja en todas las serializaciones).
 Al hacer eager loading hay que incluir `apellido`: `with('patient:id,nombre,apellido,cedula')`.
 
-### 8. Sesion atada al vhost
+### 10. El catch-all de la SPA se traga las rutas `/api/*` mal escritas
+
+`routes/web.php` termina en `Route::get('/{any}', ...)->where('any', '.*')`. Sin proteccion, un
+`/api/loquesea` inexistente devuelve **200 con el HTML del index**: axios ve un 200 y entrega
+HTML como si fueran datos.
+
+`Route::fallback()` **no sirve**: Laravel ordena los fallback al final de todas las rutas, o sea
+despues del catch-all de web.php. Por eso `routes/api.php` cierra con un `Route::any('{unmatched}')`
+normal, que si se registra antes.
+
+### 11. Sesion atada al vhost
 
 `.env` tiene `SESSION_DOMAIN=sistemaclinico.test`. Servir con `php artisan serve` en
 `localhost:8000` hace que la cookie nunca llegue y **todo `/api/*` responde 401**, lo que parece

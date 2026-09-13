@@ -6,8 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Models\Inventory;
 use App\Models\Sale;
 use Illuminate\Http\Request;
-use Illuminate\Http\Response;
-use Maatwebsite\Excel\Facades\Excel;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class ExportController extends Controller
 {
@@ -17,18 +20,18 @@ class ExportController extends Controller
      *
      * Requiere permiso: sales.export
      */
-    public function exportSalesExcel(Request $request): \Symfony\Component\HttpFoundation\BinaryFileResponse
+    public function exportSalesExcel(Request $request): BinaryFileResponse
     {
         $dateFrom = $request->input('date_from', now()->startOfMonth()->toDateString());
-        $dateTo   = $request->input('date_to', now()->toDateString());
+        $dateTo = $request->input('date_to', now()->toDateString());
         $branchId = $request->input('branch_id');
-        $userId   = $request->input('user_id');
+        $userId = $request->input('user_id');
 
         $sales = Sale::query()
             ->with(['patient:id,nombre,apellido,cedula', 'seller:id,name', 'items'])
-            ->whereNotIn('status', ['draft'])
-            ->whereDate('created_at', '>=', $dateFrom)
-            ->whereDate('created_at', '<=', $dateTo)
+            ->whereNotIn('status', ['draft', 'cancelled'])
+            ->whereDate('sales.created_at', '>=', $dateFrom)
+            ->whereDate('sales.created_at', '<=', $dateTo)
             ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->when($userId, fn ($q) => $q->where('user_id', $userId))
             ->orderBy('created_at')
@@ -42,7 +45,7 @@ class ExportController extends Controller
             return [
                 $sale->sale_number,
                 $sale->created_at->format('Y-m-d H:i'),
-                $sale->patient?->nombre ?? '',
+                $sale->patient?->nombre_completo ?? '',
                 $sale->patient?->cedula ?? '',
                 $sale->seller?->name ?? '',
                 $itemsSummary,
@@ -56,61 +59,34 @@ class ExportController extends Controller
             ];
         })->toArray();
 
-        $export = new class($rows) implements
-            \Maatwebsite\Excel\Concerns\FromCollection,
-            \Maatwebsite\Excel\Concerns\WithHeadings,
-            \Maatwebsite\Excel\Concerns\WithColumnFormatting,
-            \Maatwebsite\Excel\Concerns\WithStyles
-        {
-            public function __construct(private array $rows) {}
+        $headings = [
+            'Número',
+            'Fecha',
+            'Cliente',
+            'Cédula',
+            'Vendedor',
+            'Ítems',
+            'Subtotal',
+            'Descuento',
+            'IVA',
+            'Total',
+            'Pagado',
+            'Saldo',
+            'Estado',
+        ];
 
-            public function collection()
-            {
-                return collect($this->rows);
-            }
-
-            public function headings(): array
-            {
-                return [
-                    'Número',
-                    'Fecha',
-                    'Cliente',
-                    'Cédula',
-                    'Vendedor',
-                    'Ítems',
-                    'Subtotal',
-                    'Descuento',
-                    'IVA',
-                    'Total',
-                    'Pagado',
-                    'Saldo',
-                    'Estado',
-                ];
-            }
-
-            public function columnFormats(): array
-            {
-                return [
-                    'G' => '#,##0.00',
-                    'H' => '#,##0.00',
-                    'I' => '#,##0.00',
-                    'J' => '#,##0.00',
-                    'K' => '#,##0.00',
-                    'L' => '#,##0.00',
-                ];
-            }
-
-            public function styles(\PhpOffice\PhpSpreadsheet\Worksheet\Worksheet $sheet): array
-            {
-                return [
-                    1 => ['font' => ['bold' => true]],
-                ];
-            }
-        };
+        $formats = [
+            'G' => '#,##0.00',
+            'H' => '#,##0.00',
+            'I' => '#,##0.00',
+            'J' => '#,##0.00',
+            'K' => '#,##0.00',
+            'L' => '#,##0.00',
+        ];
 
         $filename = "ventas-{$dateFrom}-{$dateTo}.xlsx";
 
-        return Excel::download($export, $filename);
+        return $this->xlsxDownload($headings, $rows, $formats, $filename);
     }
 
     /**
@@ -119,11 +95,11 @@ class ExportController extends Controller
      *
      * Requiere permiso: reports.inventory
      */
-    public function exportInventoryExcel(Request $request): \Symfony\Component\HttpFoundation\BinaryFileResponse
+    public function exportInventoryExcel(Request $request): BinaryFileResponse
     {
         $warehouseId = $request->input('warehouse_id');
-        $branchId    = $request->input('branch_id');
-        $category    = $request->input('category');
+        $branchId = $request->input('branch_id');
+        $category = $request->input('category');
 
         $query = Inventory::query()
             ->join('product_variants', 'inventory.product_variant_id', '=', 'product_variants.id')
@@ -153,9 +129,9 @@ class ExportController extends Controller
             ->get();
 
         $rows = $query->map(function ($row) {
-            $costValue  = (float) $row->cost_price * (float) $row->quantity;
-            $saleValue  = (float) $row->sale_price * (float) $row->quantity;
-            $margin     = $row->sale_price > 0
+            $costValue = (float) $row->cost_price * (float) $row->quantity;
+            $saleValue = (float) $row->sale_price * (float) $row->quantity;
+            $margin = $row->sale_price > 0
                 ? round((($row->sale_price - $row->cost_price) / $row->sale_price) * 100, 2)
                 : 0;
 
@@ -178,62 +154,88 @@ class ExportController extends Controller
             ];
         })->toArray();
 
-        $export = new class($rows) implements
-            \Maatwebsite\Excel\Concerns\FromCollection,
-            \Maatwebsite\Excel\Concerns\WithHeadings,
-            \Maatwebsite\Excel\Concerns\WithColumnFormatting,
-            \Maatwebsite\Excel\Concerns\WithStyles
-        {
-            public function __construct(private array $rows) {}
+        $headings = [
+            'SKU',
+            'Código de barras',
+            'Producto',
+            'Marca',
+            'Categoría',
+            'Color',
+            'Talla',
+            'Bodega',
+            'Cantidad',
+            'Mínimo',
+            'Costo Unit.',
+            'Valor Costo',
+            'Precio Venta',
+            'Valor Venta',
+            'Margen %',
+        ];
 
-            public function collection()
-            {
-                return collect($this->rows);
-            }
+        $formats = [
+            'K' => '#,##0.00',
+            'L' => '#,##0.00',
+            'M' => '#,##0.00',
+            'N' => '#,##0.00',
+            'O' => '0.00"%"',
+        ];
 
-            public function headings(): array
-            {
-                return [
-                    'SKU',
-                    'Código de barras',
-                    'Producto',
-                    'Marca',
-                    'Categoría',
-                    'Color',
-                    'Talla',
-                    'Bodega',
-                    'Cantidad',
-                    'Mínimo',
-                    'Costo Unit.',
-                    'Valor Costo',
-                    'Precio Venta',
-                    'Valor Venta',
-                    'Margen %',
-                ];
-            }
-
-            public function columnFormats(): array
-            {
-                return [
-                    'K' => '#,##0.00',
-                    'L' => '#,##0.00',
-                    'M' => '#,##0.00',
-                    'N' => '#,##0.00',
-                    'O' => '0.00"%"',
-                ];
-            }
-
-            public function styles(\PhpOffice\PhpSpreadsheet\Worksheet\Worksheet $sheet): array
-            {
-                return [
-                    1 => ['font' => ['bold' => true]],
-                ];
-            }
-        };
-
-        $fecha    = now()->format('Y-m-d');
+        $fecha = now()->format('Y-m-d');
         $filename = "inventario-{$fecha}.xlsx";
 
-        return Excel::download($export, $filename);
+        return $this->xlsxDownload($headings, $rows, $formats, $filename);
+    }
+
+    /**
+     * Escribe un .xlsx con PhpSpreadsheet y lo devuelve como descarga.
+     *
+     * Se usa PhpSpreadsheet directo a proposito: maatwebsite/excel (el wrapper
+     * que este controlador importaba antes) fija phpoffice/phpspreadsheet ^1.x
+     * en todas sus versiones, y el proyecto depende de ^2.0 para los comandos
+     * de importacion de historias clinicas.
+     *
+     * @param  array<int, string>  $headings
+     * @param  array<int, array<int, mixed>>  $rows
+     * @param  array<string, string>  $formats  Formato numerico por letra de columna.
+     */
+    private function xlsxDownload(array $headings, array $rows, array $formats, string $filename): BinaryFileResponse
+    {
+        $spreadsheet = new Spreadsheet;
+        $sheet = $spreadsheet->getActiveSheet();
+
+        $sheet->fromArray($headings, null, 'A1');
+        if ($rows !== []) {
+            $sheet->fromArray($rows, null, 'A2');
+        }
+
+        $lastColumn = Coordinate::stringFromColumnIndex(count($headings));
+        $lastRow = count($rows) + 1;
+
+        $sheet->getStyle("A1:{$lastColumn}1")->getFont()->setBold(true);
+        $sheet->getStyle("A1:{$lastColumn}1")->getFill()
+            ->setFillType(Fill::FILL_SOLID)
+            ->getStartColor()->setARGB('FFEFEFEF');
+
+        if ($rows !== []) {
+            foreach ($formats as $column => $format) {
+                $sheet->getStyle("{$column}2:{$column}{$lastRow}")
+                    ->getNumberFormat()->setFormatCode($format);
+            }
+        }
+
+        foreach (range(1, count($headings)) as $index) {
+            $sheet->getColumnDimension(Coordinate::stringFromColumnIndex($index))->setAutoSize(true);
+        }
+
+        $sheet->freezePane('A2');
+        $sheet->setAutoFilter("A1:{$lastColumn}{$lastRow}");
+
+        $path = tempnam(sys_get_temp_dir(), 'clarity_export_');
+        (new Xlsx($spreadsheet))->save($path);
+        $spreadsheet->disconnectWorksheets();
+
+        return response()->download($path, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ])->deleteFileAfterSend(true);
     }
 }
