@@ -247,14 +247,32 @@ class StoreConsultationRequest extends FormRequest
             'lens_recommendation.observation' => ['nullable', 'string'],
 
             'contact_lens_module' => ['nullable', 'array'],
+            'contact_lens_module.diametro_pupilar' => ['nullable', 'string', 'max:50'],
+            'contact_lens_module.diametro_corneal' => ['nullable', 'string', 'max:50'],
+            'contact_lens_module.apertura_palpebral' => ['nullable', 'string', 'max:50'],
+            'contact_lens_module.tension_palpebral' => ['nullable', 'string', 'max:50'],
             'contact_lens_module.ojo_dominante' => ['nullable', Rule::in(['OD', 'OI'])],
+            'contact_lens_module.but_value' => ['nullable', 'string', 'max:50'],
+            'contact_lens_module.shirmer_test' => ['nullable', 'string', 'max:50'],
+            'contact_lens_module.frecuencia_parpadeo' => ['nullable', 'string', 'max:50'],
+            'contact_lens_module.observaciones' => ['nullable', 'string'],
             'contact_lens_module.test_lens' => ['nullable', 'array'],
             'contact_lens_module.final_lens' => ['nullable', 'array'],
 
             'ophthalmoscopy_module' => ['nullable', 'array'],
+            'ophthalmoscopy_module.fijacion_od' => ['nullable', 'string', 'max:100'],
+            'ophthalmoscopy_module.fijacion_oi' => ['nullable', 'string', 'max:100'],
+            'ophthalmoscopy_module.valoracion_motora' => ['nullable', 'string', 'max:100'],
+            'ophthalmoscopy_module.ppc_obj' => ['nullable', 'string', 'max:100'],
+            'ophthalmoscopy_module.luz' => ['nullable', 'string', 'max:100'],
+            'ophthalmoscopy_module.fr' => ['nullable', 'string', 'max:100'],
             'ophthalmoscopy_module.results' => ['nullable', 'array'],
 
             'treatment_module' => ['nullable', 'array'],
+            'treatment_module.plan' => ['nullable', 'string'],
+            'treatment_module.horas_uso' => ['nullable', 'string', 'max:100'],
+            'treatment_module.metodo_limpieza' => ['nullable', 'string', 'max:100'],
+            'treatment_module.modalidad_uso' => ['nullable', 'string', 'max:100'],
 
             // Venta / productos vendidos en la consulta (no impacta caja ni inventario)
             'sale_items' => ['nullable', 'array'],

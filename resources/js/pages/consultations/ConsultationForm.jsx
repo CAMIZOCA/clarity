@@ -141,10 +141,41 @@ function buildRxUsoEntries(consultation) {
     return [legacy];
 }
 
-function buildOphthalmoscopyMatrix(rows = [], distances = []) {
-    return rows.reduce((acc, row) => {
-        acc[row] = distances.reduce((inner, distance) => {
-            inner[distance] = '';
+/** Claves internas usadas en el `name` de react-hook-form para la matriz de oftalmoscopia. */
+const ophthalmoscopyRowKey = (rowIndex) => `row${rowIndex}`;
+const ophthalmoscopyColKey = (distIndex) => `col${distIndex}`;
+
+/**
+ * Convierte `results` almacenado (label-keyed, como viene de la API:
+ * {"Sin Rx": {"200 mt": valor, ...}, ...}) a un objeto plano con claves
+ * "row<i>"/"col<j>" por posicion. Desacopla el `name` de react-hook-form
+ * del texto de fila/columna: un label con un punto literal (p.ej.
+ * "OI Add +3.00") rompe el parser de paths de la libreria si se usa
+ * directo como fragmento de `name`. Se evitan ademas segmentos puramente
+ * numericos ("0", "1"...) porque react-hook-form los trata como indice de
+ * field-array y no rellena su valor por defecto si la seccion no esta
+ * registrada con `useFieldArray` (results.0.0 queda vacio; results.row0.col0
+ * no, igual que ya funciona contact_lens_module.test_lens.od.curva_base).
+ */
+function ophthalmoscopyResultsToIndexed(storedResults, rows = [], distances = []) {
+    const source = storedResults && typeof storedResults === 'object' ? storedResults : {};
+    return rows.reduce((acc, row, rowIndex) => {
+        const rowSource = source[row] && typeof source[row] === 'object' ? source[row] : {};
+        acc[ophthalmoscopyRowKey(rowIndex)] = distances.reduce((inner, distance, distIndex) => {
+            inner[ophthalmoscopyColKey(distIndex)] = rowSource[distance] ?? '';
+            return inner;
+        }, {});
+        return acc;
+    }, {});
+}
+
+/** Inversa de `ophthalmoscopyResultsToIndexed`: vuelve a label-keyed para el payload. */
+function ophthalmoscopyResultsToLabeled(indexedResults, rows = [], distances = []) {
+    const source = indexedResults && typeof indexedResults === 'object' ? indexedResults : {};
+    return rows.reduce((acc, row, rowIndex) => {
+        const rowSource = source[ophthalmoscopyRowKey(rowIndex)] ?? {};
+        acc[row] = distances.reduce((inner, distance, distIndex) => {
+            inner[distance] = rowSource[ophthalmoscopyColKey(distIndex)] ?? '';
             return inner;
         }, {});
         return acc;
@@ -229,18 +260,6 @@ function buildDefaultValues(patient, consultation, meta) {
                 oi: { curva_base: '', poder: '', diametro: '', h2o: '', material: '' },
             },
         },
-        ophthalmoscopy_module: consultation?.ophthalmoscopy_module ?? {
-            fijacion_od: '',
-            fijacion_oi: '',
-            valoracion_motora: '',
-            ppc_obj: '',
-            luz: '',
-            fr: '',
-            results: buildOphthalmoscopyMatrix(
-                Array.isArray(meta?.ophthalmoscopy_rows) ? meta.ophthalmoscopy_rows : [],
-                Array.isArray(meta?.ophthalmoscopy_distances) ? meta.ophthalmoscopy_distances : []
-            ),
-        },
         treatment_module: consultation?.treatment_module ?? {
             plan: '',
             horas_uso: '',
@@ -248,13 +267,30 @@ function buildDefaultValues(patient, consultation, meta) {
             modalidad_uso: '',
         },
         ...consultation,
-        // Estas tres van despues del spread: `consultation.diagnoses` /
+        // Estas van despues del spread: `consultation.diagnoses` /
         // `.recommendations_list` / `.rx_uso_entries` son el array crudo de la
         // API (vacio en cuanto el usuario borra el texto y guarda), y
         // pisarian el fallback con filas en blanco que ya calculamos arriba.
+        // `ophthalmoscopy_module.results` tambien: el spread reintroduce la
+        // version label-keyed cruda de la API y pisa la conversion indexada
+        // de mas arriba (necesaria para que react-hook-form registre bien
+        // los inputs de esa matriz, ver `ophthalmoscopyResultsToIndexed`).
         diagnoses: diagnosisFallback,
         recommendations_list: recommendationFallback,
         rx_uso_entries: buildRxUsoEntries(consultation),
+        ophthalmoscopy_module: {
+            fijacion_od: consultation?.ophthalmoscopy_module?.fijacion_od ?? '',
+            fijacion_oi: consultation?.ophthalmoscopy_module?.fijacion_oi ?? '',
+            valoracion_motora: consultation?.ophthalmoscopy_module?.valoracion_motora ?? '',
+            ppc_obj: consultation?.ophthalmoscopy_module?.ppc_obj ?? '',
+            luz: consultation?.ophthalmoscopy_module?.luz ?? '',
+            fr: consultation?.ophthalmoscopy_module?.fr ?? '',
+            results: ophthalmoscopyResultsToIndexed(
+                consultation?.ophthalmoscopy_module?.results,
+                Array.isArray(meta?.ophthalmoscopy_rows) ? meta.ophthalmoscopy_rows : [],
+                Array.isArray(meta?.ophthalmoscopy_distances) ? meta.ophthalmoscopy_distances : []
+            ),
+        },
         sale_items: consultation?.sale_items?.length
             ? consultation.sale_items.map((item) => ({
                 tipo: item.tipo ?? 'otro',
@@ -488,6 +524,14 @@ export default function ConsultationForm({ patient, consultation, meta }) {
             const payload = stripEmptyModuleRows({
                 ...values,
                 estado: forceStatus ?? values.estado ?? 'borrador',
+                ophthalmoscopy_module: {
+                    ...values.ophthalmoscopy_module,
+                    results: ophthalmoscopyResultsToLabeled(
+                        values.ophthalmoscopy_module?.results,
+                        ophthalmoscopyRows,
+                        ophthalmoscopyDistances
+                    ),
+                },
             });
 
             let response;
@@ -1183,12 +1227,12 @@ export default function ConsultationForm({ patient, consultation, meta }) {
                             </tr>
                         </thead>
                         <tbody>
-                            {ophthalmoscopyRows.map((row) => (
+                            {ophthalmoscopyRows.map((row, rowIndex) => (
                                 <tr key={row} className="border-b border-slate-200">
                                     <td className="px-3 py-3 font-medium text-slate-700">{row}</td>
-                                    {ophthalmoscopyDistances.map((distance) => (
+                                    {ophthalmoscopyDistances.map((distance, distIndex) => (
                                         <td key={`${row}-${distance}`} className="px-2 py-2">
-                                            <input className="w-full rounded-xl border border-slate-300 px-3 py-2" {...register(`ophthalmoscopy_module.results.${row}.${distance}`)} />
+                                            <input className="w-full rounded-xl border border-slate-300 px-3 py-2" {...register(`ophthalmoscopy_module.results.row${rowIndex}.col${distIndex}`)} />
                                         </td>
                                     ))}
                                 </tr>

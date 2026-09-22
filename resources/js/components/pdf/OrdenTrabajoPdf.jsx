@@ -21,8 +21,8 @@ const copyStyle = {
     minWidth: 0,
     overflow: 'hidden',
     boxSizing: 'border-box',
-    fontSize: 8.5,
-    lineHeight: 1.2,
+    fontSize: 9.5,
+    lineHeight: 1.3,
 };
 
 const tableStyle = {
@@ -33,16 +33,16 @@ const tableStyle = {
 
 const cellBase = {
     border: `0.7px solid ${borderColor}`,
-    padding: '1.5px 2.5px',
+    padding: '3px 4px',
     verticalAlign: 'middle',
-    height: 17,
+    height: 23,
     boxSizing: 'border-box',
     overflow: 'hidden',
 };
 
 const headerCellBase = {
     ...cellBase,
-    fontSize: 7.4,
+    fontSize: 8.4,
     fontWeight: 'bold',
     background: '#f3f3f3',
 };
@@ -52,16 +52,16 @@ const CB = ({ checked }) => (
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
-        width: 10,
-        height: 10,
-        border: `0.7px solid ${borderColor}`,
-        marginRight: 2,
+        width: 12,
+        height: 12,
+        border: `0.8px solid ${borderColor}`,
+        marginRight: 3,
         verticalAlign: 'middle',
         background: '#fff',
         flexShrink: 0,
-        fontSize: 7,
+        fontSize: 8,
         fontWeight: 'bold',
-        lineHeight: '10px',
+        lineHeight: '12px',
     }}>
         {checked ? 'X' : ''}
     </span>
@@ -71,9 +71,9 @@ const CBLabel = ({ checked, label }) => (
     <span style={{
         display: 'inline-flex',
         alignItems: 'center',
-        marginRight: 4,
+        marginRight: 6,
         whiteSpace: 'nowrap',
-        fontSize: 7.4,
+        fontSize: 8.3,
     }}>
         <CB checked={checked} />
         {label}
@@ -81,7 +81,7 @@ const CBLabel = ({ checked, label }) => (
 );
 
 const Cell = ({ children, style = {}, colSpan }) => (
-    <td colSpan={colSpan} style={{ ...cellBase, fontSize: 8, ...style }}>
+    <td colSpan={colSpan} style={{ ...cellBase, fontSize: 9, ...style }}>
         {children}
     </td>
 );
@@ -92,19 +92,19 @@ const HCell = ({ children, style = {}, colSpan }) => (
     </td>
 );
 
-function LineField({ label, value, minLabelWidth = 34 }) {
+function LineField({ label, value, minLabelWidth = 40 }) {
     return (
         <div style={{
             display: 'flex',
             alignItems: 'flex-end',
             width: '100%',
-            minHeight: 14,
-            marginBottom: 2,
+            minHeight: 19,
+            marginBottom: 4,
         }}>
             <span style={{
-                fontSize: 8,
+                fontSize: 9.2,
                 fontWeight: 'bold',
-                marginRight: 3,
+                marginRight: 4,
                 whiteSpace: 'nowrap',
                 minWidth: minLabelWidth,
             }}>
@@ -114,9 +114,9 @@ function LineField({ label, value, minLabelWidth = 34 }) {
                 flex: 1,
                 borderBottom: `0.7px solid ${borderColor}`,
                 minWidth: 20,
-                minHeight: 12,
-                fontSize: 8.2,
-                paddingLeft: 2,
+                minHeight: 15,
+                fontSize: 9.4,
+                paddingLeft: 3,
                 overflow: 'hidden',
                 whiteSpace: 'nowrap',
                 textOverflow: 'ellipsis',
@@ -143,7 +143,7 @@ function SpecsTable({ specs }) {
     const sp = specs || {};
 
     return (
-        <table style={{ ...tableStyle, marginBottom: 4 }}>
+        <table style={{ ...tableStyle, marginBottom: 8 }}>
             <colgroup>
                 <col style={{ width: '15%' }} />
                 <col style={{ width: '7%' }} />
@@ -268,41 +268,41 @@ function OrderCopy({ label, orden, paciente, consulta, settings }) {
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'flex-start',
-                gap: 6,
-                marginBottom: 5,
+                gap: 8,
+                marginBottom: 8,
             }}>
                 <div style={{ minWidth: 0, flex: 1 }}>
                     <div style={{
                         fontWeight: 'bold',
-                        fontSize: 13,
+                        fontSize: 15,
                         color: '#1a2a4a',
-                        lineHeight: '18px',
-                        minHeight: 18,
+                        lineHeight: '21px',
+                        minHeight: 21,
                         whiteSpace: 'nowrap',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                     }}>
                         {clinicName}
                     </div>
-                    {settings?.clinic_address && <div style={{ fontSize: 7.5, color: '#555', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{settings.clinic_address}</div>}
-                    {settings?.clinic_phone && <div style={{ fontSize: 7.5, color: '#555' }}>Tel: {settings.clinic_phone}</div>}
+                    {settings?.clinic_address && <div style={{ fontSize: 8.5, color: '#555', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{settings.clinic_address}</div>}
+                    {settings?.clinic_phone && <div style={{ fontSize: 8.5, color: '#555' }}>Tel: {settings.clinic_phone}</div>}
                 </div>
                 <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                    <div style={{ fontSize: 15, fontWeight: 'bold', color: '#c0392b', letterSpacing: 1.2 }}>
+                    <div style={{ fontSize: 17, fontWeight: 'bold', color: '#c0392b', letterSpacing: 1.3 }}>
                         {String(orden.numero || '').padStart(7, '0')}
                     </div>
-                    <div style={{ fontSize: 9.5, fontWeight: 'bold', letterSpacing: 0.7 }}>ORDEN DE TRABAJO</div>
-                    <div style={{ fontSize: 7.8, fontWeight: 'bold', color: '#555', marginTop: 1 }}>{label}</div>
+                    <div style={{ fontSize: 10.8, fontWeight: 'bold', letterSpacing: 0.7 }}>ORDEN DE TRABAJO</div>
+                    <div style={{ fontSize: 8.8, fontWeight: 'bold', color: '#555', marginTop: 2 }}>{label}</div>
                 </div>
             </div>
 
-            <div style={{ marginBottom: 4 }}>
+            <div style={{ marginBottom: 8 }}>
                 <LineField label="FECHA" value={orden.fecha} />
                 <LineField label="CLIENTE" value={paciente?.nombre_completo || paciente?.nombre || orden.cliente} />
                 <LineField label="TELF./CEL." value={paciente?.telefono || orden.telefono} />
             </div>
 
-            <table style={{ ...tableStyle, marginBottom: 4 }}>
+            <table style={{ ...tableStyle, marginBottom: 8 }}>
                 <colgroup>
                     <col style={{ width: '8%' }} />
                     <col style={{ width: '43%' }} />
@@ -333,14 +333,14 @@ function OrderCopy({ label, orden, paciente, consulta, settings }) {
 
             <SpecsTable specs={orden.specs} />
 
-            <div style={{ display: 'flex', alignItems: 'flex-end', marginBottom: 3 }}>
-                <span style={{ fontSize: 8, fontWeight: 'bold', marginRight: 3, whiteSpace: 'nowrap' }}>OTRO/ESPECIF.:</span>
+            <div style={{ display: 'flex', alignItems: 'flex-end', marginBottom: 7 }}>
+                <span style={{ fontSize: 9.2, fontWeight: 'bold', marginRight: 4, whiteSpace: 'nowrap' }}>OTRO/ESPECIF.:</span>
                 <span style={{
                     flex: 1,
                     borderBottom: `0.7px solid ${borderColor}`,
-                    fontSize: 8.2,
-                    minHeight: 12,
-                    paddingLeft: 2,
+                    fontSize: 9.4,
+                    minHeight: 16,
+                    paddingLeft: 3,
                     whiteSpace: 'nowrap',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
@@ -349,25 +349,26 @@ function OrderCopy({ label, orden, paciente, consulta, settings }) {
                 </span>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 34mm', gap: 5 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 40mm', gap: 8 }}>
                 <div style={{ minWidth: 0 }}>
                     <LineField label="LAB" value={orden.lab} />
                     <LineField label="ALT." value={orden.alt} />
                     <LineField label="D.P." value={orden.dnp || dnp} />
                     <LineField label="ARMAZON" value={orden.armazon} />
                     <LineField label="DR." value={orden.dr || consulta?.optometrista?.name} />
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 5 }}>
-                        <LineField label="FAC." value={orden.fac} minLabelWidth={20} />
-                        <LineField label="R.C." value={orden.rc} minLabelWidth={20} />
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                        <LineField label="FAC." value={orden.fac} minLabelWidth={24} />
+                        <LineField label="R.C." value={orden.rc} minLabelWidth={24} />
                     </div>
                     <LineField label="ENTREGA" value={orden.entrega} />
-                    <div style={{ marginTop: 2 }}>
-                        <div style={{ fontSize: 8, fontWeight: 'bold' }}>NOTA:</div>
+                    <div style={{ marginTop: 4 }}>
+                        <div style={{ fontSize: 9.2, fontWeight: 'bold' }}>NOTA:</div>
                         <div style={{
                             borderBottom: `0.7px solid ${borderColor}`,
-                            minHeight: 16,
-                            fontSize: 8.2,
-                            paddingLeft: 2,
+                            minHeight: 26,
+                            fontSize: 9.4,
+                            paddingLeft: 3,
+                            paddingTop: 2,
                             overflow: 'hidden',
                             display: '-webkit-box',
                             WebkitLineClamp: 2,
@@ -375,20 +376,21 @@ function OrderCopy({ label, orden, paciente, consulta, settings }) {
                         }}>
                             {orden.nota}
                         </div>
-                        <div style={{ borderBottom: `0.7px solid ${borderColor}`, minHeight: 11, marginTop: 1 }}></div>
+                        <div style={{ borderBottom: `0.7px solid ${borderColor}`, minHeight: 18, marginTop: 3 }}></div>
                     </div>
                 </div>
-                <div style={{ border: `0.7px solid ${borderColor}`, padding: 4, minWidth: 0 }}>
-                    <LineField label="VALOR" value={formatMoney(orden.valor)} minLabelWidth={28} />
-                    <LineField label="ABONO" value={formatMoney(orden.abono)} minLabelWidth={28} />
-                    <LineField label="SALDO" value={formatMoney(orden.saldo)} minLabelWidth={28} />
-                    <div style={{ marginTop: 3 }}>
-                        <div style={{ fontSize: 8, fontWeight: 'bold' }}>Forma de Pago:</div>
+                <div style={{ border: `0.7px solid ${borderColor}`, padding: 7, minWidth: 0 }}>
+                    <LineField label="VALOR" value={formatMoney(orden.valor)} minLabelWidth={32} />
+                    <LineField label="ABONO" value={formatMoney(orden.abono)} minLabelWidth={32} />
+                    <LineField label="SALDO" value={formatMoney(orden.saldo)} minLabelWidth={32} />
+                    <div style={{ marginTop: 6 }}>
+                        <div style={{ fontSize: 9.2, fontWeight: 'bold' }}>Forma de Pago:</div>
                         <div style={{
                             borderBottom: `0.7px solid ${borderColor}`,
-                            minHeight: 14,
-                            fontSize: 8.2,
-                            paddingLeft: 2,
+                            minHeight: 22,
+                            fontSize: 9.4,
+                            paddingLeft: 3,
+                            paddingTop: 2,
                             whiteSpace: 'nowrap',
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
@@ -400,18 +402,18 @@ function OrderCopy({ label, orden, paciente, consulta, settings }) {
             </div>
 
             <div style={{
-                marginTop: 8,
+                marginTop: 16,
                 borderTop: '0.7px solid #ccc',
-                paddingTop: 5,
+                paddingTop: 8,
                 textAlign: 'right',
-                fontSize: 7.5,
+                fontSize: 8.5,
                 color: '#555',
             }}>
                 <div style={{
                     display: 'inline-block',
                     borderTop: `0.7px solid ${borderColor}`,
-                    paddingTop: 2,
-                    minWidth: 90,
+                    paddingTop: 3,
+                    minWidth: 120,
                 }}>
                     Firma / Responsable
                 </div>
