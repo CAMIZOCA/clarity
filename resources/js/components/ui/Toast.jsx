@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
 import { CheckCircle, XCircle, Info, X } from 'lucide-react';
+import { motionTransition, SPRING_MOVE } from '../../utils/motion';
 
 const ToastContext = createContext(null);
 
@@ -108,28 +110,35 @@ export function ToastProvider({ children }) {
         <ToastContext.Provider value={{ addToast, removeToast }}>
             {children}
             <div className="fixed bottom-4 right-4 z-[100] flex flex-col gap-2">
-                {toasts.map(t => (
-                    <div key={t.id}
-                        role={t.type === 'error' ? 'alert' : 'status'}
-                        aria-live={t.type === 'error' ? 'assertive' : 'polite'}
-                        className={`flex items-start gap-3 px-4 py-3 rounded-lg shadow-lg text-white text-sm max-w-sm
-                            ${t.type === 'success' ? 'bg-green-600' : t.type === 'error' ? 'bg-red-600' : 'bg-[#1a2a4a]'}`}>
-                        <span className="mt-0.5 flex-shrink-0">
-                            {t.type === 'success' && <CheckCircle size={18} />}
-                            {t.type === 'error' && <XCircle size={18} />}
-                            {t.type === 'info' && <Info size={18} />}
-                        </span>
-                        <span className="flex-1 whitespace-pre-line">{t.message}</span>
-                        <button
-                            type="button"
-                            onClick={() => removeToast(t.id)}
-                            aria-label="Cerrar aviso"
-                            className="mt-0.5 flex-shrink-0 opacity-70 hover:opacity-100"
-                        >
-                            <X size={16} />
-                        </button>
-                    </div>
-                ))}
+                <AnimatePresence initial={false}>
+                    {toasts.map(t => (
+                        <motion.div key={t.id}
+                            role={t.type === 'error' ? 'alert' : 'status'}
+                            aria-live={t.type === 'error' ? 'assertive' : 'polite'}
+                            layout
+                            initial={{ opacity: 0, x: 24, scale: 0.95 }}
+                            animate={{ opacity: 1, x: 0, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.12 } }}
+                            transition={motionTransition(SPRING_MOVE)}
+                            className={`flex items-start gap-3 px-4 py-3 rounded-lg shadow-lg text-white text-sm max-w-sm
+                                ${t.type === 'success' ? 'bg-green-600' : t.type === 'error' ? 'bg-red-600' : 'bg-[#1a2a4a]'}`}>
+                            <span className="mt-0.5 flex-shrink-0">
+                                {t.type === 'success' && <CheckCircle size={18} />}
+                                {t.type === 'error' && <XCircle size={18} />}
+                                {t.type === 'info' && <Info size={18} />}
+                            </span>
+                            <span className="flex-1 whitespace-pre-line">{t.message}</span>
+                            <button
+                                type="button"
+                                onClick={() => removeToast(t.id)}
+                                aria-label="Cerrar aviso"
+                                className="mt-0.5 flex-shrink-0 opacity-70 hover:opacity-100"
+                            >
+                                <X size={16} />
+                            </button>
+                        </motion.div>
+                    ))}
+                </AnimatePresence>
             </div>
         </ToastContext.Provider>
     );

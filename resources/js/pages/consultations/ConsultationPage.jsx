@@ -52,6 +52,17 @@ export default function ConsultationPage() {
         }
     }, [searchParams]);
 
+    // `/patients/search` devuelve una ficha reducida (sin direccion ni
+    // ocupacion), asi que al elegir en el autocomplete se muestra de inmediato
+    // lo que ya se tiene y se recarga la ficha completa en segundo plano.
+    const handlePatientSelect = useCallback((patient) => {
+        setSelectedPatient(patient);
+        if (!patient?.id) return;
+        client.get(`/patients/${patient.id}`)
+            .then(r => setSelectedPatient(getPayload(r)))
+            .catch(() => { /* se conserva la ficha reducida del autocomplete */ });
+    }, []);
+
     if (loadError) return (
         <div className="p-6 max-w-3xl mx-auto">
             <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-center">
@@ -103,7 +114,7 @@ export default function ConsultationPage() {
                                 <p className="text-gray-500">Busque el paciente para iniciar la consulta</p>
                             </div>
                         </div>
-                        <PatientAutocomplete onSelect={setSelectedPatient} />
+                        <PatientAutocomplete onSelect={handlePatientSelect} />
                         <div className="flex items-center gap-4 mt-4">
                             <div className="flex-1 border-t border-gray-200" />
                             <span className="text-gray-400 text-sm">o</span>

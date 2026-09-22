@@ -6,13 +6,14 @@ import { useToast } from '../ui/Toast';
 import { useSettings } from '../../contexts/SettingsContext';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { parseDate } from '../../utils/dates';
 
 const RX_COLS = [
     { key: 'rx_final_esfera', label: 'ESFERA' },
     { key: 'rx_final_cilindro', label: 'CILINDRO' },
     { key: 'rx_final_eje', label: 'EJE' },
     { key: 'rx_final_add', label: 'ADD' },
-    { key: 'rx_final_avl', label: 'AVL' },
+    { key: 'rx_final_av', label: 'AV' },
     { key: 'rx_final_prisma', label: 'PRISMA' },
     { key: 'rx_final_base', label: 'BASE' },
     { key: 'rx_final_dnp', label: 'DNP/DP' },
@@ -34,15 +35,17 @@ function PdfContent({ data, settings, logoUrl, doctor }) {
     const edad = patient.edad ?? '';
 
     const fechaRaw = c.fecha_consulta
-        ? format(new Date(c.fecha_consulta), "EEEE, d 'de' MMMM 'de' yyyy", { locale: es })
+        ? format(parseDate(c.fecha_consulta), "EEEE, d 'de' MMMM 'de' yyyy", { locale: es })
         : '';
     const fecha = fechaRaw ? fechaRaw.charAt(0).toUpperCase() + fechaRaw.slice(1) : '';
 
-    // Diagnóstico por ojo: campos de certificado con fallback a la relación diagnoses.
+    // Diagnóstico por ojo: campos de certificado con fallback a la relación
+    // diagnoses. Un diagnostico "general" (ej. presbicia) aplica a ambos ojos.
+    const diagGeneral = diagnoses.filter(d => d.eye === 'general').map(d => [d.code, d.description].filter(Boolean).join(' '));
     const diagOd = c.certificado_diagnostico_od
-        || diagnoses.filter(d => d.eye === 'od').map(d => [d.code, d.description].filter(Boolean).join(' ')).join(', ');
+        || [...diagnoses.filter(d => d.eye === 'od').map(d => [d.code, d.description].filter(Boolean).join(' ')), ...diagGeneral].join(', ');
     const diagOi = c.certificado_diagnostico_oi
-        || diagnoses.filter(d => d.eye === 'oi').map(d => [d.code, d.description].filter(Boolean).join(' ')).join(', ');
+        || [...diagnoses.filter(d => d.eye === 'oi').map(d => [d.code, d.description].filter(Boolean).join(' ')), ...diagGeneral].join(', ');
 
     const hasRx = RX_COLS.some(col => c[`${col.key}_od`] || c[`${col.key}_oi`]);
     const hasAv = c.avsc_od || c.avsc_oi || c.avcc_od || c.avcc_oi;

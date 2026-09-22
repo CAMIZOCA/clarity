@@ -10,6 +10,14 @@ use Illuminate\Support\Arr;
 
 class ConsultationService extends BaseService
 {
+    /** Campos de esfera que aceptan el literal "N" (neutro) ademas de un numero. */
+    private const NEUTRAL_SPHERE_FIELDS = [
+        'rx_uso_esfera_od', 'rx_uso_esfera_oi',
+        'subj_esfera_od', 'subj_esfera_oi',
+        'rx_final_esfera_od', 'rx_final_esfera_oi',
+        'vc_esfera_od', 'vc_esfera_oi',
+    ];
+
     /**
      * Crear una nueva consulta junto con todos sus sub-módulos.
      * Preserva exactamente la lógica de ConsultationController@store.
@@ -111,6 +119,7 @@ class ConsultationService extends BaseService
             'creator:id,name',
             'updater:id,name',
             'rxUsoEntries',
+            'saleItems',
             'diagnoses.catalogItem:id,label,code',
             'recommendationsList.catalogItem:id,label,code',
             'lensRecommendation.material:id,label',
@@ -159,7 +168,7 @@ class ConsultationService extends BaseService
      */
     private function extractConsultationAttributes(array $data): array
     {
-        return Arr::except($data, [
+        $attributes = Arr::except($data, [
             'rx_uso_entries',
             'diagnoses',
             'recommendations_list',
@@ -167,7 +176,31 @@ class ConsultationService extends BaseService
             'contact_lens_module',
             'ophthalmoscopy_module',
             'treatment_module',
+            'sale_items',
         ]);
+
+        return $this->applyNeutralSphereFlags($attributes);
+    }
+
+    /**
+     * Separa un valor de esfera "N" (neutro) en `[columna decimal, flag boolean]`.
+     *
+     * La columna sigue siendo decimal|null; el flag indica que el valor
+     * mostrado debe ser el literal "N", no un cero.
+     */
+    private function applyNeutralSphereFlags(array $attributes): array
+    {
+        foreach (self::NEUTRAL_SPHERE_FIELDS as $field) {
+            if (! array_key_exists($field, $attributes)) {
+                continue;
+            }
+
+            $isNeutral = is_string($attributes[$field]) && strtoupper(trim($attributes[$field])) === 'N';
+            $attributes["{$field}_neutral"] = $isNeutral;
+            $attributes[$field] = $isNeutral ? null : $attributes[$field];
+        }
+
+        return $attributes;
     }
 
     /**
@@ -212,6 +245,12 @@ class ConsultationService extends BaseService
 
                 $payload['observacion'] = $entry['observacion'] ?? null;
 
+                foreach (['esfera_od', 'esfera_oi'] as $sphereKey) {
+                    $isNeutral = is_string($payload[$sphereKey]) && strtoupper(trim($payload[$sphereKey])) === 'N';
+                    $payload["{$sphereKey}_neutral"] = $isNeutral;
+                    $payload[$sphereKey] = $isNeutral ? null : $payload[$sphereKey];
+                }
+
                 $consultation->rxUsoEntries()->create($payload);
             }
 
@@ -226,7 +265,7 @@ class ConsultationService extends BaseService
                 }
             }
 
-            $consultation->forceFill($legacy)->save();
+            $consultation->forceFill($this->applyNeutralSphereFlags($legacy))->save();
         }
 
         // --- Diagnósticos ---
@@ -322,6 +361,27 @@ class ConsultationService extends BaseService
                 ['consultation_id' => $consultation->id],
                 $data['treatment_module'] ?? []
             );
+        }
+
+        // --- Venta / productos vendidos (informativo, no impacta caja) ---
+        if (array_key_exists('sale_items', $data)) {
+            $consultation->saleItems()->delete();
+
+            $items = collect($data['sale_items'] ?? [])
+                ->filter(fn ($item) => is_array($item) && filled($item['descripcion'] ?? null))
+                ->values();
+
+            foreach ($items as $index => $item) {
+                $consultation->saleItems()->create([
+                    'orden' => $index,
+                    'tipo' => $item['tipo'] ?? 'otro',
+                    'descripcion' => $item['descripcion'],
+                    'precio' => $item['precio'] ?? 0,
+                    'descuento_pct' => $item['descuento_pct'] ?? 0,
+                    'total' => $item['total'] ?? 0,
+                    'nota' => $item['nota'] ?? null,
+                ]);
+            }
         }
     }
 }

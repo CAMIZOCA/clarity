@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { Menu } from 'lucide-react';
 import Sidebar from './Sidebar';
@@ -6,6 +6,7 @@ import ConnectionBanner from '../ui/ConnectionBanner';
 import { useBranch } from '../../contexts/BranchContext';
 import AssistantChatButton from '../ai/AssistantChatButton';
 import { useAuth } from '../../contexts/AuthContext';
+import { useScrolled } from '../../hooks/useScrolled';
 
 function BranchSelector() {
     const { branches, activeBranch, switchBranch } = useBranch();
@@ -35,6 +36,8 @@ export default function AppShell() {
     const { user } = useAuth();
     const location = useLocation();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const mainRef = useRef(null);
+    const scrolled = useScrolled(mainRef);
     const context = user ? { role: user.roles?.[0] ?? user.role, name: user.name } : {};
     const handleMobileMenuOpen = useCallback(() => {
         setMobileMenuOpen(true);
@@ -51,7 +54,10 @@ export default function AppShell() {
         <div className="flex min-h-[100dvh] bg-gray-50">
             <Sidebar mobileOpen={mobileMenuOpen} onClose={handleMobileMenuClose} />
             <div className="flex min-w-0 min-h-0 flex-1 flex-col overflow-hidden lg:overflow-visible">
-                <header className="sticky top-0 z-30 border-b border-gray-200 bg-white/95 pt-[env(safe-area-inset-top)] backdrop-blur">
+                <header
+                    className="material-toolbar scroll-edge relative sticky top-0 z-30 pt-[env(safe-area-inset-top)]"
+                    data-scrolled={scrolled}
+                >
                     <div className="flex items-center gap-3 px-4 py-3 lg:px-6">
                         <button
                             type="button"
@@ -62,13 +68,13 @@ export default function AppShell() {
                             <Menu size={20} />
                         </button>
                         <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-semibold text-gray-900">Sistema Clinico</p>
+                            <p className="text-heading truncate text-sm font-semibold text-gray-900">Sistema Clinico</p>
                             <p className="truncate text-xs text-gray-500">Accesos rapidos, pacientes y operacion diaria</p>
                         </div>
                     </div>
                     <BranchSelector />
                 </header>
-                <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[env(safe-area-inset-bottom)] lg:overflow-visible lg:overscroll-auto">
+                <main ref={mainRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[env(safe-area-inset-bottom)] lg:overflow-visible lg:overscroll-auto">
                     <ConnectionBanner />
                     <Outlet />
                 </main>

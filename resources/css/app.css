@@ -25,6 +25,92 @@ body,
 
 body {
     -webkit-text-size-adjust: 100%;
+    font: 100%/1.5 var(--font-sans);
+}
+
+/*
+ * Optical sizing: large headings need negative tracking and tight leading, or
+ * letters read too far apart as they grow. Body text stays near 0 tracking.
+ * Apply to any element (h1-h3 or a manual .text-display) that plays the role
+ * of a page/section title.
+ */
+h1,
+h2,
+.text-display {
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+}
+
+h3,
+.text-heading {
+    letter-spacing: -0.01em;
+    line-height: 1.25;
+}
+
+/*
+ * Translucent chrome (toolbars, sheets, floating panels). Content scrolls
+ * underneath; the material is what conveys hierarchy, not a hard border.
+ * `prefers-reduced-transparency` swaps the material for a solid surface.
+ */
+.material-toolbar {
+    background: rgba(255, 255, 255, 0.78);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+}
+
+.material-scrim {
+    background: rgba(15, 23, 42, 0.45);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+}
+
+.material-sheet {
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+    .material-toolbar,
+    .material-sheet {
+        background: #fff;
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
+    }
+
+    .material-scrim {
+        background: rgba(15, 23, 42, 0.65);
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
+    }
+}
+
+@media (prefers-contrast: more) {
+    .material-toolbar,
+    .material-sheet {
+        background: #fff;
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
+        border-color: rgb(30 41 59);
+    }
+}
+
+/* Fades in only where floating chrome actually overlaps scrolled content. */
+.scroll-edge::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -12px;
+    height: 12px;
+    pointer-events: none;
+    opacity: 0;
+    background: linear-gradient(to bottom, rgba(15, 23, 42, 0.06), transparent);
+    transition: opacity 200ms ease-out;
+}
+
+.scroll-edge[data-scrolled='true']::after {
+    opacity: 1;
 }
 
 @media (max-width: 1023px) {
@@ -297,5 +383,9 @@ textarea {
     .landing-float,
     .animate-clarity-rise {
         animation: none;
+    }
+
+    .scroll-edge::after {
+        transition: none;
     }
 }

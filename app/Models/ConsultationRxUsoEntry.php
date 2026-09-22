@@ -19,7 +19,7 @@ class ConsultationRxUsoEntry extends Model
         'consultation_id', 'orden',
         'esfera_od', 'cilindro_od', 'eje_od', 'add_od', 'avcc_od',
         'esfera_oi', 'cilindro_oi', 'eje_oi', 'add_oi', 'avcc_oi',
-        'observacion',
+        'observacion', 'esfera_od_neutral', 'esfera_oi_neutral',
     ];
 
     protected function casts(): array
@@ -34,6 +34,8 @@ class ConsultationRxUsoEntry extends Model
             'cilindro_oi' => 'decimal:2',
             'add_oi' => 'decimal:2',
             'eje_oi' => 'integer',
+            'esfera_od_neutral' => 'boolean',
+            'esfera_oi_neutral' => 'boolean',
         ];
     }
 

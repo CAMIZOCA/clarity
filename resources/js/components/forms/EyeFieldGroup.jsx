@@ -1,5 +1,6 @@
 import React from 'react';
 import { useRequiredErrors } from './RequiredErrorsContext';
+import { normalizeSphere, normalizeCylinder, normalizeAxisValue, normalizeAdd } from '../../utils/opticalFormat';
 
 /**
  * Tabla OD/OI reutilizable de las secciones de refraccion.
@@ -36,6 +37,15 @@ const FIELD_META = {
     dnp:       { label: 'DNP/DP',     placeholder: 'mm',    inputMode: 'text' },
 };
 
+// Solo las medidas opticas se normalizan al perder el foco (esfera acepta
+// ademas "N"/"neutro"/"plano"/"pl"); AV, prisma, base, etc. son texto libre.
+const FIELD_NORMALIZERS = {
+    esfera: normalizeSphere,
+    cilindro: normalizeCylinder,
+    eje: normalizeAxisValue,
+    add: normalizeAdd,
+};
+
 const EYES = ['od', 'oi'];
 
 /**
@@ -70,6 +80,7 @@ export default function EyeFieldGroup({
     label,
     fields,
     register,
+    setValue = null,
     labelOverrides = {},
     tabOrder = null,
     footer = null,
@@ -109,8 +120,24 @@ export default function EyeFieldGroup({
     const headerLabel = (field) => labelOverrides[field] ?? FIELD_META[field]?.label ?? field;
 
     const inputCls = (name) =>
-        `w-full min-h-11 px-2 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] focus:bg-[#fef08a]/20 touch-manipulation
+        `w-full min-h-11 px-2 py-2 text-sm rounded-lg border placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] focus:bg-[#fef08a]/20 touch-manipulation
         ${requiredErrors.has(name) ? 'border-red-400 bg-red-50' : 'border-gray-300 bg-white'}`;
+
+    /** Normaliza esfera/cilindro/eje/ADD al perder el foco, para que el campo muestre "+0.25"/"N" tal como quedará guardado. */
+    const handleBlur = (event, field, rhfOnBlur) => {
+        rhfOnBlur?.(event);
+
+        const normalizer = FIELD_NORMALIZERS[field];
+        if (!normalizer || !setValue) return;
+
+        const raw = event.target.value;
+        if (raw === '' || raw === null || raw === undefined) return;
+
+        const normalized = normalizer(raw);
+        if (normalized !== raw) {
+            setValue(event.target.name, normalized, { shouldDirty: true });
+        }
+    };
 
     return (
         <div className="mb-6">
@@ -145,6 +172,7 @@ export default function EyeFieldGroup({
                                 {fields.map(f => {
                                     const meta = FIELD_META[f] ?? { inputMode: 'text' };
                                     const name = resolve(f, eye);
+                                    const { onBlur: rhfOnBlur, ...regProps } = register(name);
                                     return (
                                         <td key={f} className="px-2 py-2">
                                             <input
@@ -155,7 +183,8 @@ export default function EyeFieldGroup({
                                                 placeholder={meta.placeholder}
                                                 className={inputCls(name)}
                                                 onKeyDown={(event) => handleKeyDown(event, name)}
-                                                {...register(name)}
+                                                onBlur={(event) => handleBlur(event, f, rhfOnBlur)}
+                                                {...regProps}
                                             />
                                         </td>
                                     );

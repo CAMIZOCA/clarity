@@ -32,9 +32,9 @@ class Consultation extends Model
         'subj_add_od', 'subj_add_oi', 'subj_avc_od', 'subj_avc_oi', 'subj_dp',
         // RX final
         'rx_final_esfera_od', 'rx_final_cilindro_od', 'rx_final_eje_od', 'rx_final_add_od',
-        'rx_final_avl_od', 'rx_final_prisma_od', 'rx_final_base_od', 'rx_final_dnp_od',
+        'rx_final_prisma_od', 'rx_final_base_od', 'rx_final_dnp_od',
         'rx_final_esfera_oi', 'rx_final_cilindro_oi', 'rx_final_eje_oi', 'rx_final_add_oi',
-        'rx_final_avl_oi', 'rx_final_prisma_oi', 'rx_final_base_oi', 'rx_final_dnp_oi',
+        'rx_final_prisma_oi', 'rx_final_base_oi', 'rx_final_dnp_oi',
         'rx_final_distancia_od', 'rx_final_distancia_oi', 'rx_final_av_od', 'rx_final_av_oi',
         'rx_final_observaciones',
         // Vision de cerca
@@ -65,6 +65,12 @@ class Consultation extends Model
         'laboratorio_pedido', 'pedido_armazon', 'fecha_entrega', 'observacion_pedidos',
         // Texto libre
         'recomendaciones', 'observaciones',
+        // Esfera "N" (neutro): la columna decimal queda en null y este flag
+        // indica que el valor mostrado debe ser el literal "N".
+        'rx_uso_esfera_od_neutral', 'rx_uso_esfera_oi_neutral',
+        'subj_esfera_od_neutral', 'subj_esfera_oi_neutral',
+        'rx_final_esfera_od_neutral', 'rx_final_esfera_oi_neutral',
+        'vc_esfera_od_neutral', 'vc_esfera_oi_neutral',
     ];
 
     protected function casts(): array
@@ -76,6 +82,14 @@ class Consultation extends Model
             'estado_cancelado' => 'boolean',
             'motor_binocular_data' => 'array',
             'near_vision_data' => 'array',
+            'rx_uso_esfera_od_neutral' => 'boolean',
+            'rx_uso_esfera_oi_neutral' => 'boolean',
+            'subj_esfera_od_neutral' => 'boolean',
+            'subj_esfera_oi_neutral' => 'boolean',
+            'rx_final_esfera_od_neutral' => 'boolean',
+            'rx_final_esfera_oi_neutral' => 'boolean',
+            'vc_esfera_od_neutral' => 'boolean',
+            'vc_esfera_oi_neutral' => 'boolean',
         ];
     }
 
@@ -144,5 +158,11 @@ class Consultation extends Model
     public function treatmentModule(): HasOne
     {
         return $this->hasOne(ConsultationTreatmentModule::class);
+    }
+
+    /** Productos/servicios vendidos al paciente durante la consulta (informativo, no impacta caja). */
+    public function saleItems(): HasMany
+    {
+        return $this->hasMany(ConsultationSaleItem::class)->orderBy('orden');
     }
 }

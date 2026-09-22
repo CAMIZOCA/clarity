@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Controller;
 use App\Http\Controllers\Api\Concerns\ApiResponses;
+use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreConsultationRequest;
 use App\Http\Requests\UpdateConsultationRequest;
 use App\Models\Consultation;
@@ -99,8 +99,8 @@ class ConsultationController extends Controller
             'retinoscopia_od', 'retinoscopia_oi', 'avcc_od', 'avcc_oi',
             'rx_uso_avcc_od', 'rx_uso_avcc_oi',
             'subj_avl_od', 'subj_tipo_od', 'subj_avl_oi', 'subj_tipo_oi',
-            'rx_final_avl_od', 'rx_final_prisma_od', 'rx_final_base_od', 'rx_final_dnp_od',
-            'rx_final_avl_oi', 'rx_final_prisma_oi', 'rx_final_base_oi', 'rx_final_dnp_oi',
+            'rx_final_prisma_od', 'rx_final_base_od', 'rx_final_dnp_od',
+            'rx_final_prisma_oi', 'rx_final_base_oi', 'rx_final_dnp_oi',
             'rx_final_distancia_od', 'rx_final_distancia_oi', 'rx_final_av_od', 'rx_final_av_oi',
             'rx_final_observaciones',
             'vc_av_od', 'vc_dnp_od', 'vc_avcc_od', 'vc_av_oi', 'vc_dnp_oi', 'vc_avcc_oi',

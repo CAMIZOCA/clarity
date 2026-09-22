@@ -12,6 +12,8 @@ import { useToast } from '../../components/ui/Toast';
 import { useSettings } from '../../contexts/SettingsContext';
 import { useAdvancedFields } from '../../hooks/useAdvancedFields';
 import { RequiredErrorsCtx } from '../../components/forms/RequiredErrorsContext';
+import { displaySphere, displaySigned } from '../../utils/opticalFormat';
+import { toIsoDate, todayIso } from '../../utils/dates';
 
 const REQUIRED_FIELD_LABELS = {
     optometrista_id: 'Médico / Optometrista',
@@ -47,7 +49,25 @@ const defaultRecommendation = () => ({
     text: '',
 });
 
+const defaultSaleItem = () => ({
+    tipo: 'otro',
+    descripcion: '',
+    precio: '',
+    descuento_pct: '',
+    total: '',
+    nota: '',
+});
+
 const RX_USO_COLUMNS = ['esfera', 'cilindro', 'eje', 'add', 'avcc'];
+
+// Campos de esfera plana que aceptan "N" (neutro); cada uno viaja con un flag
+// `<campo>_neutral` aparte, ya que la columna sigue siendo decimal|null.
+const NEUTRAL_SPHERE_FIELDS = [
+    'rx_uso_esfera_od', 'rx_uso_esfera_oi',
+    'subj_esfera_od', 'subj_esfera_oi',
+    'rx_final_esfera_od', 'rx_final_esfera_oi',
+    'vc_esfera_od', 'vc_esfera_oi',
+];
 
 const isBlank = (value) => value === null || value === undefined || String(value).trim() === '';
 
@@ -66,8 +86,11 @@ function stripEmptyModuleRows(values) {
     const recommendations = (values.recommendations_list ?? []).filter(
         (row) => !isBlank(row?.text) || !isBlank(row?.catalog_item_id)
     );
+    const saleItems = (values.sale_items ?? []).filter(
+        (row) => !isBlank(row?.descripcion) || !isBlank(row?.precio) || !isBlank(row?.total) || !isBlank(row?.nota)
+    );
 
-    return { ...values, diagnoses, recommendations_list: recommendations };
+    return { ...values, diagnoses, recommendations_list: recommendations, sale_items: saleItems };
 }
 
 const emptyRxUsoEntry = () => RX_USO_COLUMNS.reduce(
@@ -82,15 +105,28 @@ const emptyRxUsoEntry = () => RX_USO_COLUMNS.reduce(
  * las columnas planas `rx_uso_*`; se convierten en la primera entrada para que
  * el historico se siga viendo completo.
  */
+/** Si el flag `esfera_<ojo>_neutral` esta activo, el campo se muestra como "N". */
+function applyNeutralSphereFlag(entry, eye) {
+    if (entry[`esfera_${eye}_neutral`]) {
+        entry[`esfera_${eye}`] = 'N';
+    }
+    return entry;
+}
+
 function buildRxUsoEntries(consultation) {
     const stored = consultation?.rx_uso_entries;
     if (Array.isArray(stored) && stored.length) {
-        return stored.map((entry) => ({
-            ...emptyRxUsoEntry(),
-            ...Object.fromEntries(
-                Object.entries(entry).map(([key, value]) => [key, value ?? ''])
-            ),
-        }));
+        return stored.map((entry) => {
+            const row = {
+                ...emptyRxUsoEntry(),
+                ...Object.fromEntries(
+                    Object.entries(entry).map(([key, value]) => [key, value ?? ''])
+                ),
+            };
+            applyNeutralSphereFlag(row, 'od');
+            applyNeutralSphereFlag(row, 'oi');
+            return row;
+        });
     }
 
     const legacy = emptyRxUsoEntry();
@@ -99,6 +135,8 @@ function buildRxUsoEntries(consultation) {
             legacy[`${column}_${eye}`] = consultation?.[`rx_uso_${column}_${eye}`] ?? '';
         }
     }
+    if (consultation?.rx_uso_esfera_od_neutral) legacy.esfera_od = 'N';
+    if (consultation?.rx_uso_esfera_oi_neutral) legacy.esfera_oi = 'N';
 
     return [legacy];
 }
@@ -144,21 +182,19 @@ function buildDefaultValues(patient, consultation, meta) {
             ? consultation.recomendaciones.split('\n').filter(Boolean).map((text) => ({ catalog_item_id: '', text }))
             : [defaultRecommendation()];
 
-    return {
+    const values = {
         patient_id: patient.id,
         optometrista_id: consultation?.optometrista_id ?? '',
         fecha_consulta: consultation?.fecha_consulta
-            ? new Date(consultation.fecha_consulta).toISOString().split('T')[0]
-            : new Date().toISOString().split('T')[0],
+            ? toIsoDate(consultation.fecha_consulta)
+            : todayIso(),
         estado: consultation?.estado ?? 'borrador',
         motivo_consulta: consultation?.motivo_consulta ?? '',
         ultimo_control: consultation?.ultimo_control
-            ? new Date(consultation.ultimo_control).toISOString().split('T')[0]
+            ? toIsoDate(consultation.ultimo_control)
             : '',
         doctor_license: consultation?.doctor_license ?? consultation?.optometrista?.registro_senescyt ?? '',
         print_template_key: consultation?.print_template_key ?? meta?.templates?.[0]?.key ?? '',
-        diagnoses: diagnosisFallback,
-        recommendations_list: recommendationFallback,
         lens_recommendation: {
             material_item_id: consultation?.lens_recommendation?.material_item_id ?? '',
             thickness_item_id: consultation?.lens_recommendation?.thickness_item_id ?? '',
@@ -212,8 +248,32 @@ function buildDefaultValues(patient, consultation, meta) {
             modalidad_uso: '',
         },
         ...consultation,
+        // Estas tres van despues del spread: `consultation.diagnoses` /
+        // `.recommendations_list` / `.rx_uso_entries` son el array crudo de la
+        // API (vacio en cuanto el usuario borra el texto y guarda), y
+        // pisarian el fallback con filas en blanco que ya calculamos arriba.
+        diagnoses: diagnosisFallback,
+        recommendations_list: recommendationFallback,
         rx_uso_entries: buildRxUsoEntries(consultation),
+        sale_items: consultation?.sale_items?.length
+            ? consultation.sale_items.map((item) => ({
+                tipo: item.tipo ?? 'otro',
+                descripcion: item.descripcion ?? '',
+                precio: item.precio ?? '',
+                descuento_pct: item.descuento_pct ?? '',
+                total: item.total ?? '',
+                nota: item.nota ?? '',
+            }))
+            : [defaultSaleItem()],
     };
+
+    for (const field of NEUTRAL_SPHERE_FIELDS) {
+        if (consultation?.[`${field}_neutral`]) {
+            values[field] = 'N';
+        }
+    }
+
+    return values;
 }
 
 /**
@@ -392,6 +452,7 @@ export default function ConsultationForm({ patient, consultation, meta }) {
     const diagnosesFieldArray = useFieldArray({ control, name: 'diagnoses' });
     const recommendationsFieldArray = useFieldArray({ control, name: 'recommendations_list' });
     const rxUsoFieldArray = useFieldArray({ control, name: 'rx_uso_entries' });
+    const saleItemsFieldArray = useFieldArray({ control, name: 'sale_items' });
 
     const asArray = (value) => (Array.isArray(value) ? value : []);
     const diagnosisOptions = asArray(meta?.catalogs?.diagnoses);
@@ -404,6 +465,15 @@ export default function ConsultationForm({ patient, consultation, meta }) {
     const ophthalmoscopyRows = asArray(meta?.ophthalmoscopy_rows);
     const ophthalmoscopyDistances = asArray(meta?.ophthalmoscopy_distances);
     const previousConsultation = consultation?.previous_consultation_summary;
+
+    // Resumen de solo lectura de RX Final, para elegir el diagnostico por ojo
+    // sin tener que volver a scrollear a la seccion de refraccion.
+    const [rxFinalEsferaOd, rxFinalCilindroOd, rxFinalEjeOd, rxFinalAddOd, rxFinalEsferaOi, rxFinalCilindroOi, rxFinalEjeOi, rxFinalAddOi] = watch([
+        'rx_final_esfera_od', 'rx_final_cilindro_od', 'rx_final_eje_od', 'rx_final_add_od',
+        'rx_final_esfera_oi', 'rx_final_cilindro_oi', 'rx_final_eje_oi', 'rx_final_add_oi',
+    ]);
+    const rxFinalSummaryLine = (esfera, cilindro, eje, add) =>
+        `${displaySphere(esfera)} ${displaySigned(cilindro)} × ${eje || '—'} ADD ${displaySigned(add)}`;
 
     const doSave = useCallback(async (showMsg = false, forceStatus = null) => {
         const values = getValues();
@@ -455,7 +525,10 @@ export default function ConsultationForm({ patient, consultation, meta }) {
                 addToast(detail, 'error');
             }
 
-            if (fields.length) {
+            // El scroll/foco automatico solo tiene sentido en un guardado
+            // manual: en el autosave silencioso (showMsg=false) saltaba la
+            // vista sola cada 30s mientras la usuaria seguia escribiendo.
+            if (fields.length && showMsg) {
                 scrollToField(fields[0]);
             }
 
@@ -557,10 +630,18 @@ export default function ConsultationForm({ patient, consultation, meta }) {
         const selected = diagnosisOptions.find((item) => String(item.id) === String(itemId));
         setValue(`diagnoses.${index}.catalog_item_id`, itemId);
         setValue(`diagnoses.${index}.code`, selected?.code ?? '');
-        if (!(watch(`diagnoses.${index}.description`) || '').trim()) {
-            setValue(`diagnoses.${index}.description`, selected?.label ?? '');
-        }
+        setValue(`diagnoses.${index}.description`, selected?.label ?? '');
     };
+
+    const recomputeSaleItemTotal = (index) => {
+        const precio = parseFloat(getValues(`sale_items.${index}.precio`)) || 0;
+        const pct = parseFloat(getValues(`sale_items.${index}.descuento_pct`)) || 0;
+        const total = precio * (1 - pct / 100);
+        setValue(`sale_items.${index}.total`, total.toFixed(2), { shouldDirty: true });
+    };
+
+    const saleItemsWatch = watch('sale_items') || [];
+    const saleItemsTotal = saleItemsWatch.reduce((sum, item) => sum + (parseFloat(item?.total) || 0), 0);
 
     const handleRecommendationCatalogChange = (index, itemId) => {
         const selected = recommendationOptions.find((item) => String(item.id) === String(itemId));
@@ -584,34 +665,31 @@ export default function ConsultationForm({ patient, consultation, meta }) {
             return !key || !isAdvanced(key) || refractionAdv.open;
         });
 
-    const topColumns = [
-        { field: 'av_lectura', label: 'Lectura computador' },
-        { field: 'avsc', label: 'AV.SC lejos', advKey: 'consulta:col_avsc' },
-        { field: 'retinoscopia', label: 'Retinoscopia' },
-        { field: 'avcc', label: 'AV.CC lejos', advKey: 'consulta:col_avcc' },
-    ].filter((c) => !c.advKey || !isAdvanced(c.advKey) || refractionAdv.open);
+    const topFields = filterFields(
+        ['av_lectura', 'ark', 'avsc', 'retinoscopia', 'avcc'],
+        { avsc: 'consulta:col_avsc', avcc: 'consulta:col_avcc' }
+    );
+    const topLabels = {
+        av_lectura: 'Lectura computador',
+        ark: 'ARK',
+        avsc: 'AV.SC lejos',
+        retinoscopia: 'Retinoscopia',
+        avcc: 'AV.CC lejos',
+    };
 
     const rxUsoFields = filterFields(RX_USO_COLUMNS, { cilindro: 'consulta:rx_uso_cilindro', avcc: 'consulta:rx_uso_avcc' });
     const subjFields = filterFields(['esfera', 'cilindro', 'eje', 'avl'], { esfera: 'consulta:subj_esfera', eje: 'consulta:subj_eje', avl: 'consulta:subj_avl' });
-    // Distancia va tras ADD; AV, prisma y base cierran la tabla.
+    // Orden pedido por la optica (papel de Optica Andina): Esfera, Cilindro,
+    // Eje, Prisma, Base, AV, ADD, DP. Distancia queda como campo avanzado.
     const rxFinalFields = filterFields(
-        ['esfera', 'cilindro', 'eje', 'add', 'distancia', 'dnp', 'avl', 'av', 'prisma', 'base'],
-        { avl: 'consulta:rx_final_avl', prisma: 'consulta:rx_final_prisma', base: 'consulta:rx_final_base' }
+        ['esfera', 'cilindro', 'eje', 'prisma', 'base', 'av', 'add', 'dnp', 'distancia'],
+        { prisma: 'consulta:rx_final_prisma', base: 'consulta:rx_final_base', distancia: 'consulta:rx_final_distancia' }
     );
-
-    // Recorrido de teclado pedido por la optica: los tres valores de OD, luego
-    // los tres de OI, y recien despues ADD y DNP/DP de ambos ojos.
-    const rxFinalTabOrder = [
-        'esfera_od', 'cilindro_od', 'eje_od',
-        'esfera_oi', 'cilindro_oi', 'eje_oi',
-        'add_od', 'add_oi',
-        'dnp_od', 'dnp_oi',
-    ];
 
     const refractionAdvKeys = [
         'consulta:col_avsc', 'consulta:col_avcc', 'consulta:rx_uso_cilindro', 'consulta:rx_uso_avcc',
         'consulta:subj_esfera', 'consulta:subj_eje', 'consulta:subj_avl',
-        'consulta:rx_final_avl', 'consulta:rx_final_prisma', 'consulta:rx_final_base',
+        'consulta:rx_final_prisma', 'consulta:rx_final_base', 'consulta:rx_final_distancia',
         'consulta:grp_vision_cerca', 'consulta:lente_anterior',
     ];
     const hasRefractionAdvanced = refractionAdvKeys.some((k) => isAdvanced(k));
@@ -698,34 +776,13 @@ export default function ConsultationForm({ patient, consultation, meta }) {
             </CollapsibleSection>
 
             <CollapsibleSection title="Examen visual y refraccion" subtitle="Captura central de lectura, refraccion y receta final." sectionKey="refraccion">
-                <div className="mb-6 overflow-x-auto">
-                    <table className="w-full text-sm">
-                        <thead>
-                            <tr className="bg-slate-100">
-                                <th className="px-3 py-2 text-left text-xs font-semibold uppercase text-slate-500">Ojo</th>
-                                {topColumns.map((col) => (
-                                    <th key={col.field} className="px-3 py-2 text-center text-xs font-semibold uppercase text-slate-500">{col.label}</th>
-                                ))}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {['od', 'oi'].map((eye) => (
-                                <tr key={eye} className="border-b border-slate-200">
-                                    <td className="px-3 py-3 font-semibold uppercase text-slate-700">{eye}</td>
-                                    {topColumns.map((col) => {
-                                        const fieldName = `${col.field}_${eye}`;
-                                        const hasErr = requiredErrors.has(fieldName);
-                                        return (
-                                            <td key={col.field} className="px-2 py-2">
-                                                <input className={`w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 ${fieldErrorClass(hasErr)}`} {...register(fieldName)} />
-                                            </td>
-                                        );
-                                    })}
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
+                <EyeFieldGroup
+                    fields={topFields}
+                    register={register}
+                    setValue={setValue}
+                    labelOverrides={topLabels}
+                    nameFor={(field, eye) => `${field}_${eye}`}
+                />
                 <div className="mb-6">
                     <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-[#1a2a4a]/20 pb-1">
                         <h3 className="text-sm font-semibold uppercase tracking-wider text-[#1a2a4a]">RX en uso</h3>
@@ -747,6 +804,7 @@ export default function ConsultationForm({ patient, consultation, meta }) {
                                 <EyeFieldGroup
                                     fields={rxUsoFields}
                                     register={register}
+                                    setValue={setValue}
                                     nameFor={(column, eye) => `rx_uso_entries.${index}.${column}_${eye}`}
                                 />
                                 <TextArea
@@ -767,15 +825,15 @@ export default function ConsultationForm({ patient, consultation, meta }) {
                     </div>
                 )}
 
-                <EyeFieldGroup prefix="subj" fields={subjFields} register={register} label="Subjetivo" />
+                <EyeFieldGroup prefix="subj" fields={subjFields} register={register} setValue={setValue} label="Subjetivo" />
 
                 <EyeFieldGroup
                     prefix="rx_final"
                     fields={rxFinalFields}
                     register={register}
-                    label="RX - Visión de Lejos"
-                    labelOverrides={{ avl: 'AV. CC' }}
-                    tabOrder={rxFinalTabOrder}
+                    setValue={setValue}
+                    label="RX FINAL"
+                    labelOverrides={{ dnp: 'DP' }}
                     footer={(
                         <div className="mt-3">
                             <TextArea
@@ -783,7 +841,7 @@ export default function ConsultationForm({ patient, consultation, meta }) {
                                 name="rx_final_observaciones"
                                 register={register}
                                 rows={3}
-                                placeholder="Observaciones de la receta de lejos (aplican a ambos ojos)."
+                                placeholder="Observaciones de la receta final (aplican a ambos ojos)."
                             />
                         </div>
                     )}
@@ -794,6 +852,7 @@ export default function ConsultationForm({ patient, consultation, meta }) {
                         prefix="vc"
                         fields={['esfera', 'cilindro', 'eje', 'dnp', 'avcc']}
                         register={register}
+                        setValue={setValue}
                         label="RX - Visión de Cerca"
                     />
                 )}
@@ -805,6 +864,13 @@ export default function ConsultationForm({ patient, consultation, meta }) {
             </CollapsibleSection>
 
             <CollapsibleSection title="Diagnostico clinico" subtitle="Catalogo configurable con soporte para multiples diagnosticos por ojo." sectionKey="diagnostico">
+                <div className="mb-4 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm">
+                    <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-slate-500">RX Final</div>
+                    <div className="grid grid-cols-1 gap-1 font-mono text-slate-700 sm:grid-cols-2">
+                        <div><span className="font-semibold">OD:</span> {rxFinalSummaryLine(rxFinalEsferaOd, rxFinalCilindroOd, rxFinalEjeOd, rxFinalAddOd)}</div>
+                        <div><span className="font-semibold">OI:</span> {rxFinalSummaryLine(rxFinalEsferaOi, rxFinalCilindroOi, rxFinalEjeOi, rxFinalAddOi)}</div>
+                    </div>
+                </div>
                 <div className="space-y-4">
                     {diagnosesFieldArray.fields.map((field, index) => (
                         <div key={field.id} className="rounded-2xl border border-slate-200 p-4">
@@ -900,6 +966,75 @@ export default function ConsultationForm({ patient, consultation, meta }) {
                                 </div>
                             ))}
                         </div>
+                    </div>
+                </div>
+            </CollapsibleSection>
+
+            <CollapsibleSection title="Venta / Productos vendidos" subtitle="Registro informativo de lo vendido en la consulta; no se imprime en el certificado ni afecta caja o inventario." sectionKey="venta">
+                <div className="space-y-4">
+                    {saleItemsFieldArray.fields.map((field, index) => {
+                        const precioReg = register(`sale_items.${index}.precio`);
+                        const pctReg = register(`sale_items.${index}.descuento_pct`);
+                        return (
+                            <div key={field.id} className="rounded-2xl border border-slate-200 p-4">
+                                <div className="mb-3 flex items-center justify-between">
+                                    <span className="text-sm font-medium text-slate-700">Item {index + 1}</span>
+                                    {saleItemsFieldArray.fields.length > 1 && (
+                                        <button type="button" className="text-sm text-rose-600" onClick={() => saleItemsFieldArray.remove(index)}>
+                                            <Trash2 size={16} className="inline-block" /> Quitar
+                                        </button>
+                                    )}
+                                </div>
+                                <div className="grid grid-cols-1 gap-4 lg:grid-cols-6">
+                                    <FormSelect
+                                        label="Tipo"
+                                        name={`sale_items.${index}.tipo`}
+                                        register={register}
+                                        options={[
+                                            { value: 'armazon', label: 'Armazón' },
+                                            { value: 'lunas', label: 'Lunas' },
+                                            { value: 'lentes_contacto', label: 'Lentes de contacto' },
+                                            { value: 'otro', label: 'Otro' },
+                                        ]}
+                                    />
+                                    <div className="lg:col-span-2">
+                                        <FormInput label="Descripción" name={`sale_items.${index}.descripcion`} register={register} />
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                        <label className="text-sm font-medium text-slate-700">Precio</label>
+                                        <input
+                                            type="text"
+                                            inputMode="decimal"
+                                            className="w-full min-h-11 rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
+                                            {...precioReg}
+                                            onChange={(event) => { precioReg.onChange(event); recomputeSaleItemTotal(index); }}
+                                        />
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                        <label className="text-sm font-medium text-slate-700">% Descuento</label>
+                                        <input
+                                            type="text"
+                                            inputMode="decimal"
+                                            className="w-full min-h-11 rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
+                                            {...pctReg}
+                                            onChange={(event) => { pctReg.onChange(event); recomputeSaleItemTotal(index); }}
+                                        />
+                                    </div>
+                                    <FormInput label="Total" name={`sale_items.${index}.total`} register={register} readOnly />
+                                </div>
+                                <div className="mt-4">
+                                    <TextArea label="Nota" name={`sale_items.${index}.nota`} register={register} rows={2} />
+                                </div>
+                            </div>
+                        );
+                    })}
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                        <Button type="button" variant="secondary" onClick={() => saleItemsFieldArray.append(defaultSaleItem())}>
+                            <Plus size={16} /> Agregar item
+                        </Button>
+                        <span className="text-sm font-semibold text-slate-800">
+                            Total de la venta: ${saleItemsTotal.toFixed(2)}
+                        </span>
                     </div>
                 </div>
             </CollapsibleSection>

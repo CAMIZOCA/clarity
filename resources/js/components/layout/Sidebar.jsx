@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
 import { NavLink } from 'react-router-dom';
 import {
     BookOpen,
@@ -38,6 +39,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useSettings } from '../../contexts/SettingsContext';
 import { DEFAULT_MENU_VISIBLE_ITEMS, DEFAULT_MENU_VISIBLE_SECTIONS, MENU_ITEM_OPTIONS_BY_SECTION } from '../../data/menuOptions';
 import client from '../../api/client';
+import { motionTransition, SPRING_SHEET, REDUCED_MOTION_TRANSITION } from '../../utils/motion';
 const primaryLinkClass = 'flex items-center gap-3 rounded-xl px-4 py-3 text-[15px] font-medium transition-colors';
 
 function NavItem({ to, icon: Icon, label, badge, compact = false, onNavigate }) {
@@ -256,7 +258,6 @@ export default function Sidebar({ mobileOpen = false, onClose }) {
         onClose?.();
     }, [location.pathname, onClose]);
 
-    const drawerState = mobileOpen ? 'translate-x-0' : '-translate-x-full';
     const userMeta = {
         userName: user?.name || 'Usuario',
         userRole: user?.roles?.[0] || user?.role || 'Sesion activa',
@@ -293,37 +294,54 @@ export default function Sidebar({ mobileOpen = false, onClose }) {
                 {content}
             </aside>
 
-            <div className={`fixed inset-0 z-40 lg:hidden ${mobileOpen ? '' : 'pointer-events-none'}`}>
-                <div
-                    className={`absolute inset-0 bg-slate-950/45 transition-opacity duration-200 ${mobileOpen ? 'opacity-100' : 'opacity-0'}`}
-                    onClick={onClose}
-                />
-                <aside
-                    className={`absolute inset-y-0 left-0 z-10 flex w-[88vw] max-w-sm flex-col border-r border-white/10 bg-[#1a2a4a] shadow-2xl transition-transform duration-300 ease-out ${drawerState}`}
-                >
-                    <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
-                        <div className="flex items-center gap-3">
-                            <div className="grid h-10 w-10 place-items-center rounded-2xl bg-white text-[#1a2a4a]">
-                                <Eye size={20} />
-                            </div>
-                            <div>
-                                <p className="text-sm font-extrabold text-white">Sistema Clinico</p>
-                                <p className="text-xs text-slate-300">Acceso rapido</p>
-                            </div>
-                        </div>
-                        <button
-                            type="button"
+            <AnimatePresence>
+                {mobileOpen && (
+                    <div className="fixed inset-0 z-40 lg:hidden">
+                        <motion.div
+                            className="material-scrim absolute inset-0"
                             onClick={onClose}
-                            className="rounded-xl p-2 text-slate-200 transition hover:bg-white/10 hover:text-white"
-                            aria-label="Cerrar menu"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={REDUCED_MOTION_TRANSITION}
+                        />
+                        <motion.aside
+                            className="absolute inset-y-0 left-0 z-10 flex w-[88vw] max-w-sm flex-col border-r border-white/10 bg-[#1a2a4a] shadow-2xl"
+                            initial={{ x: '-100%' }}
+                            animate={{ x: 0 }}
+                            exit={{ x: '-100%' }}
+                            transition={motionTransition(SPRING_SHEET)}
+                            drag="x"
+                            dragConstraints={{ left: 0, right: 0 }}
+                            dragElastic={{ left: 1, right: 0 }}
+                            onDragEnd={(event, info) => {
+                                if (info.offset.x < -80 || info.velocity.x < -500) onClose?.();
+                            }}
                         >
-                            <X size={20} />
-                        </button>
+                            <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="grid h-10 w-10 place-items-center rounded-2xl bg-white text-[#1a2a4a]">
+                                        <Eye size={20} />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-extrabold text-white">Sistema Clinico</p>
+                                        <p className="text-xs text-slate-300">Acceso rapido</p>
+                                    </div>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={onClose}
+                                    className="rounded-xl p-2 text-slate-200 transition hover:bg-white/10 hover:text-white"
+                                    aria-label="Cerrar menu"
+                                >
+                                    <X size={20} />
+                                </button>
+                            </div>
+                            {content}
+                        </motion.aside>
                     </div>
-                    {content}
-                </aside>
-            </div>
-
+                )}
+            </AnimatePresence>
         </>
     );
 }

@@ -101,6 +101,7 @@ export default function PatientDetailPage() {
                             ['Edad', patient.edad != null ? `${patient.edad} años` : '—'],
                             ['Fecha registro', toDisplayDate(patient.fecha_registro, '—')],
                             ['Ocupación', patient.ocupacion || '—'],
+                            ['Dirección', patient.direccion || '—'],
                             ['Teléfono', patient.telefono || '—'],
                             ['Email', patient.email || '—'],
                             ['¿Cómo nos conoció?', patient.como_nos_conocio || '—'],
