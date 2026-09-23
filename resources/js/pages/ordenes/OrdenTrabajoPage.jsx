@@ -388,13 +388,14 @@ export default function OrdenTrabajoPage() {
                 </div>
 
                 <h3 className="text-sm font-bold text-gray-700 mb-3 border-b pb-1">Prescripción</h3>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
-                    <Field label="O.D." name="rx_od" value={orden.rx_od} onChange={handleOrdenChange} placeholder="Ej: -3.50 -1.25 x12°" nextFieldId="add_od" />
-                    <Field label="ADD O.D." name="add_od" value={orden.add_od} onChange={handleOrdenChange} placeholder="+2.50" inputMode="decimal" nextFieldId="avcc_od" />
-                    <Field label="AV C.C. O.D." name="avcc_od" value={orden.avcc_od} onChange={handleOrdenChange} placeholder="20/20" nextFieldId="rx_oi" />
-                    <Field label="O.I." name="rx_oi" value={orden.rx_oi} onChange={handleOrdenChange} placeholder="Ej: +0.25 -2.75 x10°" nextFieldId="add_oi" />
-                    <Field label="ADD O.I." name="add_oi" value={orden.add_oi} onChange={handleOrdenChange} placeholder="+2.50" inputMode="decimal" nextFieldId="avcc_oi" />
-                    <Field label="AV C.C. O.I." name="avcc_oi" value={orden.avcc_oi} onChange={handleOrdenChange} placeholder="20/20" nextFieldId="especif" />
+                {/* Orden de captura: RX OD, RX OI, luego AV y ADD de a pares OD/OI. */}
+                <div className="grid grid-cols-2 gap-4 mb-6">
+                    <Field label="O.D." name="rx_od" value={orden.rx_od} onChange={handleOrdenChange} placeholder="Ej: -3.50 -1.25 x12°" nextFieldId="rx_oi" />
+                    <Field label="O.I." name="rx_oi" value={orden.rx_oi} onChange={handleOrdenChange} placeholder="Ej: +0.25 -2.75 x10°" nextFieldId="avcc_od" />
+                    <Field label="AV C.C. O.D." name="avcc_od" value={orden.avcc_od} onChange={handleOrdenChange} placeholder="20/20" nextFieldId="avcc_oi" />
+                    <Field label="AV C.C. O.I." name="avcc_oi" value={orden.avcc_oi} onChange={handleOrdenChange} placeholder="20/20" nextFieldId="add_od" />
+                    <Field label="ADD O.D." name="add_od" value={orden.add_od} onChange={handleOrdenChange} placeholder="+2.50" inputMode="decimal" nextFieldId="add_oi" />
+                    <Field label="ADD O.I." name="add_oi" value={orden.add_oi} onChange={handleOrdenChange} placeholder="+2.50" inputMode="decimal" nextFieldId="especif" />
                 </div>
 
                 {ordenHasAdvanced && (

@@ -29,7 +29,7 @@ export const FORM_ADVANCED_OPTIONS = [
             // Campos / columnas sueltos
             { key: 'consulta:ultimo_control', label: 'Cabecera: Último control', type: 'field', defaultAdvanced: true },
             { key: 'consulta:col_avsc', label: 'Refracción: columna AV.SC (lejos)', type: 'field', defaultAdvanced: false, requiredFields: ['avsc_od', 'avsc_oi'] },
-            { key: 'consulta:col_avcc', label: 'Refracción: columna AV.CC (lejos)', type: 'field', defaultAdvanced: false },
+            { key: 'consulta:col_avcc', label: 'Refracción: columna AV Retinoscopía VL', type: 'field', defaultAdvanced: false },
             { key: 'consulta:rx_uso_cilindro', label: 'RX en uso: cilindro', type: 'field', defaultAdvanced: false },
             { key: 'consulta:rx_uso_avcc', label: 'RX en uso: AV.CC', type: 'field', defaultAdvanced: false },
             { key: 'consulta:subj_esfera', label: 'Subjetivo: esfera', type: 'field', defaultAdvanced: false },

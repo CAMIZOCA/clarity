@@ -50,8 +50,12 @@ export default function AppShell() {
         handleMobileMenuClose();
     }, [location.pathname, handleMobileMenuClose]);
 
+    // Bajo `lg` el que scrollea es <main> (overscroll-contain), asi que el shell
+    // necesita altura fija: con solo min-h, main crecia al alto del contenido,
+    // no tenia nada que scrollear y el overscroll-contain bloqueaba el scroll
+    // del documento. Con una ventana de escritorio angosta no se podia bajar.
     return (
-        <div className="flex min-h-[100dvh] bg-gray-50">
+        <div className="flex h-[100dvh] bg-gray-50 lg:h-auto lg:min-h-[100dvh]">
             <Sidebar mobileOpen={mobileMenuOpen} onClose={handleMobileMenuClose} />
             <div className="flex min-w-0 min-h-0 flex-1 flex-col overflow-hidden lg:overflow-visible">
                 <header

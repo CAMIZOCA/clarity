@@ -48,22 +48,45 @@ const FIELD_NORMALIZERS = {
 
 const EYES = ['od', 'oi'];
 
+// La optometrista llena primero la refraccion completa de OD y luego la de OI;
+// el resto de columnas va de a una (OD y OI) y prisma+base viajan juntos.
+const ROW_FIRST_FIELDS = ['esfera', 'cilindro', 'eje'];
+const PAIRED_FIELDS = { prisma: 'base' };
+
 /**
  * Secuencia de recorrido con Tab/Enter.
  *
- * Por defecto va fila por fila (OD completo y luego OI). Si se pasa `tabOrder`,
- * ese recorrido manda y cualquier campo visible que no aparezca en el se agrega
- * al final, de modo que ocultar una columna nunca rompe la navegacion.
+ * Por defecto: esfera, cilindro y eje de OD, luego los de OI; despues cada
+ * columna restante en bloque OD -> OI (prisma y base como par: prisma OD,
+ * base OD, prisma OI, base OI). Si se pasa `tabOrder`, ese recorrido manda y
+ * cualquier campo visible que no aparezca en el se agrega al final, de modo
+ * que ocultar una columna nunca rompe la navegacion.
  */
 function buildOrderedNames({ fields, extra, tabOrder, resolve }) {
-    const rowOrder = EYES.flatMap((eye) => [
-        ...fields.map((field) => resolve(field, eye)),
-        ...extra.map((field) => `${field.name}_${eye}`),
-    ]);
+    const rowFirst = fields.filter((field) => ROW_FIRST_FIELDS.includes(field));
+    const byColumn = fields.filter((field) => !ROW_FIRST_FIELDS.includes(field));
 
-    if (!tabOrder?.length) return rowOrder;
+    const columnGroups = [];
+    const grouped = new Set();
+    for (const field of byColumn) {
+        if (grouped.has(field)) continue;
+        const partner = PAIRED_FIELDS[field];
+        const group = partner && byColumn.includes(partner) ? [field, partner] : [field];
+        group.forEach((item) => grouped.add(item));
+        columnGroups.push(group.map((item) => (eye) => resolve(item, eye)));
+    }
+    for (const field of extra) {
+        columnGroups.push([(eye) => `${field.name}_${eye}`]);
+    }
 
-    const available = new Set(rowOrder);
+    const defaultOrder = [
+        ...EYES.flatMap((eye) => rowFirst.map((field) => resolve(field, eye))),
+        ...columnGroups.flatMap((group) => EYES.flatMap((eye) => group.map((nameOf) => nameOf(eye)))),
+    ];
+
+    if (!tabOrder?.length) return defaultOrder;
+
+    const available = new Set(defaultOrder);
     const preferred = tabOrder
         .map((suffix) => {
             const separator = suffix.lastIndexOf('_');
@@ -72,7 +95,7 @@ function buildOrderedNames({ fields, extra, tabOrder, resolve }) {
         .filter((name) => available.has(name));
 
     const seen = new Set(preferred);
-    return [...preferred, ...rowOrder.filter((name) => !seen.has(name))];
+    return [...preferred, ...defaultOrder.filter((name) => !seen.has(name))];
 }
 
 export default function EyeFieldGroup({

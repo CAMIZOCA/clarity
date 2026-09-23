@@ -97,10 +97,22 @@ Secciones de refraccion (todas usan `EyeFieldGroup`):
 
 | Seccion | Prefijo | Columnas |
 |---|---|---|
-| RX en uso | `rx_uso_entries.N.` | Esfera, Cilindro, Eje, ADD, AV.CC + observacion |
+| Examen visual | `<campo>_od/oi` | Lectura computador, Queratometria (`ark_*`), AV.SC lejos, Retinoscopia, AV Retinoscopia VL (`avcc_*`) |
+| RX en uso | `rx_uso_entries.N.` | Esfera, Cilindro, Eje, AV.CC, ADD + observacion |
 | Subjetivo | `subj_` | Esfera, Cilindro, Eje, AVL |
-| RX - Vision de Lejos | `rx_final_` | Esfera, Cilindro, Eje, ADD, Distancia, DNP/DP, AV. CC, AV, Prisma, Base + observaciones |
-| RX - Vision de Cerca | `vc_` | Esfera, Cilindro, Eje, DNP/DP, AV.CC |
+| RX FINAL | `rx_final_` | Esfera, Cilindro, Eje, Prisma, Base, AV, ADD, DP, Distancia + observaciones |
+| RX - Vision de Cerca | `vc_` | Esfera, Cilindro, Eje, AV.CC, DNP/DP |
+
+Orden de Tab/Enter (`EyeFieldGroup::buildOrderedNames`): esfera, cilindro y eje de OD, luego
+los de OI; despues cada columna restante en bloque OD -> OI, con prisma y base como par
+(prisma OD, base OD, prisma OI, base OI).
+
+Diagnostico (`components/forms/DiagnosisPicker.jsx`): dos listas de seleccion multiple
+lado a lado (OD / OI) con todo el catalogo `diagnoses`. Marcar un item agrega la fila
+`{eye, catalog_item_id, code, description}` al mismo array `diagnoses`; `notes` se muestra
+como "Recomendaciones". El catalogo se ordena por probabilidad segun RX Final (o Subjetivo)
+con `utils/diagnosisSuggestions.js` (umbrales OMS/IMI/AOA/AAO); nada se pre-marca. Las filas
+de texto libre, ojo "general" o items desactivados se editan aparte en "Otros diagnosticos".
 
 `rx_uso_entries` admite varias recetas; la primera se desnormaliza a las columnas planas
 `rx_uso_*` para no romper PDF, reportes ni la importacion legacy.

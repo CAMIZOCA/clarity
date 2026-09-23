@@ -26,6 +26,9 @@ class User extends Authenticatable
         'registro_senescyt',
         'firma_digital',
         'branch_id',
+        'is_active',
+        'commission_pct',
+        'phone',
     ];
 
     protected $hidden = ['password', 'remember_token'];

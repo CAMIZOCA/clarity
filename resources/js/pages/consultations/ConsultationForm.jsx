@@ -5,6 +5,7 @@ import { Save, FileText, CheckCircle, Clock, Plus, Trash2, Printer, AlertTriangl
 import client from '../../api/client';
 import Button from '../../components/ui/Button';
 import EyeFieldGroup from '../../components/forms/EyeFieldGroup';
+import DiagnosisPicker, { checklistRowIndexes } from '../../components/forms/DiagnosisPicker';
 import CollapsibleSection from '../../components/forms/CollapsibleSection';
 import { AdvancedToggleButton, useAdvancedToggle } from '../../components/forms/AdvancedFieldsToggle';
 import CertificadoPdf from '../../components/pdf/CertificadoPdf';
@@ -58,7 +59,9 @@ const defaultSaleItem = () => ({
     nota: '',
 });
 
-const RX_USO_COLUMNS = ['esfera', 'cilindro', 'eje', 'add', 'avcc'];
+// Orden de columnas en todas las tablas de medidas: esfera, cilindro, eje,
+// prisma/base, AV, ADD y DP.
+const RX_USO_COLUMNS = ['esfera', 'cilindro', 'eje', 'avcc', 'add'];
 
 // Campos de esfera plana que aceptan "N" (neutro); cada uno viaja con un flag
 // `<campo>_neutral` aparte, ya que la columna sigue siendo decimal|null.
@@ -200,9 +203,8 @@ function buildDefaultValues(patient, consultation, meta) {
                     description: consultation?.diagnostico_descripcion ?? '',
                     notes: consultation?.diagnostico_adicional ?? '',
                 }
-                : defaultDiagnosis('od'),
-            defaultDiagnosis('oi'),
-        ];
+                : null,
+        ].filter(Boolean);
 
     const recommendationFallback = consultation?.recommendations_list?.length
         ? consultation.recommendations_list.map((item) => ({
@@ -670,6 +672,14 @@ export default function ConsultationForm({ patient, consultation, meta }) {
         }
     };
 
+    // Filas de diagnostico que no salen del checklist por ojo: texto libre,
+    // ojo "general", items de catalogo desactivados o duplicados historicos.
+    const diagnosesWatch = watch('diagnoses') || [];
+    const checklistIndexes = checklistRowIndexes(diagnosesWatch, diagnosisOptions);
+    const otherDiagnosisFields = diagnosesFieldArray.fields
+        .map((field, index) => ({ field, index }))
+        .filter(({ index }) => !checklistIndexes.has(index));
+
     const handleDiagnosisCatalogChange = (index, itemId) => {
         const selected = diagnosisOptions.find((item) => String(item.id) === String(itemId));
         setValue(`diagnoses.${index}.catalog_item_id`, itemId);
@@ -715,10 +725,10 @@ export default function ConsultationForm({ patient, consultation, meta }) {
     );
     const topLabels = {
         av_lectura: 'Lectura computador',
-        ark: 'ARK',
+        ark: 'Queratometría',
         avsc: 'AV.SC lejos',
         retinoscopia: 'Retinoscopia',
-        avcc: 'AV.CC lejos',
+        avcc: 'AV Retinoscopía VL',
     };
 
     const rxUsoFields = filterFields(RX_USO_COLUMNS, { cilindro: 'consulta:rx_uso_cilindro', avcc: 'consulta:rx_uso_avcc' });
@@ -894,7 +904,7 @@ export default function ConsultationForm({ patient, consultation, meta }) {
                 {advVisible('consulta:grp_vision_cerca', refractionAdv) && (
                     <EyeFieldGroup
                         prefix="vc"
-                        fields={['esfera', 'cilindro', 'eje', 'dnp', 'avcc']}
+                        fields={['esfera', 'cilindro', 'eje', 'avcc', 'dnp']}
                         register={register}
                         setValue={setValue}
                         label="RX - Visión de Cerca"
@@ -915,16 +925,24 @@ export default function ConsultationForm({ patient, consultation, meta }) {
                         <div><span className="font-semibold">OI:</span> {rxFinalSummaryLine(rxFinalEsferaOi, rxFinalCilindroOi, rxFinalEjeOi, rxFinalAddOi)}</div>
                     </div>
                 </div>
-                <div className="space-y-4">
-                    {diagnosesFieldArray.fields.map((field, index) => (
+                <DiagnosisPicker
+                    control={control}
+                    register={register}
+                    options={diagnosisOptions}
+                    fieldArray={diagnosesFieldArray}
+                    patientAge={patient.edad}
+                />
+                <div className="mt-4 space-y-4">
+                    {otherDiagnosisFields.length > 0 && (
+                        <h3 className="text-sm font-semibold text-slate-800">Otros diagnósticos</h3>
+                    )}
+                    {otherDiagnosisFields.map(({ field, index }, position) => (
                         <div key={field.id} className="rounded-2xl border border-slate-200 p-4">
                             <div className="mb-3 flex items-center justify-between">
-                                <h3 className="text-sm font-semibold text-slate-800">Diagnostico {index + 1}</h3>
-                                {diagnosesFieldArray.fields.length > 1 && (
-                                    <button type="button" className="text-sm text-rose-600" onClick={() => diagnosesFieldArray.remove(index)}>
-                                        <Trash2 size={16} className="inline-block" /> Quitar
-                                    </button>
-                                )}
+                                <h4 className="text-sm font-semibold text-slate-800">Diagnóstico adicional {position + 1}</h4>
+                                <button type="button" className="text-sm text-rose-600" onClick={() => diagnosesFieldArray.remove(index)}>
+                                    <Trash2 size={16} className="inline-block" /> Quitar
+                                </button>
                             </div>
                             <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
                                 <FormSelect label="Ojo" name={`diagnoses.${index}.eye`} register={register} options={[{ value: 'od', label: 'OD' }, { value: 'oi', label: 'OI' }, { value: 'general', label: 'General' }]} />
@@ -944,13 +962,13 @@ export default function ConsultationForm({ patient, consultation, meta }) {
                                     <FormInput label="Descripcion" name={`diagnoses.${index}.description`} register={register} />
                                 </div>
                                 <div className="lg:col-span-4">
-                                    <TextArea label="Notas" name={`diagnoses.${index}.notes`} register={register} rows={2} />
+                                    <TextArea label="Recomendaciones" name={`diagnoses.${index}.notes`} register={register} rows={2} />
                                 </div>
                             </div>
                         </div>
                     ))}
                     <Button type="button" variant="secondary" onClick={() => diagnosesFieldArray.append(defaultDiagnosis())}>
-                        <Plus size={16} /> Agregar diagnostico
+                        <Plus size={16} /> Agregar diagnóstico manual (texto libre / general)
                     </Button>
                     {advVisible('consulta:diagnostico_adicional', diagnosticoAdv) && (
                         <TextArea label="Diagnostico adicional" name="diagnostico_adicional" register={register} rows={3} placeholder="Hallazgos, patologia asociada o aclaraciones diagnosticas." />
