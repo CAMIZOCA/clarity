@@ -81,7 +81,7 @@ Los catálogos se cargan via `GET /api/consultations-meta`:
 ```javascript
 // Estructura devuelta:
 {
-  catalogs: { material_lente: [...], espesor_lente: [...], proteccion: [...] },
+  catalogs: { diagnoses: [...], lens_materials: [...], lens_thicknesses: [...], lens_protections: [...], recommendations: [...], contact_lens_types: [...] },
   templates: [...],  // Plantillas de impresión activas
   optometrists: [...],
   ophthalmoscopy_distances: [...],

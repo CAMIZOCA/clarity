@@ -3,7 +3,7 @@
 Inventario vivo del sistema clinico (Optica Andina / clarity.medio-digital.net).
 Sirve para retomar el trabajo sin volver a explorar el codigo desde cero.
 
-**Ultima auditoria: 2026-08-22.** Al cerrar un modulo o cambiar arquitectura, actualizar
+**Ultima auditoria: 2026-09-24.** Al cerrar un modulo o cambiar arquitectura, actualizar
 este archivo (`/clinica-docs` automatiza la revision).
 
 Los gotchas del sistema estan en [CLAUDE.md](../CLAUDE.md). Aqui va el *que existe*, no el *como*.
@@ -166,6 +166,18 @@ Ordenados por impacto.
 ---
 
 ## Historial de cambios relevantes
+
+### 2026-09-24 — Per-eye diagnosis checklist y fixes post-agosto
+
+- **Diagnósticos por ojo** (a2b0c5e): UI interactiva con checklist separado para OD/OI.
+  Mejora la sección de diagnósticos en `ConsultationForm.jsx`.
+- **Datos del paciente completos** (573e8c6): Campo ARK (Queratometria) visible en formulario,
+  integración de `nombre_completo` en Pacientes y Consultas.
+- **Fix validación módulos anidados** (c9912d8): `ConsultationContactLensModule`,
+  `ConsultationOphthalmoscopyModule` y `ConsultationTreatmentModule` ya sincronizaban mal.
+  Corregida lógica en `validatePayload()` del controlador.
+
+Detalle: ver commits a2b0c5e, 573e8c6, c9912d8 en `git log`.
 
 ### 2026-08-22 — Lote de 12 correcciones
 

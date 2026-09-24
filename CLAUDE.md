@@ -20,7 +20,7 @@ Pasarle solo los archivos tocados para no generar diffs enormes sin relacion.
 
 ## Arquitectura
 
-Stack principal: Laravel 13, PHP 8.3+, React 18, Vite 8 (rolldown), Tailwind CSS 4 y SQLite por defecto.
+Stack principal: Laravel 13, PHP 8.5+, React 18, Vite 8 (rolldown), Tailwind CSS 4 y SQLite por defecto.
 
 ### Directorios clave
 
