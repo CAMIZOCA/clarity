@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\CertifyingDoctorController;
 use App\Http\Controllers\Api\Cie10Controller;
 use App\Http\Controllers\Api\ConsultationController;
 use App\Http\Controllers\Api\ConsultationMetaController;
+use App\Http\Controllers\Api\ContificoController;
 use App\Http\Controllers\Api\CrmController;
 use App\Http\Controllers\Api\ExportController;
 use App\Http\Controllers\Api\GuaranteeReportController;
@@ -206,6 +207,15 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/generate-message', [AiController::class, 'generateMessage']);
         Route::post('/predict-stockouts', [AiController::class, 'predictStockouts']);
         Route::post('/chat', [AiController::class, 'chat']);
+    });
+
+    // ─── CONTIFICO (pacientes -> clientes) ────────────────────────────────────────
+    Route::prefix('contifico')->group(function () {
+        Route::get('/status', [ContificoController::class, 'status']);
+        Route::put('/config', [ContificoController::class, 'updateConfig'])->middleware('throttle:10,1');
+        Route::post('/test', [ContificoController::class, 'test'])->middleware('throttle:6,1');
+        Route::get('/logs', [ContificoController::class, 'logs']);
+        Route::post('/patients/{patient}/sync', [ContificoController::class, 'syncPatient'])->middleware('throttle:20,1');
     });
 
     Route::prefix('admin/maintenance')->group(function () {

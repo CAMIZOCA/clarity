@@ -1,9 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Edit2, Plus, FileText, Eye, ShieldCheck, Award, Download } from 'lucide-react';
+import { ArrowLeft, Edit2, Plus, FileText, Eye, ShieldCheck, Award, Download, CheckCircle2, Send } from 'lucide-react';
 import client from '../../api/client';
+import { getPayload } from '../../api/response';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
+import { useToast } from '../../components/ui/Toast';
+import { useSettings } from '../../contexts/SettingsContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { toDisplayDate } from '../../utils/dates';
@@ -15,6 +19,11 @@ export default function PatientDetailPage() {
     const [history, setHistory] = useState([]);
     const [certificates, setCertificates] = useState([]);
     const [loadError, setLoadError] = useState(null);
+    const [sendingContifico, setSendingContifico] = useState(false);
+    const { addToast } = useToast();
+    const { settings } = useSettings();
+    const { can } = useAuth();
+    const contificoEnabled = String(settings.contifico_enabled) === '1';
 
     useEffect(() => {
         client.get('/certificates', { params: { patient_id: id } })
@@ -37,6 +46,19 @@ export default function PatientDetailPage() {
             setHistory(merged);
         }).catch(() => setLoadError('No se pudo cargar la ficha del paciente.'));
     }, [id]);
+
+    const handleSendToContifico = async () => {
+        setSendingContifico(true);
+        try {
+            const res = await client.post(`/contifico/patients/${id}/sync`);
+            setPatient(p => ({ ...p, ...getPayload(res) }));
+            addToast(res.data?.message || 'Paciente enviado a Contífico.', 'success');
+        } catch (err) {
+            addToast(err.response?.data?.message || 'No se pudo enviar el paciente a Contífico.', 'error');
+        } finally {
+            setSendingContifico(false);
+        }
+    };
 
     if (loadError) return (
         <div className="p-6 max-w-2xl mx-auto">
@@ -116,6 +138,27 @@ export default function PatientDetailPage() {
                         <div className="mt-4 pt-4 border-t border-gray-100">
                             <dt className="text-xs text-gray-500 uppercase tracking-wide mb-1">Antecedentes</dt>
                             <dd className="text-sm text-gray-700 leading-relaxed">{patient.antecedentes}</dd>
+                        </div>
+                    )}
+
+                    {/* Contífico: solo aparece si la integración está activa o el paciente ya fue enviado */}
+                    {(contificoEnabled || patient.contifico_synced_at) && (
+                        <div className="mt-4 pt-4 border-t border-gray-100">
+                            <dt className="text-xs text-gray-500 uppercase tracking-wide mb-1">Contífico</dt>
+                            {patient.contifico_synced_at ? (
+                                <dd className="text-sm text-green-700 flex items-center gap-1.5">
+                                    <CheckCircle2 size={15} /> Cliente en Contífico desde {toDisplayDate(patient.contifico_synced_at)}
+                                </dd>
+                            ) : (
+                                <dd>
+                                    <p className="text-sm text-gray-500 mb-2">Todavía no está en Contífico.</p>
+                                    {can('patients.edit') && (
+                                        <Button variant="secondary" size="sm" onClick={handleSendToContifico} loading={sendingContifico}>
+                                            <Send size={14} /> Enviar a Contífico
+                                        </Button>
+                                    )}
+                                </dd>
+                            )}
                         </div>
                     )}
 

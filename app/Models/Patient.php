@@ -70,6 +70,7 @@ class Patient extends Model
             'customer_type'     => 'string',
             'last_purchase_at'  => 'datetime',
             'total_spent'       => 'decimal:2',
+            'contifico_synced_at' => 'datetime',
         ];
     }
 

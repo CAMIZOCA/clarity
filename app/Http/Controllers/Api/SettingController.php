@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Enums\Permission;
 use App\Http\Controllers\Controller;
 use App\Models\Setting;
+use App\Services\ContificoService;
 use App\Services\OpenAiService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -16,11 +17,27 @@ class SettingController extends Controller
     /**
      * Claves sensibles que no deben exponerse en texto plano en la respuesta.
      */
-    private const MASKED_KEYS = ['mail_password', OpenAiService::SETTING_KEY];
+    private const MASKED_KEYS = [
+        'mail_password',
+        OpenAiService::SETTING_KEY,
+        ContificoService::SETTING_API_KEY,
+        ContificoService::SETTING_API_TOKEN,
+    ];
 
     public function __construct(private OpenAiService $openAi) {}
 
     public function index(): JsonResponse
+    {
+        return response()->json($this->maskedSettings());
+    }
+
+    /**
+     * Todos los settings con los secretos reemplazados por un marcador.
+     *
+     * Es la unica forma en que este controlador devuelve settings: `update()`
+     * respondia con `Setting::all_map()` crudo y filtraba `mail_password`.
+     */
+    private function maskedSettings(): array
     {
         $settings = Setting::all_map();
 
@@ -31,7 +48,7 @@ class SettingController extends Controller
             }
         }
 
-        return response()->json($settings);
+        return $settings;
     }
 
     public function update(Request $request): JsonResponse
@@ -117,7 +134,7 @@ class SettingController extends Controller
             }
         }
 
-        return response()->json(Setting::all_map());
+        return response()->json($this->maskedSettings());
     }
 
     public function uploadLogo(Request $request): JsonResponse

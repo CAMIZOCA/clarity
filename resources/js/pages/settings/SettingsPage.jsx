@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Settings, Upload, Save, CheckSquare, Menu, SlidersHorizontal, Mail, Stethoscope, Send, Sparkles, PlugZap } from 'lucide-react';
+import { Settings, Upload, Save, CheckSquare, Menu, SlidersHorizontal, Mail, Stethoscope, Send, Sparkles, PlugZap, ReceiptText } from 'lucide-react';
 import client from '../../api/client';
 import Button from '../../components/ui/Button';
 import { useToast } from '../../components/ui/Toast';
@@ -7,6 +7,7 @@ import { useSettings } from '../../contexts/SettingsContext';
 import { DEFAULT_MENU_VISIBLE_ITEMS, DEFAULT_MENU_VISIBLE_SECTIONS, MENU_ITEM_OPTIONS_BY_SECTION, MENU_SECTION_OPTIONS } from '../../data/menuOptions';
 import { DEFAULT_ADVANCED_FORM_FIELDS, FORM_ADVANCED_OPTIONS } from '../../data/formFieldsOptions';
 import CertifyingDoctorsTab from './CertifyingDoctorsTab';
+import ContificoTab from './ContificoTab';
 
 const REQUIRED_FIELD_OPTIONS = [
     { key: 'optometrista_id', label: 'Médico / Optometrista' },
@@ -26,7 +27,7 @@ const REQUIRED_FIELD_OPTIONS = [
 function Tab({ active, onClick, icon: Icon, label }) {
     return (
         <button onClick={onClick}
-            className={`flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 transition-colors ${active ? 'border-[#1a2a4a] text-[#1a2a4a]' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+            className={`flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap shrink-0 ${active ? 'border-[#1a2a4a] text-[#1a2a4a]' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
             <Icon size={16} />{label}
         </button>
     );
@@ -197,7 +198,7 @@ export default function SettingsPage() {
             </div>
 
             {/* Tabs */}
-            <div className="flex border-b border-gray-200 mb-6">
+            <div className="flex border-b border-gray-200 mb-6 overflow-x-auto">
                 <Tab active={tab === 'general'} onClick={() => setTab('general')} icon={Settings} label="General" />
                 <Tab active={tab === 'required'} onClick={() => setTab('required')} icon={CheckSquare} label="Campos obligatorios" />
                 <Tab active={tab === 'advanced'} onClick={() => setTab('advanced')} icon={SlidersHorizontal} label="Campos avanzados" />
@@ -205,6 +206,7 @@ export default function SettingsPage() {
                 <Tab active={tab === 'doctors'} onClick={() => setTab('doctors')} icon={Stethoscope} label="Doctores" />
                 <Tab active={tab === 'mail'} onClick={() => setTab('mail')} icon={Mail} label="Correo (SMTP)" />
                 <Tab active={tab === 'ai'} onClick={() => setTab('ai')} icon={Sparkles} label="Inteligencia artificial" />
+                <Tab active={tab === 'contifico'} onClick={() => setTab('contifico')} icon={ReceiptText} label="Contífico" />
             </div>
 
             {tab === 'general' && (
@@ -397,6 +399,8 @@ export default function SettingsPage() {
             )}
 
             {tab === 'doctors' && <CertifyingDoctorsTab />}
+
+            {tab === 'contifico' && <ContificoTab />}
 
             {tab === 'mail' && (
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">

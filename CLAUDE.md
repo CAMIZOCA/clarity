@@ -159,6 +159,18 @@ normal, que si se registra antes.
 un bug de la app. Probar siempre en `http://sistemaclinico.test` (vhost de Laragon).
 Si sobra un `public/hot` de un `npm run dev` muerto, borrarlo o los assets dan 404.
 
+### 12. Contifico: el token viaja en la URL
+
+La API de Contifico recibe la API key en el header `Authorization` (sin `Bearer`) y el API token
+en la query string (`?pos=`). Las excepciones del cliente HTTP incluyen la URL completa, asi que
+**todo mensaje de error pasa por `ContificoService::sanitize()`** antes de guardarse en
+`contifico_sync_logs` o en el log. No loguear `$e->getMessage()` crudo ni la URL.
+
+El envio se dispara desde `PatientService::create()` **fuera** de la transaccion y dentro de un
+`try/catch`: con `QUEUE_CONNECTION=sync` el job corre en el request, y un Contifico caido no debe
+tumbar el alta del paciente. Los fallos de red/429/5xx lanzan `ContificoTemporaryException`
+(la cola reintenta); 400/401/403 son definitivos y no se reintentan.
+
 ---
 
 ## Convenciones

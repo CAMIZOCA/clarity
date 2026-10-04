@@ -2,10 +2,12 @@
 
 namespace App\Services;
 
+use App\Jobs\SyncPatientToContifico;
 use App\Models\Patient;
 use App\Support\AppConfig;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\Log;
 
 class PatientService extends BaseService
 {
@@ -73,7 +75,7 @@ class PatientService extends BaseService
      */
     public function create(array $data, int $createdBy): Patient
     {
-        return $this->transaction(function () use ($data, $createdBy) {
+        $patient = $this->transaction(function () use ($data, $createdBy) {
             $patient = Patient::create(array_merge($data, [
                 'created_by' => $createdBy,
             ]));
@@ -85,6 +87,28 @@ class PatientService extends BaseService
 
             return $patient;
         });
+
+        $this->queueContificoSync($patient, $createdBy);
+
+        return $patient;
+    }
+
+    /**
+     * Encola el envio del paciente a Contifico si la integracion esta activa.
+     *
+     * Nunca debe tumbar el alta: con la cola `sync` el job corre aqui mismo y
+     * un Contifico caido lanzaria la excepcion dentro del request.
+     */
+    private function queueContificoSync(Patient $patient, int $createdBy): void
+    {
+        try {
+            if (app(ContificoService::class)->isEnabled()) {
+                SyncPatientToContifico::dispatch($patient->id, $createdBy)->afterCommit();
+            }
+        } catch (\Throwable) {
+            // El detalle saneado ya quedo en contifico_sync_logs.
+            Log::warning('Contifico: no se pudo enviar el paciente', ['patient_id' => $patient->id]);
+        }
     }
 
     /**

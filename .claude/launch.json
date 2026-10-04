@@ -20,6 +20,15 @@
         "--port=8000"
       ],
       "port": 8000
+    },
+    {
+      "name": "app-sin-vhost",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": [
+        "/c",
+        "set SESSION_DOMAIN=null&& php artisan serve --host=127.0.0.1 --port=8000 --no-reload"
+      ],
+      "port": 8000
     }
   ]
 }

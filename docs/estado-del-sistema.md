@@ -76,6 +76,7 @@ Estado: ✅ completo · 🟡 parcial · ⚠️ sin UI
 | Auditoria | ⚠️ sin UI | `AuditController` (spatie/activitylog) | 🟡 |
 | Asistente IA (Claude) | boton flotante global | `AiController` + `AiService` | ✅ |
 | IA por voz (OpenAI) | solo config en Ajustes | `OpenAiService` | 🟡 |
+| Contifico (pacientes -> clientes) | Ajustes -> Contifico, ficha del paciente | `ContificoController` + `ContificoService` + job `SyncPatientToContifico` | ✅ (falta prueba con credenciales reales) |
 
 ---
 
@@ -141,6 +142,22 @@ El menu lateral se filtra por rol **y** por los settings `menu_visible_sections`
 | OpenAI | Solo configuracion | `OpenAiService`, key **cifrada** en `settings.openai_api_key` |
 | SMTP | Activo | `MailConfigService`, credenciales en `settings` (⚠️ `mail_password` en texto plano) |
 | WhatsApp | Servicio presente | `WhatsAppService`, `SendWhatsAppMessage` job |
+| Contifico | Listo, apagado por defecto | `ContificoService`; API key y API token **cifrados** en `settings`; historial en `contifico_sync_logs` (90 dias) |
+
+### Contifico
+
+Al crear un paciente con la integracion activa se encola `SyncPatientToContifico`, que lo crea
+en Contifico como Persona con `es_cliente=true` (o lo enlaza si alla ya existe esa cedula/RUC).
+Solo viajan nombre, identificacion, telefono, email y direccion; nunca datos clinicos.
+
+- Endpoints bajo `/api/contifico/*`: `status`, `config`, `test`, `logs` (permiso `settings.edit`)
+  y `patients/{patient}/sync` (permiso `patients.edit`, corre en el request, no en la cola).
+- Sin cedula de 10 digitos o RUC de 13 el paciente se omite (`status=skipped`); pasaportes incluidos.
+- No sincroniza ediciones ni hay carga masiva de los pacientes historicos: se envian uno a uno
+  con el boton "Enviar a Contifico" de la ficha.
+- Requiere worker de cola (`queue:work` en `docker-compose.yml`, `queue:listen` en `composer dev`).
+- "Probar conexion" valida la API key con una lectura; el API token (`pos`) solo lo valida
+  Contifico en la primera escritura real.
 
 ---
 
@@ -166,6 +183,17 @@ Ordenados por impacto.
 ---
 
 ## Historial de cambios relevantes
+
+### 2026-10-04 — Integracion con Contifico
+
+- Pacientes nuevos se crean en Contifico como clientes, en cola y sin frenar el alta.
+  Pestaña nueva en Configuracion: interruptor, credenciales cifradas, prueba de conexion y
+  ultimos 10 envios con reintento. Cubierto por `tests/Feature/ContificoIntegrationTest.php`.
+- **Fuga corregida**: `SettingController::update()` respondia con `Setting::all_map()` sin
+  enmascarar y devolvia `mail_password` en claro. Ahora `index()` y `update()` comparten
+  `maskedSettings()`.
+- Pendiente: primera prueba con las credenciales reales de la empresa (Contifico no documenta
+  sandbox, asi que el cliente de prueba se crea en la cuenta real).
 
 ### 2026-09-24 — Per-eye diagnosis checklist y fixes post-agosto
 

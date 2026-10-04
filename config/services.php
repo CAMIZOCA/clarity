@@ -50,6 +50,12 @@ return [
         'cert_pass'   => env('SRI_CERT_PASS'),
     ],
 
+    // Las credenciales no van aqui: se guardan cifradas en `settings` desde
+    // Ajustes -> Contifico (ver ContificoService).
+    'contifico' => [
+        'base_url' => env('CONTIFICO_BASE_URL', 'https://api.contifico.com/sistema/api/v1'),
+    ],
+
     'whatsapp' => [
         'provider' => env('WHATSAPP_PROVIDER', 'log'),
     ],

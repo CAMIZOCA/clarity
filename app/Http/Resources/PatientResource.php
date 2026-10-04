@@ -36,8 +36,11 @@ class PatientResource extends JsonResource
             'visit_count'       => $this->when(isset($this->visit_count), $this->visit_count),
             'last_purchase_at'  => $this->when(isset($this->last_purchase_at), fn () => $this->last_purchase_at?->toDateString()),
             'branch_id'         => $this->when(isset($this->branch_id), $this->branch_id),
+            // Integracion Contifico (ver ContificoService)
+            'contifico_id'        => $this->contifico_id,
+            'contifico_synced_at' => $this->contifico_synced_at?->toDateTimeString(),
             // Metadata
-            'created_at'        => $this->created_at->toISOString(),
+            'created_at'       => $this->created_at->toISOString(),
             'updated_at'        => $this->updated_at->toISOString(),
             // Relaciones (solo si están cargadas)
             'consultations_count' => $this->whenCounted('consultations'),
