@@ -62,6 +62,7 @@ const sections = [
             'Abrir una nueva consulta desde la ficha del paciente.',
             'Consultar informacion de contacto y observaciones relevantes.',
             'Revisar informes relacionados, como garantias o referencias.',
+            'En la ficha, Enter y las flechas arriba/abajo pasan al campo siguiente o anterior, igual que Tab.',
         ],
     },
     {
@@ -76,6 +77,8 @@ const sections = [
             'Completar medidas, observaciones y prescripcion cuando aplique.',
             'Mantener todo ligado al historial del paciente.',
             'Preparar la informacion que luego puede usarse en documentos o impresiones.',
+            'Enter y las flechas arriba/abajo pasan al campo siguiente o anterior, igual que Tab; el campo activo se marca con un borde naranja.',
+            'En los cuadros de notas Enter crea una linea nueva (para salir usa la flecha abajo o Tab), y en el ultimo campo lleva al boton "Completar consulta".',
         ],
     },
     {

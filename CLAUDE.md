@@ -180,6 +180,11 @@ tumbar el alta del paciente. Los fallos de red/429/5xx lanzan `ContificoTemporar
 - **Fechas**: toda fecha de calendario viaja como `YYYY-MM-DD` y se muestra `DD/MM/AAAA`.
   Usar `resources/js/utils/dates.js` (`toDisplayDate`, `toIsoDate`, `todayIso`) y el componente
   `DateInput`. **Nunca** `new Date('YYYY-MM-DD')` a secas: en UTC-5 devuelve el dia anterior.
+- **Teclado en formularios**: en consulta y paciente, Enter y las flechas pasan de campo como Tab
+  (`resources/js/utils/fieldNavigation.js`); se activa con `onKeyDown={handleFieldNavigation}` en
+  el `<form>`. Ahi Enter ya no envia el formulario: lleva al boton de guardar. El borde ambar del
+  campo activo es una regla **sin capa** en `app.css`, asi que un `focus:outline-*` de Tailwind
+  no la pisa.
 - **Servicios**: los controladores delegan en `app/Services/`. La logica de negocio no va en el controlador.
 - **Permisos**: Spatie. Roles en `app/Enums/Role.php`, permisos en `app/Enums/Permission.php`.
   `user.roles` es un array de **strings** (`['admin']`), no de objetos.

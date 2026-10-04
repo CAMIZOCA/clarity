@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useController } from 'react-hook-form';
 import { Calendar } from 'lucide-react';
 import { toDisplayDate, toIsoDate } from '../../utils/dates';
+import { focusField } from '../../utils/fieldNavigation';
 
 /**
  * Campo de fecha en formato latino DD/MM/AAAA.
@@ -80,7 +81,7 @@ export default function DateInput({
             const nextField = document.getElementById(nextFieldId);
             if (nextField && typeof nextField.focus === 'function') {
                 event.preventDefault();
-                nextField.focus({ preventScroll: true });
+                focusField(nextField);
             }
         }
     };

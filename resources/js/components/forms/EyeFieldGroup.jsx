@@ -1,6 +1,7 @@
 import React from 'react';
 import { useRequiredErrors } from './RequiredErrorsContext';
 import { normalizeSphere, normalizeCylinder, normalizeAxisValue, normalizeAdd } from '../../utils/opticalFormat';
+import { focusField, navigationIntent } from '../../utils/fieldNavigation';
 
 /**
  * Tabla OD/OI reutilizable de las secciones de refraccion.
@@ -54,7 +55,7 @@ const ROW_FIRST_FIELDS = ['esfera', 'cilindro', 'eje'];
 const PAIRED_FIELDS = { prisma: 'base' };
 
 /**
- * Secuencia de recorrido con Tab/Enter.
+ * Secuencia de recorrido con Tab, Enter y flechas.
  *
  * Por defecto: esfera, cilindro y eje de OD, luego los de OI; despues cada
  * columna restante en bloque OD -> OI (prisma y base como par: prisma OD,
@@ -117,27 +118,24 @@ export default function EyeFieldGroup({
     const nextByName = new Map(orderedNames.map((name, index) => [name, orderedNames[index + 1] ?? null]));
     const prevByName = new Map(orderedNames.map((name, index) => [name, orderedNames[index - 1] ?? null]));
 
-    const focusField = (targetId) => {
-        const target = document.getElementById(targetId);
-        if (!target || typeof target.focus !== 'function') return false;
-
-        target.focus({ preventScroll: true });
-        if (typeof target.select === 'function') target.select();
-        return true;
-    };
-
-    /** Enter y Tab siguen el mismo recorrido explicito; Shift+Tab lo recorre al reves. */
+    /**
+     * Tab, Enter y las flechas siguen el mismo recorrido explicito; Shift+Tab
+     * y las flechas hacia atras lo recorren al reves. En el borde del grupo no
+     * se intercepta nada: sigue el Tab nativo o el `handleFieldNavigation` del
+     * formulario.
+     */
     const handleKeyDown = (event, name) => {
-        if (event.isComposing) return;
+        const isTab = event.key === 'Tab';
+        const intent = isTab ? (event.shiftKey ? 'prev' : 'next') : navigationIntent(event);
+        if (!intent) return;
 
-        const goingBack = event.key === 'Tab' && event.shiftKey;
-        const isAdvance = event.key === 'Enter' || (event.key === 'Tab' && !event.shiftKey);
-        if (!isAdvance && !goingBack) return;
+        const targetId = intent === 'prev' ? prevByName.get(name) : nextByName.get(name);
+        const target = targetId ? document.getElementById(targetId) : null;
+        if (!target) return;
 
-        const targetId = goingBack ? prevByName.get(name) : nextByName.get(name);
-        if (!targetId) return;
-
-        if (focusField(targetId)) event.preventDefault();
+        event.preventDefault();
+        // Una pulsacion mueve un campo; Tab conserva su autorrepeticion nativa.
+        if (isTab || !event.repeat) focusField(target);
     };
 
     const headerLabel = (field) => labelOverrides[field] ?? FIELD_META[field]?.label ?? field;
@@ -202,7 +200,7 @@ export default function EyeFieldGroup({
                                                 id={name}
                                                 type="text"
                                                 inputMode={meta.inputMode}
-                                                enterKeyHint={nextByName.get(name) ? 'next' : 'done'}
+                                                enterKeyHint="next"
                                                 placeholder={meta.placeholder}
                                                 className={inputCls(name)}
                                                 onKeyDown={(event) => handleKeyDown(event, name)}
@@ -220,7 +218,7 @@ export default function EyeFieldGroup({
                                                 <select
                                                     id={name}
                                                     className={inputCls(name)}
-                                                    enterKeyHint={nextByName.get(name) ? 'next' : 'done'}
+                                                    enterKeyHint="next"
                                                     onKeyDown={(event) => handleKeyDown(event, name)}
                                                     {...register(name)}
                                                 >
@@ -232,7 +230,7 @@ export default function EyeFieldGroup({
                                                     id={name}
                                                     type="text"
                                                     inputMode={e.inputMode ?? 'text'}
-                                                    enterKeyHint={nextByName.get(name) ? 'next' : 'done'}
+                                                    enterKeyHint="next"
                                                     placeholder={e.placeholder ?? '—'}
                                                     className={inputCls(name)}
                                                     onKeyDown={(event) => handleKeyDown(event, name)}

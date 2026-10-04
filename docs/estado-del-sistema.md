@@ -104,9 +104,16 @@ Secciones de refraccion (todas usan `EyeFieldGroup`):
 | RX FINAL | `rx_final_` | Esfera, Cilindro, Eje, Prisma, Base, AV, ADD, DP, Distancia + observaciones |
 | RX - Vision de Cerca | `vc_` | Esfera, Cilindro, Eje, AV.CC, DNP/DP |
 
-Orden de Tab/Enter (`EyeFieldGroup::buildOrderedNames`): esfera, cilindro y eje de OD, luego
-los de OI; despues cada columna restante en bloque OD -> OI, con prisma y base como par
-(prisma OD, base OD, prisma OI, base OI).
+Orden de Tab, Enter y flechas (`EyeFieldGroup::buildOrderedNames`): esfera, cilindro y eje de
+OD, luego los de OI; despues cada columna restante en bloque OD -> OI, con prisma y base como
+par (prisma OD, base OD, prisma OI, base OI).
+
+Navegacion con teclado (`utils/fieldNavigation.js`, activa en consulta y paciente con
+`<form onKeyDown={handleFieldNavigation}>`): Enter y Arriba/Abajo pasan de campo como Tab;
+Izquierda/Derecha solo cuando el cursor esta en el borde del texto. Enter no envia el
+formulario: en el ultimo campo enfoca el boton de guardar, y en un `<textarea>` sigue siendo
+salto de linea. En listas, fechas y numeros las flechas navegan en vez de cambiar el valor, y
+Enter sobre una casilla de diagnostico sale de la lista. El resto de formularios no lo usa.
 
 Diagnostico (`components/forms/DiagnosisPicker.jsx`): dos listas de seleccion multiple
 lado a lado (OD / OI) con todo el catalogo `diagnoses`. Marcar un item agrega la fila
@@ -183,6 +190,18 @@ Ordenados por impacto.
 ---
 
 ## Historial de cambios relevantes
+
+### 2026-10-04 — Navegacion con Enter/flechas y campo activo visible
+
+- Pedido de un usuario con manejo basico del teclado: en consulta y paciente, Enter y las
+  flechas pasan de campo como Tab (`utils/fieldNavigation.js`). Las tablas OD/OI siguen su
+  recorrido explicito tambien con flechas.
+- **Enter ya no completa la consulta por accidente**: antes, en casi todos los campos disparaba
+  el envio implicito del `<form>` (estado `completada`). Ahora solo lleva al boton.
+- El certificado (`CertificadoPdf`) se renderiza fuera del `<form>`: Enter en su campo de correo
+  tambien completaba la consulta.
+- Borde ambar en el campo activo de todo el sistema (regla sin capa en `app.css`,
+  `--color-field-focus`); la landing publica conserva su estilo.
 
 ### 2026-10-04 — Integracion con Contifico
 

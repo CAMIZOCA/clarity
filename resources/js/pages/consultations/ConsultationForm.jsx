@@ -15,6 +15,7 @@ import { useAdvancedFields } from '../../hooks/useAdvancedFields';
 import { RequiredErrorsCtx } from '../../components/forms/RequiredErrorsContext';
 import { displaySphere, displaySigned } from '../../utils/opticalFormat';
 import { toIsoDate, todayIso } from '../../utils/dates';
+import { handleFieldNavigation } from '../../utils/fieldNavigation';
 
 const REQUIRED_FIELD_LABELS = {
     optometrista_id: 'Médico / Optometrista',
@@ -362,25 +363,12 @@ function fieldErrorClass(hasError) {
         : 'border-slate-300';
 }
 
-function focusNextField(nextFieldId) {
-    if (!nextFieldId) {
-        return;
-    }
-
-    const nextField = document.getElementById(nextFieldId);
-    if (nextField && typeof nextField.focus === 'function') {
-        nextField.focus({ preventScroll: true });
-        if (typeof nextField.select === 'function') {
-            nextField.select();
-        }
-    }
-}
-
-function FormInput({ label, register, name, type = 'text', inputMode, enterKeyHint, nextFieldId, ...props }) {
+// Enter y las flechas pasan de campo desde el `onKeyDown` del <form>
+// (`handleFieldNavigation`); por eso el teclado movil muestra "siguiente".
+function FormInput({ label, register, name, type = 'text', inputMode, enterKeyHint = 'next', ...props }) {
     const errors = useContext(RequiredErrorsCtx);
     const err = errors.has(name);
     const resolvedInputMode = inputMode ?? (type === 'number' ? 'decimal' : undefined);
-    const resolvedEnterKeyHint = enterKeyHint ?? (nextFieldId ? 'next' : 'done');
     return (
         <div className="flex flex-col gap-1">
             <label className={`text-sm font-medium ${err ? 'text-red-600' : 'text-slate-700'}`}>{label}{err && ' *'}</label>
@@ -388,13 +376,7 @@ function FormInput({ label, register, name, type = 'text', inputMode, enterKeyHi
                 id={name}
                 type={type}
                 inputMode={resolvedInputMode}
-                enterKeyHint={resolvedEnterKeyHint}
-                onKeyDown={(event) => {
-                    if (event.key === 'Enter' && nextFieldId && !event.isComposing) {
-                        event.preventDefault();
-                        focusNextField(nextFieldId);
-                    }
-                }}
+                enterKeyHint={enterKeyHint}
                 className={`w-full min-h-11 rounded-xl border px-3 py-2.5 text-sm touch-manipulation focus:outline-none focus:ring-2 focus:ring-slate-900 ${fieldErrorClass(err)}`}
                 {...register(name)}
                 {...props}
@@ -403,7 +385,7 @@ function FormInput({ label, register, name, type = 'text', inputMode, enterKeyHi
     );
 }
 
-function FormSelect({ label, register, name, options = [], placeholder = 'Seleccionar...', nextFieldId }) {
+function FormSelect({ label, register, name, options = [], placeholder = 'Seleccionar...' }) {
     const errors = useContext(RequiredErrorsCtx);
     const err = errors.has(name);
     return (
@@ -411,13 +393,6 @@ function FormSelect({ label, register, name, options = [], placeholder = 'Selecc
             <label className={`text-sm font-medium ${err ? 'text-red-600' : 'text-slate-700'}`}>{label}{err && ' *'}</label>
             <select
                 id={name}
-                enterKeyHint={nextFieldId ? 'next' : 'done'}
-                onKeyDown={(event) => {
-                    if (event.key === 'Enter' && nextFieldId && !event.isComposing) {
-                        event.preventDefault();
-                        focusNextField(nextFieldId);
-                    }
-                }}
                 className={`w-full min-h-11 rounded-xl border px-3 py-2.5 text-sm touch-manipulation focus:outline-none focus:ring-2 focus:ring-slate-900 ${fieldErrorClass(err)}`}
                 {...register(name)}
             >
@@ -759,7 +734,7 @@ export default function ConsultationForm({ patient, consultation, meta }) {
 
     return (
       <RequiredErrorsCtx.Provider value={requiredErrors}>
-        <form onSubmit={handleSubmit(onSubmit)} className="pb-24 lg:pb-8">
+        <form onSubmit={handleSubmit(onSubmit)} onKeyDown={handleFieldNavigation} className="pb-24 lg:pb-8">
             <div className="sticky top-0 z-20 mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-3 shadow-sm">
                 <div className="flex flex-wrap items-center gap-2">
                     <InlineBadge label={`Paciente ${patient.codigo_interno || patient.id}`} />
@@ -1296,11 +1271,12 @@ export default function ConsultationForm({ patient, consultation, meta }) {
                     <Save size={20} /> Completar consulta
                 </Button>
             </div>
-
-            {showPdf && pdfData && (
-                <CertificadoPdf data={pdfData} onClose={() => setShowPdf(false)} />
-            )}
         </form>
+
+        {/* Fuera del <form>: Enter en el correo del certificado completaba la consulta. */}
+        {showPdf && pdfData && (
+            <CertificadoPdf data={pdfData} onClose={() => setShowPdf(false)} />
+        )}
 
         {showRequiredModal && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">

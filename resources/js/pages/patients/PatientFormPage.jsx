@@ -11,6 +11,7 @@ import { AdvancedToggleButton, useAdvancedToggle } from '../../components/forms/
 import { useAdvancedFields } from '../../hooks/useAdvancedFields';
 import { getPayload } from '../../api/response';
 import { todayIso } from '../../utils/dates';
+import { handleFieldNavigation } from '../../utils/fieldNavigation';
 
 export default function PatientFormPage() {
     const { id } = useParams();
@@ -69,7 +70,7 @@ export default function PatientFormPage() {
                 </div>
             </div>
 
-            <form onSubmit={handleSubmit(onSubmit)} className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 sm:p-8 space-y-6">
+            <form onSubmit={handleSubmit(onSubmit)} onKeyDown={handleFieldNavigation} className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 sm:p-8 space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <Input
                         label="Nombre"

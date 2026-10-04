@@ -1,4 +1,5 @@
 import React, { forwardRef } from 'react';
+import { focusField } from '../../utils/fieldNavigation';
 
 const Input = forwardRef(function Input({
     label, error, className = '', type = 'text',
@@ -22,10 +23,7 @@ const Input = forwardRef(function Input({
             const nextField = document.getElementById(nextFieldId);
             if (nextField && typeof nextField.focus === 'function') {
                 event.preventDefault();
-                nextField.focus({ preventScroll: true });
-                if (typeof nextField.select === 'function') {
-                    nextField.select();
-                }
+                focusField(nextField);
             }
         }
 
