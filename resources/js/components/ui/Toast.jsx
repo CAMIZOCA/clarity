@@ -74,11 +74,13 @@ export function ToastProvider({ children }) {
         setToasts(prev => prev.filter(t => t.id !== id));
     }, []);
 
-    const addToast = useCallback((message, type = 'info', duration = null) => {
+    // `action` ({ label, onClick }) vuelve el aviso clicable: lo usa el formulario
+    // de consulta para llevar al campo que provoco el error.
+    const addToast = useCallback((message, type = 'info', duration = null, action = null) => {
         const id = ++toastId;
         const ttl = duration ?? DEFAULT_DURATION[type] ?? DEFAULT_DURATION.info;
 
-        setToasts(prev => [...prev, { id, message, type }]);
+        setToasts(prev => [...prev, { id, message, type, action }]);
 
         if (type === 'error') {
             playErrorSound();
@@ -127,7 +129,18 @@ export function ToastProvider({ children }) {
                                 {t.type === 'error' && <XCircle size={18} />}
                                 {t.type === 'info' && <Info size={18} />}
                             </span>
-                            <span className="flex-1 whitespace-pre-line">{t.message}</span>
+                            {t.action ? (
+                                <button
+                                    type="button"
+                                    onClick={() => { t.action.onClick(); removeToast(t.id); }}
+                                    className="flex-1 text-left"
+                                >
+                                    <span className="whitespace-pre-line">{t.message}</span>
+                                    <span className="mt-1 block font-semibold underline underline-offset-2">{t.action.label}</span>
+                                </button>
+                            ) : (
+                                <span className="flex-1 whitespace-pre-line">{t.message}</span>
+                            )}
                             <button
                                 type="button"
                                 onClick={() => removeToast(t.id)}

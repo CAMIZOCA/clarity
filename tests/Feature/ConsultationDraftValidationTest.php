@@ -152,4 +152,55 @@ class ConsultationDraftValidationTest extends TestCase
             'total' => 168,
         ]);
     }
+
+    /**
+     * La optometrista llena primero la nota y el precio y deja la descripcion
+     * para despues. El autoguardado respondia 200 pero descartaba la fila por
+     * no tener descripcion, y el formulario se recargaba vacio con esa respuesta.
+     */
+    public function test_a_sale_item_without_description_survives_the_round_trip(): void
+    {
+        $this->actingWith(Permission::CONSULTATIONS_CREATE->value, Permission::CONSULTATIONS_EDIT->value);
+        $patient = $this->makePatient('1710000106');
+
+        $item = ['tipo' => 'otro', 'descripcion' => '', 'precio' => '45', 'descuento_pct' => '', 'total' => '45.00', 'nota' => 'Armazon reservado, retira el viernes'];
+
+        $response = $this->postJson('/api/consultations', [
+            'patient_id' => $patient->id,
+            'fecha_consulta' => now()->toDateString(),
+            'estado' => 'borrador',
+            'sale_items' => [$item],
+        ])->assertCreated();
+
+        $response->assertJsonPath('sale_items.0.nota', 'Armazon reservado, retira el viernes');
+        $this->assertEquals(45, $response->json('sale_items.0.precio'));
+
+        // El autoguardado siguiente reenvia la misma fila: tampoco debe perderse.
+        $this->putJson('/api/consultations/'.$response->json('id'), [
+            'estado' => 'borrador',
+            'sale_items' => [['tipo' => 'otro', 'nota' => 'Solo una nota']],
+        ])->assertOk()->assertJsonPath('sale_items.0.nota', 'Solo una nota');
+    }
+
+    /** Un precio con coma decimal no debe dejar la consulta entera sin guardar. */
+    public function test_sale_item_amounts_accept_a_decimal_comma(): void
+    {
+        $this->actingWith(Permission::CONSULTATIONS_CREATE->value);
+        $patient = $this->makePatient('1710000107');
+
+        $id = $this->postJson('/api/consultations', [
+            'patient_id' => $patient->id,
+            'fecha_consulta' => now()->toDateString(),
+            'estado' => 'borrador',
+            'sale_items' => [
+                ['tipo' => 'armazon', 'descripcion' => 'Armazon', 'precio' => '25,50', 'descuento_pct' => '10', 'total' => '22,95'],
+            ],
+        ])->assertCreated()->json('id');
+
+        $this->assertDatabaseHas('consultation_sale_items', [
+            'consultation_id' => $id,
+            'precio' => 25.50,
+            'total' => 22.95,
+        ]);
+    }
 }

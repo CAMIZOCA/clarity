@@ -3,7 +3,8 @@ import { ChevronDown, ChevronUp, SlidersHorizontal } from 'lucide-react';
 
 /**
  * Estado (persistido por usuario) para revelar/ocultar los campos avanzados de
- * una sección. Devuelve `{ open, toggle }`.
+ * una sección. Devuelve `{ open, toggle, setOpen }`; `setOpen` cambia lo que se
+ * ve sin tocar la preferencia guardada (ej. para mostrar un campo con error).
  *
  * @param {string} storageKey - clave estable, ej. 'consulta:refraccion'.
  */
@@ -21,7 +22,7 @@ export function useAdvancedToggle(storageKey) {
         });
     }, [key]);
 
-    return { open, toggle };
+    return { open, toggle, setOpen };
 }
 
 /**

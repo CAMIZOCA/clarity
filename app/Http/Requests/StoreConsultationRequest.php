@@ -353,6 +353,12 @@ class StoreConsultationRequest extends FormRequest
             'vc_eje_oi' => 'Visión de cerca · Eje OI',
             'diagnoses.*.description' => 'Descripción del diagnóstico',
             'recommendations_list.*.text' => 'Texto de la recomendación',
+            'sale_items.*.tipo' => 'Venta · Tipo',
+            'sale_items.*.descripcion' => 'Venta · Descripción',
+            'sale_items.*.precio' => 'Venta · Precio',
+            'sale_items.*.descuento_pct' => 'Venta · % Descuento',
+            'sale_items.*.total' => 'Venta · Total',
+            'sale_items.*.nota' => 'Venta · Nota',
         ];
 
         foreach ((array) $this->input('rx_uso_entries', []) as $index => $entry) {
@@ -393,6 +399,7 @@ class StoreConsultationRequest extends FormRequest
         }
 
         $this->normalizeRxUsoEntries();
+        $this->normalizeSaleItemAmounts();
         $this->dropEmptyModuleRows();
     }
 
@@ -530,5 +537,33 @@ class StoreConsultationRequest extends FormRequest
         }
 
         $this->merge(['rx_uso_entries' => $entries]);
+    }
+
+    /**
+     * Los importes de la venta aceptan coma decimal ("25,50"), igual que
+     * `costo_total` y `abono`. Sin esto la regla `numeric` respondia 422 y el
+     * autoguardado dejaba de guardar la consulta entera, no solo la venta.
+     */
+    private function normalizeSaleItemAmounts(): void
+    {
+        $items = $this->input('sale_items');
+        if (! is_array($items)) {
+            return;
+        }
+
+        foreach ($items as $index => $item) {
+            if (! is_array($item)) {
+                continue;
+            }
+
+            foreach (['precio', 'descuento_pct', 'total'] as $field) {
+                $value = $item[$field] ?? null;
+                if (is_string($value) && $value !== '') {
+                    $items[$index][$field] = str_replace(',', '.', trim($value));
+                }
+            }
+        }
+
+        $this->merge(['sale_items' => $items]);
     }
 }

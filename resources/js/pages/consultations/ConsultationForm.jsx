@@ -1,12 +1,13 @@
 import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useFieldArray, useForm } from 'react-hook-form';
-import { Save, FileText, CheckCircle, Clock, Plus, Trash2, Printer, AlertTriangle } from 'lucide-react';
+import { Save, FileText, CheckCircle, Clock, Plus, Trash2, Printer, AlertTriangle, ArrowRight } from 'lucide-react';
 import client from '../../api/client';
 import Button from '../../components/ui/Button';
 import EyeFieldGroup from '../../components/forms/EyeFieldGroup';
 import DiagnosisPicker, { checklistRowIndexes } from '../../components/forms/DiagnosisPicker';
-import CollapsibleSection from '../../components/forms/CollapsibleSection';
+import CollapsibleSection, { openCollapsibleSection } from '../../components/forms/CollapsibleSection';
 import { AdvancedToggleButton, useAdvancedToggle } from '../../components/forms/AdvancedFieldsToggle';
 import CertificadoPdf from '../../components/pdf/CertificadoPdf';
 import { useToast } from '../../components/ui/Toast';
@@ -75,26 +76,44 @@ const NEUTRAL_SPHERE_FIELDS = [
 
 const isBlank = (value) => value === null || value === undefined || String(value).trim() === '';
 
+/** Importe escrito a mano: acepta coma decimal ("25,50"). */
+const parseAmount = (value) => parseFloat(String(value ?? '').replace(',', '.')) || 0;
+
+// Una fila de modulo cuenta como llena si trae cualquiera de estos datos. Es el
+// mismo criterio de `StoreConsultationRequest::dropEmptyModuleRows()`.
+const MODULE_ROW_CONTENT_KEYS = {
+    diagnoses: ['description', 'code', 'notes', 'catalog_item_id'],
+    recommendations_list: ['text', 'catalog_item_id'],
+    sale_items: ['descripcion', 'precio', 'total', 'nota'],
+};
+
 /**
- * Descarta las filas de diagnostico y recomendacion que el usuario nunca lleno.
+ * Descarta las filas de diagnostico, recomendacion y venta que el usuario
+ * nunca lleno.
  *
- * El formulario nace con dos diagnosticos y una recomendacion en blanco, y la
- * API los valida como obligatorios en cuanto el array viene con elementos: sin
- * este filtro, guardar un borrador intacto (o el autoguardado de 30 s)
- * respondia 422 pidiendo una descripcion que nadie escribio.
+ * El formulario nace con filas en blanco, y la API las valida como
+ * obligatorias en cuanto el array viene con elementos: sin este filtro,
+ * guardar un borrador intacto (o el autoguardado de 30 s) respondia 422
+ * pidiendo una descripcion que nadie escribio.
+ *
+ * `rowIndexes` guarda la posicion que cada fila enviada ocupa en el
+ * formulario, para que un error `sale_items.0.precio` de la API se pueda
+ * atribuir a la fila correcta aunque antes haya una en blanco.
  */
 function stripEmptyModuleRows(values) {
-    const diagnoses = (values.diagnoses ?? []).filter(
-        (row) => !isBlank(row?.description) || !isBlank(row?.code) || !isBlank(row?.notes) || !isBlank(row?.catalog_item_id)
-    );
-    const recommendations = (values.recommendations_list ?? []).filter(
-        (row) => !isBlank(row?.text) || !isBlank(row?.catalog_item_id)
-    );
-    const saleItems = (values.sale_items ?? []).filter(
-        (row) => !isBlank(row?.descripcion) || !isBlank(row?.precio) || !isBlank(row?.total) || !isBlank(row?.nota)
-    );
+    const payload = { ...values };
+    const rowIndexes = {};
 
-    return { ...values, diagnoses, recommendations_list: recommendations, sale_items: saleItems };
+    for (const [module, contentKeys] of Object.entries(MODULE_ROW_CONTENT_KEYS)) {
+        const kept = (values[module] ?? [])
+            .map((row, index) => ({ row, index }))
+            .filter(({ row }) => contentKeys.some((key) => !isBlank(row?.[key])));
+
+        payload[module] = kept.map(({ row }) => row);
+        rowIndexes[module] = kept.map(({ index }) => index);
+    }
+
+    return { payload, rowIndexes };
 }
 
 const emptyRxUsoEntry = () => RX_USO_COLUMNS.reduce(
@@ -315,47 +334,103 @@ function buildDefaultValues(patient, consultation, meta) {
     return values;
 }
 
-/**
- * Lleva el foco al primer campo con error y lo centra en pantalla.
- *
- * Todos los inputs del formulario usan el nombre del campo como `id`, asi que
- * basta buscarlo por id. Antes un 422 solo mostraba un toast generico y el
- * usuario tenia que adivinar cual de los ~140 campos estaba mal.
- */
-function scrollToField(fieldName) {
-    if (!fieldName) return;
+// Seccion (`sectionKey` de CollapsibleSection) en la que vive cada campo. Una
+// seccion colapsada no monta sus inputs: para llevar al usuario a un campo con
+// error hay que saber que seccion abrir primero.
+const FIELD_SECTION_RULES = [
+    [/^(diagnoses\.|diagnostico_)/, 'diagnostico'],
+    [/^(lens_recommendation\.|recommendations_list\.)/, 'recomendaciones'],
+    [/^sale_items\./, 'venta'],
+    [/^(observaciones$|queratometria_|examen_externo_|vision_colores$)/, 'observaciones'],
+    [/^motor_binocular_data\./, 'motor_binocular'],
+    [/^contact_lens_module\./, 'lentes_contacto'],
+    [/^ophthalmoscopy_module\./, 'oftalmoscopia'],
+    [/^treatment_module\./, 'tratamiento'],
+    [/^(av_lectura_|ark_|avsc_|avcc_|retinoscopia_|rx_uso_|lente_anterior$|subj_|rx_final_|vc_)/, 'refraccion'],
+    [/^(fecha_consulta|optometrista_id|doctor_license|print_template_key|motivo_consulta|ultimo_control)$/, 'cabecera'],
+];
 
-    const element = document.getElementById(fieldName);
-    if (!element) return;
+function sectionKeyForField(fieldName) {
+    return FIELD_SECTION_RULES.find(([pattern]) => pattern.test(fieldName ?? ''))?.[1] ?? null;
+}
 
+function findFieldElement(fieldName) {
+    // Las columnas planas `rx_uso_*` se editan en la primera receta en uso.
+    const legacyRxUso = /^rx_uso_(esfera|cilindro|eje|add|avcc)_(od|oi)$/.exec(fieldName);
+    const name = legacyRxUso ? `rx_uso_entries.0.${legacyRxUso[1]}_${legacyRxUso[2]}` : fieldName;
+
+    // Casi todos los inputs usan el nombre del campo como `id`; los que no,
+    // llevan al menos el `name` que les pone react-hook-form.
+    return document.getElementById(name) ?? document.getElementsByName(name)[0] ?? null;
+}
+
+function focusAndCenter(element) {
     element.scrollIntoView({ behavior: 'smooth', block: 'center' });
     if (typeof element.focus === 'function') {
         element.focus({ preventScroll: true });
     }
 }
 
-/** Extrae del 422 de Laravel los nombres de campo y un resumen legible. */
-function readValidationErrors(error) {
+/**
+ * Lleva el foco al campo y lo centra en pantalla; devuelve si lo encontro.
+ *
+ * Antes un 422 solo mostraba un toast generico y el usuario tenia que adivinar
+ * cual de los ~140 campos estaba mal.
+ */
+function scrollToField(fieldName) {
+    const element = fieldName ? findFieldElement(fieldName) : null;
+    if (!element) return false;
+
+    focusAndCenter(element);
+    return true;
+}
+
+/** Destino cuando el error no tiene input propio: el primer campo de su seccion. */
+function scrollToSection(sectionKey) {
+    const section = document.querySelector(`[data-section-key="${sectionKey}"]`);
+    if (!section) return;
+
+    focusAndCenter(
+        section.querySelector('input:not([disabled]), select:not([disabled]), textarea:not([disabled])') ?? section
+    );
+}
+
+/** Traduce el indice de fila de un error de la API al que ocupa en el formulario. */
+function toFormFieldName(apiField, rowIndexes) {
+    const match = /^([a-z_]+)\.(\d+)\.(.+)$/.exec(apiField);
+    const formIndex = match ? rowIndexes?.[match[1]]?.[Number(match[2])] : undefined;
+
+    return formIndex === undefined ? apiField : `${match[1]}.${formIndex}.${match[3]}`;
+}
+
+/** Extrae del 422 de Laravel cada campo con su mensaje, mas un resumen legible. */
+function readValidationErrors(error, rowIndexes) {
     const data = error?.response?.data;
     const errors = data?.errors;
 
     if (!errors || typeof errors !== 'object') {
-        return { fields: [], message: data?.message ?? null };
+        return { fieldErrors: [], message: data?.message ?? null };
     }
 
     // Laravel devuelve claves con puntos (rx_uso_entries.0.esfera_od); los
     // inputs usan exactamente ese mismo nombre como id.
-    const fields = Object.keys(errors);
-    const messages = fields
-        .map((field) => (Array.isArray(errors[field]) ? errors[field][0] : errors[field]))
-        .filter(Boolean);
+    const fieldErrors = Object.entries(errors).map(([field, messages]) => ({
+        field: toFormFieldName(field, rowIndexes),
+        message: Array.isArray(messages) ? messages[0] : messages,
+    }));
+    const messages = fieldErrors.map(({ message }) => message).filter(Boolean);
 
     return {
-        fields,
+        fieldErrors,
         message: messages.slice(0, 4).join('\n')
             + (messages.length > 4 ? `\n(+${messages.length - 4} error(es) mas)` : ''),
     };
 }
+
+/** Compara dos valores de campo sin distinguir vacio/null ni numero/texto. */
+const sameFieldValue = (a, b) => String(a ?? '') === String(b ?? '');
+
+const isScalar = (value) => value === null || value === undefined || typeof value !== 'object';
 
 function fieldErrorClass(hasError) {
     return hasError
@@ -444,23 +519,39 @@ export default function ConsultationForm({ patient, consultation, meta }) {
     const [pdfData, setPdfData] = useState(null);
     const [requiredErrors, setRequiredErrors] = useState(new Set());
     const [showRequiredModal, setShowRequiredModal] = useState(false);
-    const [missingLabels, setMissingLabels] = useState([]);
+    // Campos obligatorios vacios, como `{ field, label }`.
+    const [missingFields, setMissingFields] = useState([]);
     // Se levanta cuando un guardado falla y solo baja cuando uno funciona.
     const [unsavedError, setUnsavedError] = useState(null);
-    const [firstMissingField, setFirstMissingField] = useState(null);
+    // Errores por campo del ultimo 422, como `{ field, message }`.
+    const [fieldErrors, setFieldErrors] = useState([]);
     const autosaveTimerRef = useRef(null);
+    // El id tambien vive en un ref: un guardado que espera en cola a que termine
+    // el anterior debe ver el id que ese acaba de crear, no el de su closure.
+    const consultationIdRef = useRef(consultation?.id ?? null);
+    const saveQueueRef = useRef(Promise.resolve());
+    const pendingSavesRef = useRef(0);
+    const advancedTogglesRef = useRef({});
 
+    const assignConsultationId = useCallback((id) => {
+        consultationIdRef.current = id;
+        setConsultationId(id);
+    }, []);
+
+    // Solo `patient.id` alimenta los valores iniciales. Depender del objeto
+    // entero reiniciaba el formulario cuando ConsultationPage cambiaba la ficha
+    // reducida del autocomplete por la completa, borrando lo ya escrito.
     const defaultValues = useMemo(
         () => buildDefaultValues(patient, consultation, meta),
-        [patient, consultation, meta]
+        [patient.id, consultation, meta]
     );
 
     const { register, handleSubmit, getValues, setValue, watch, control, reset } = useForm({ defaultValues });
 
     useEffect(() => {
         reset(defaultValues);
-        setConsultationId(consultation?.id ?? null);
-    }, [consultation, defaultValues, reset]);
+        assignConsultationId(consultation?.id ?? null);
+    }, [consultation, defaultValues, reset, assignConsultationId]);
 
     const diagnosesFieldArray = useFieldArray({ control, name: 'diagnoses' });
     const recommendationsFieldArray = useFieldArray({ control, name: 'recommendations_list' });
@@ -488,49 +579,115 @@ export default function ConsultationForm({ patient, consultation, meta }) {
     const rxFinalSummaryLine = (esfera, cilindro, eje, add) =>
         `${displaySphere(esfera)} ${displaySigned(cilindro)} × ${eje || '—'} ADD ${displaySigned(add)}`;
 
-    const doSave = useCallback(async (showMsg = false, forceStatus = null) => {
+    /**
+     * Lleva al campo de un error: abre su seccion si esta colapsada y, si hace
+     * falta, revela los campos avanzados que lo ocultan.
+     */
+    const goToField = useCallback((fieldName) => {
+        if (scrollToField(fieldName)) return;
+
+        const sectionKey = sectionKeyForField(fieldName);
+        if (!sectionKey) return;
+
+        // `flushSync` deja la seccion ya pintada para poder enfocar el campo
+        // en este mismo paso, sin esperar al siguiente render.
+        flushSync(() => openCollapsibleSection(sectionKey));
+        if (scrollToField(fieldName)) return;
+
+        const advanced = advancedTogglesRef.current[sectionKey];
+        if (advanced && !advanced.open) {
+            flushSync(() => advanced.setOpen(true));
+            if (scrollToField(fieldName)) return;
+            // No era un campo avanzado: la seccion queda como estaba.
+            flushSync(() => advanced.setOpen(false));
+        }
+
+        scrollToSection(sectionKey);
+    }, []);
+
+    /**
+     * Trae al formulario lo que el servidor asigno o normalizo en las columnas
+     * planas (optometra por defecto, estado, medidas), sin recargarlo entero.
+     *
+     * Se respeta todo lo que el usuario pudo tocar mientras viajaba el guardado:
+     * el campo enfocado, los valores que cambiaron desde el envio y los modulos
+     * y filas (objetos y arrays), que son contenido suyo y no del servidor.
+     */
+    const syncServerAssignedValues = useCallback((sent, saved) => {
+        const fresh = buildDefaultValues(patient, saved, meta);
+        const current = getValues();
+        const focusedName = document.activeElement?.name;
+
+        for (const [name, value] of Object.entries(fresh)) {
+            if (!isScalar(value) || !isScalar(current[name])) continue;
+            if (name === focusedName) continue;
+            if (!sameFieldValue(current[name], sent[name])) continue;
+            if (sameFieldValue(current[name], value)) continue;
+
+            setValue(name, value);
+        }
+    }, [patient, meta, getValues, setValue]);
+
+    const performSave = useCallback(async (showMsg, forceStatus) => {
         const values = getValues();
+        const currentId = consultationIdRef.current;
         const hasClinicalData = CLINICAL_FIELD_KEYS.some((key) => Boolean(values[key]))
             || (values.diagnoses ?? []).some((item) => item?.description)
             || (values.recommendations_list ?? []).some((item) => item?.text);
 
         if (!values.patient_id) return null;
-        if (!consultationId && !hasClinicalData && !showMsg) return null;
+        if (!currentId && !hasClinicalData && !showMsg) return null;
+
+        // Foto de lo enviado: al volver la respuesta permite saber si el
+        // usuario siguio escribiendo mientras tanto.
+        const sentSnapshot = JSON.stringify(values);
+        const { payload, rowIndexes } = stripEmptyModuleRows({
+            ...values,
+            estado: forceStatus ?? values.estado ?? 'borrador',
+            ophthalmoscopy_module: {
+                ...values.ophthalmoscopy_module,
+                results: ophthalmoscopyResultsToLabeled(
+                    values.ophthalmoscopy_module?.results,
+                    ophthalmoscopyRows,
+                    ophthalmoscopyDistances
+                ),
+            },
+        });
 
         try {
-            const payload = stripEmptyModuleRows({
-                ...values,
-                estado: forceStatus ?? values.estado ?? 'borrador',
-                ophthalmoscopy_module: {
-                    ...values.ophthalmoscopy_module,
-                    results: ophthalmoscopyResultsToLabeled(
-                        values.ophthalmoscopy_module?.results,
-                        ophthalmoscopyRows,
-                        ophthalmoscopyDistances
-                    ),
-                },
-            });
-
             let response;
-            if (consultationId) {
-                response = await client.put(`/consultations/${consultationId}`, payload);
+            if (currentId) {
+                response = await client.put(`/consultations/${currentId}`, payload);
             } else {
                 response = await client.post('/consultations', payload);
-                setConsultationId(response.data.id);
+                assignConsultationId(response.data.id);
             }
 
             setLastSaved(new Date());
             setUnsavedError(null);
+            setFieldErrors([]);
             setRequiredErrors(new Set());
-            reset(buildDefaultValues(patient, response.data, meta));
+
+            // `reset()` reescribe todos los inputs y vuelve a montar las filas
+            // (diagnosticos, RX en uso, venta): borra lo tecleado durante el
+            // viaje del guardado y saca el foco del campo activo. Por eso solo
+            // se usa en un guardado manual y si nadie toco nada entretanto; el
+            // autoguardado nunca recarga el formulario.
+            if (showMsg && JSON.stringify(getValues()) === sentSnapshot) {
+                reset(buildDefaultValues(patient, response.data, meta));
+            } else {
+                syncServerAssignedValues(JSON.parse(sentSnapshot), response.data);
+            }
+
             if (showMsg) addToast('Consulta guardada correctamente', 'success');
             return response.data;
         } catch (error) {
             const status = error?.response?.status;
-            const { fields, message } = readValidationErrors(error);
+            const { fieldErrors: errors, message } = readValidationErrors(error, rowIndexes);
 
-            if (fields.length) {
-                setRequiredErrors(new Set(fields));
+            setFieldErrors(errors);
+            if (errors.length) {
+                setRequiredErrors(new Set(errors.map(({ field }) => field)));
             }
 
             const detail = status === 422
@@ -543,19 +700,43 @@ export default function ConsultationForm({ patient, consultation, meta }) {
             setUnsavedError(detail);
 
             if (showMsg) {
-                addToast(detail, 'error');
-            }
+                const firstField = errors[0]?.field;
+                addToast(
+                    detail,
+                    'error',
+                    null,
+                    firstField ? { label: 'Ir al campo', onClick: () => goToField(firstField) } : null
+                );
 
-            // El scroll/foco automatico solo tiene sentido en un guardado
-            // manual: en el autosave silencioso (showMsg=false) saltaba la
-            // vista sola cada 30s mientras la usuaria seguia escribiendo.
-            if (fields.length && showMsg) {
-                scrollToField(fields[0]);
+                // El scroll/foco automatico solo tiene sentido en un guardado
+                // manual: en el autosave silencioso saltaba la vista sola cada
+                // 30s mientras la usuaria seguia escribiendo.
+                if (firstField) goToField(firstField);
             }
 
             throw error;
         }
-    }, [consultationId, getValues, reset, patient, meta, addToast]);
+    }, [getValues, reset, patient, meta, addToast, assignConsultationId, syncServerAssignedValues, goToField]);
+
+    /**
+     * Los guardados van de a uno. Dos a la vez podian crear la consulta dos
+     * veces (un POST del autoguardado en vuelo mas otro del boton) o dejar en
+     * el servidor la version mas vieja si las respuestas llegaban cruzadas.
+     */
+    const doSave = useCallback((showMsg = false, forceStatus = null) => {
+        // El autoguardado no hace cola: si hay un guardado en curso, el
+        // siguiente ciclo se encarga.
+        if (!showMsg && pendingSavesRef.current > 0) return Promise.resolve(null);
+
+        pendingSavesRef.current += 1;
+        const run = saveQueueRef.current
+            .catch(() => {})
+            .then(() => performSave(showMsg, forceStatus))
+            .finally(() => { pendingSavesRef.current -= 1; });
+        saveQueueRef.current = run;
+
+        return run;
+    }, [performSave]);
 
     useEffect(() => {
         autosaveTimerRef.current = setInterval(() => {
@@ -571,8 +752,7 @@ export default function ConsultationForm({ patient, consultation, meta }) {
         const required = Array.isArray(settings?.required_fields) ? settings.required_fields : [];
         if (required.length === 0) return true;
         const values = getValues();
-        const missing = new Set();
-        const labels = [];
+        const missing = [];
         for (const key of required) {
             let empty = false;
             if (key === 'diagnostico_descripcion') {
@@ -581,18 +761,22 @@ export default function ConsultationForm({ patient, consultation, meta }) {
                 empty = !String(values[key] ?? '').trim();
             }
             if (empty) {
-                missing.add(key);
-                labels.push(REQUIRED_FIELD_LABELS[key] ?? key);
+                missing.push({ field: key, label: REQUIRED_FIELD_LABELS[key] ?? key });
             }
         }
-        setRequiredErrors(missing);
-        if (missing.size > 0) {
-            setMissingLabels(labels);
-            setFirstMissingField([...missing][0] ?? null);
+        setRequiredErrors(new Set(missing.map(({ field }) => field)));
+        if (missing.length > 0) {
+            setMissingFields(missing);
             setShowRequiredModal(true);
             return false;
         }
         return true;
+    };
+
+    /** Cierra el aviso de obligatorios y lleva al campo elegido. */
+    const goToMissingField = (fieldName) => {
+        setShowRequiredModal(false);
+        goToField(fieldName);
     };
 
     const onSubmit = async () => {
@@ -663,10 +847,11 @@ export default function ConsultationForm({ patient, consultation, meta }) {
     };
 
     const recomputeSaleItemTotal = (index) => {
-        const precio = parseFloat(getValues(`sale_items.${index}.precio`)) || 0;
-        const pct = parseFloat(getValues(`sale_items.${index}.descuento_pct`)) || 0;
-        const total = precio * (1 - pct / 100);
-        setValue(`sale_items.${index}.total`, total.toFixed(2), { shouldDirty: true });
+        const precio = getValues(`sale_items.${index}.precio`);
+        const pct = parseAmount(getValues(`sale_items.${index}.descuento_pct`));
+        // Sin precio no hay total: un "0.00" haria pasar por llena una fila vacia.
+        const total = isBlank(precio) ? '' : (parseAmount(precio) * (1 - pct / 100)).toFixed(2);
+        setValue(`sale_items.${index}.total`, total, { shouldDirty: true });
     };
 
     const saleItemsWatch = watch('sale_items') || [];
@@ -685,6 +870,13 @@ export default function ConsultationForm({ patient, consultation, meta }) {
     const cabeceraAdv = useAdvancedToggle('consulta:cabecera');
     const diagnosticoAdv = useAdvancedToggle('consulta:diagnostico');
     const observacionesAdv = useAdvancedToggle('consulta:observaciones');
+    // Por `sectionKey`, para que `goToField` revele un campo avanzado con error.
+    advancedTogglesRef.current = {
+        cabecera: cabeceraAdv,
+        refraccion: refractionAdv,
+        diagnostico: diagnosticoAdv,
+        observaciones: observacionesAdv,
+    };
 
     // Un campo avanzado se muestra solo si su sección tiene revelado "avanzado".
     const advVisible = (key, adv) => !isAdvanced(key) || adv.open;
@@ -749,7 +941,31 @@ export default function ConsultationForm({ patient, consultation, meta }) {
                 {unsavedError && (
                     <div className="w-full rounded-xl border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">
                         <span className="font-semibold">Cambios sin guardar. </span>
-                        <span className="whitespace-pre-line">{unsavedError}</span>
+                        {fieldErrors.length > 0 ? (
+                            <>
+                                <span>Haga clic en un error para ir al campo:</span>
+                                <ul className="mt-1 max-h-28 space-y-0.5 overflow-y-auto">
+                                    {fieldErrors.map(({ field, message }) => (
+                                        <li key={field}>
+                                            {sectionKeyForField(field) ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => goToField(field)}
+                                                    className="inline-flex items-start gap-1.5 text-left underline decoration-red-300 underline-offset-2 hover:text-red-950 hover:decoration-red-700"
+                                                >
+                                                    <ArrowRight size={14} className="mt-0.5 shrink-0" />
+                                                    {message}
+                                                </button>
+                                            ) : (
+                                                <span>{message}</span>
+                                            )}
+                                        </li>
+                                    ))}
+                                </ul>
+                            </>
+                        ) : (
+                            <span className="whitespace-pre-line">{unsavedError}</span>
+                        )}
                     </div>
                 )}
                 <div className="hidden flex-wrap items-center gap-3 lg:flex">
@@ -1040,9 +1256,10 @@ export default function ConsultationForm({ patient, consultation, meta }) {
                                     <div className="flex flex-col gap-1">
                                         <label className="text-sm font-medium text-slate-700">Precio</label>
                                         <input
+                                            id={precioReg.name}
                                             type="text"
                                             inputMode="decimal"
-                                            className="w-full min-h-11 rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
+                                            className={`w-full min-h-11 rounded-xl border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 ${fieldErrorClass(requiredErrors.has(precioReg.name))}`}
                                             {...precioReg}
                                             onChange={(event) => { precioReg.onChange(event); recomputeSaleItemTotal(index); }}
                                         />
@@ -1050,9 +1267,10 @@ export default function ConsultationForm({ patient, consultation, meta }) {
                                     <div className="flex flex-col gap-1">
                                         <label className="text-sm font-medium text-slate-700">% Descuento</label>
                                         <input
+                                            id={pctReg.name}
                                             type="text"
                                             inputMode="decimal"
-                                            className="w-full min-h-11 rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
+                                            className={`w-full min-h-11 rounded-xl border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 ${fieldErrorClass(requiredErrors.has(pctReg.name))}`}
                                             {...pctReg}
                                             onChange={(event) => { pctReg.onChange(event); recomputeSaleItemTotal(index); }}
                                         />
@@ -1287,20 +1505,27 @@ export default function ConsultationForm({ patient, consultation, meta }) {
                         </div>
                         <div>
                             <h3 className="font-semibold text-gray-900">Campos obligatorios incompletos</h3>
-                            <p className="text-sm text-gray-500">Completa los siguientes campos para finalizar la consulta:</p>
+                            <p className="text-sm text-gray-500">Completa los siguientes campos para finalizar la consulta. Haz clic en uno para ir directo a él:</p>
                         </div>
                     </div>
-                    <ul className="space-y-1.5 mb-5">
-                        {missingLabels.map(label => (
-                            <li key={label} className="flex items-center gap-2 text-sm text-red-700">
-                                <span className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0" />
-                                {label}
+                    <ul className="space-y-1 mb-5">
+                        {missingFields.map(({ field, label }) => (
+                            <li key={field}>
+                                <button
+                                    type="button"
+                                    onClick={() => goToMissingField(field)}
+                                    className="flex min-h-11 w-full items-center gap-2 rounded-lg px-2 text-left text-sm text-red-700 transition-colors hover:bg-red-50"
+                                >
+                                    <span className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0" />
+                                    <span className="flex-1 underline decoration-red-300 underline-offset-2">{label}</span>
+                                    <ArrowRight size={16} className="shrink-0 text-red-400" />
+                                </button>
                             </li>
                         ))}
                     </ul>
                     <div className="flex justify-end gap-3">
                         <button
-                            onClick={() => { setShowRequiredModal(false); scrollToField(firstMissingField); }}
+                            onClick={() => goToMissingField(missingFields[0]?.field)}
                             className="px-4 py-2 bg-[#1a2a4a] text-white rounded-lg text-sm font-medium hover:bg-[#253a6a] transition-colors"
                         >
                             Entendido, voy a completarlos

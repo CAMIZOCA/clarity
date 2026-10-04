@@ -171,12 +171,34 @@ El envio se dispara desde `PatientService::create()` **fuera** de la transaccion
 tumbar el alta del paciente. Los fallos de red/429/5xx lanzan `ContificoTemporaryException`
 (la cola reintenta); 400/401/403 son definitivos y no se reintentan.
 
+### 13. El autoguardado no puede recargar el formulario de consulta
+
+`ConsultationForm` autoguarda cada 30 s. Antes cada guardado terminaba en
+`reset(respuestaDelServidor)`, y eso borraba datos de dos formas:
+
+- **Filas que el servidor descarta.** El formulario, `StoreConsultationRequest::dropEmptyModuleRows()`
+  y `ConsultationService::syncModules()` deciden cada uno que fila de `sale_items` / `diagnoses` /
+  `recommendations_list` esta "vacia". El servicio exigia descripcion en la venta y las otras dos
+  capas no: un item con nota y precio respondia 200, se descartaba y el `reset()` lo borraba de la
+  pantalla. **Los tres criterios deben coincidir** (`MODULE_ROW_CONTENT_KEYS` en el formulario).
+- **`reset()` en si.** Reescribe todos los inputs (pierde lo tecleado mientras viajaba el guardado)
+  y regenera los ids de `useFieldArray`, que vuelve a montar las filas y saca el foco del campo.
+
+Ahora el autoguardado solo trae las columnas planas que el servidor asigna o normaliza
+(`syncServerAssignedValues`), sin tocar el campo enfocado, lo editado despues del envio ni los
+modulos/filas. El `reset()` completo queda para el guardado manual, y solo si nadie escribio
+entretanto. Los guardados van en serie (`doSave` encola): dos a la vez duplicaban la consulta.
+
 ---
 
 ## Convenciones
 
 - **Toast**: `const { addToast } = useToast(); addToast('Mensaje', 'error')`. Los errores duran
-  12 s y suenan; el resto 3 s. La firma es `addToast(mensaje, tipo, duracionMs?)`.
+  12 s y suenan; el resto 3 s. La firma es `addToast(mensaje, tipo, duracionMs?, accion?)`;
+  `accion` (`{ label, onClick }`) vuelve el aviso clicable.
+- **Errores de la consulta**: todo aviso de validacion lleva al campo con `goToField(nombre)`, que
+  abre la seccion colapsada (`openCollapsibleSection`) y revela los campos avanzados si hace falta.
+  Una seccion nueva necesita su regla en `FIELD_SECTION_RULES` (`ConsultationForm.jsx`).
 - **Fechas**: toda fecha de calendario viaja como `YYYY-MM-DD` y se muestra `DD/MM/AAAA`.
   Usar `resources/js/utils/dates.js` (`toDisplayDate`, `toIsoDate`, `todayIso`) y el componente
   `DateInput`. **Nunca** `new Date('YYYY-MM-DD')` a secas: en UTC-5 devuelve el dia anterior.

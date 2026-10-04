@@ -1,5 +1,16 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
+
+const OPEN_SECTION_EVENT = 'collapsible-section:open';
+
+/**
+ * Abre desde fuera la seccion con ese `sectionKey` (ej. para llevar al usuario
+ * a un campo con error). Una seccion colapsada no monta sus campos, asi que
+ * hay que abrirla antes de poder enfocarlos. No cambia la preferencia guardada.
+ */
+export function openCollapsibleSection(sectionKey) {
+    window.dispatchEvent(new CustomEvent(OPEN_SECTION_EVENT, { detail: sectionKey }));
+}
 
 /**
  * Sección colapsable reutilizable. El estado abierto/cerrado se persiste por
@@ -36,10 +47,20 @@ export default function CollapsibleSection({
         try { localStorage.setItem(storageKey, String(next)); } catch {}
     };
 
+    useEffect(() => {
+        if (!sectionKey) return undefined;
+
+        const handleOpen = (event) => {
+            if (event.detail === sectionKey) setOpen(true);
+        };
+        window.addEventListener(OPEN_SECTION_EVENT, handleOpen);
+        return () => window.removeEventListener(OPEN_SECTION_EVENT, handleOpen);
+    }, [sectionKey]);
+
     const advanced = variant === 'advanced';
 
     return (
-        <section className={`mb-6 overflow-hidden rounded-2xl border shadow-sm ${advanced ? 'border-slate-200 bg-slate-50/70' : 'border-slate-200 bg-white'}`}>
+        <section data-section-key={sectionKey} className={`mb-6 overflow-hidden rounded-2xl border shadow-sm ${advanced ? 'border-slate-200 bg-slate-50/70' : 'border-slate-200 bg-white'}`}>
             <button
                 type="button"
                 onClick={toggle}

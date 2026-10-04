@@ -367,15 +367,25 @@ class ConsultationService extends BaseService
         if (array_key_exists('sale_items', $data)) {
             $consultation->saleItems()->delete();
 
+            // Mismo criterio que `StoreConsultationRequest::dropEmptyModuleRows()`
+            // y que el formulario: la fila se conserva si trae cualquier dato.
+            // Exigir descripcion descartaba en silencio la nota y el precio de un
+            // item a medio llenar, y el formulario se recargaba ya sin ellos.
             $items = collect($data['sale_items'] ?? [])
-                ->filter(fn ($item) => is_array($item) && filled($item['descripcion'] ?? null))
+                ->filter(fn ($item) => is_array($item) && (
+                    filled($item['descripcion'] ?? null)
+                    || filled($item['precio'] ?? null)
+                    || filled($item['total'] ?? null)
+                    || filled($item['nota'] ?? null)
+                ))
                 ->values();
 
             foreach ($items as $index => $item) {
                 $consultation->saleItems()->create([
                     'orden' => $index,
                     'tipo' => $item['tipo'] ?? 'otro',
-                    'descripcion' => $item['descripcion'],
+                    // NOT NULL sin default: un item sin descripcion guarda cadena vacia.
+                    'descripcion' => $item['descripcion'] ?? '',
                     'precio' => $item['precio'] ?? 0,
                     'descuento_pct' => $item['descuento_pct'] ?? 0,
                     'total' => $item['total'] ?? 0,
