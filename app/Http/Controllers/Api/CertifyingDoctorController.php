@@ -115,6 +115,7 @@ class CertifyingDoctorController extends Controller
     private function validateData(Request $request): array
     {
         return $request->validate([
+            'user_id' => ['nullable', 'integer', 'exists:users,id'],
             'nombre' => ['required', 'string', 'max:150'],
             'titulo' => ['nullable', 'string', 'max:100'],
             'registro_senescyt' => ['nullable', 'string', 'max:100'],

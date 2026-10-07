@@ -29,6 +29,10 @@ class PatientService extends BaseService
     public const SORT_ULTIMA_CONSULTA = 'ultima_consulta';
     public const SORT_NOMBRE = 'nombre';
 
+    /** Consultas anteriores que ofrece el historial de RX: por defecto y tope. */
+    public const RX_HISTORY_LIMIT = 5;
+    public const RX_HISTORY_MAX = 20;
+
     /**
      * Listar pacientes con paginación y filtros.
      *
@@ -142,6 +146,52 @@ class PatientService extends BaseService
 
             return (bool) $patient->delete();
         });
+    }
+
+    /**
+     * RX final de las ultimas consultas del paciente, de la mas reciente a la
+     * mas antigua. Alimenta el panel "RX en uso" de una consulta nueva, donde la
+     * optometra copia con un clic la receta que el paciente ya trae.
+     *
+     * Solo entran las consultas que tienen alguna medida en la RX final.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function rxHistory(Patient $patient, ?int $excludeConsultationId = null, int $limit = self::RX_HISTORY_LIMIT): array
+    {
+        $measures = [];
+        foreach (['od', 'oi'] as $eye) {
+            foreach (['esfera', 'cilindro', 'eje', 'add', 'av'] as $column) {
+                $measures[] = "rx_final_{$column}_{$eye}";
+            }
+        }
+        $neutralFlags = ['rx_final_esfera_od_neutral', 'rx_final_esfera_oi_neutral'];
+
+        return $patient->consultations()
+            ->when($excludeConsultationId, fn ($query) => $query->where('id', '!=', $excludeConsultationId))
+            ->where(function ($query) use ($neutralFlags) {
+                foreach (['esfera', 'cilindro', 'eje', 'add'] as $column) {
+                    $query->orWhereNotNull("rx_final_{$column}_od")
+                        ->orWhereNotNull("rx_final_{$column}_oi");
+                }
+                foreach ($neutralFlags as $flag) {
+                    $query->orWhere($flag, true);
+                }
+            })
+            ->with('optometrista:id,name')
+            ->orderByDesc('fecha_consulta')
+            ->orderByDesc('id')
+            ->limit(max(1, min($limit, self::RX_HISTORY_MAX)))
+            ->get(['id', 'patient_id', 'optometrista_id', 'numero_consulta', 'fecha_consulta', 'estado', ...$measures, ...$neutralFlags])
+            ->map(fn ($consultation) => [
+                'id' => $consultation->id,
+                'numero_consulta' => $consultation->numero_consulta,
+                'fecha_consulta' => $consultation->fecha_consulta?->toDateString(),
+                'estado' => $consultation->estado,
+                'optometrista' => $consultation->optometrista?->name,
+                ...$consultation->only([...$measures, ...$neutralFlags]),
+            ])
+            ->all();
     }
 
     /**

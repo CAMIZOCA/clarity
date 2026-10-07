@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Storage;
 class CertifyingDoctor extends Model
 {
     protected $fillable = [
+        'user_id',
         'nombre',
         'titulo',
         'registro_senescyt',

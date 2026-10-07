@@ -33,14 +33,14 @@ Estado: ✅ completo · 🟡 parcial · ⚠️ sin UI
 | Dashboard | `/dashboard` | `ReportController@dashboard` | ✅ |
 | Dashboard gerencial | `/dashboard-gerencial` | `ReportController` | ✅ |
 | Pacientes | `/pacientes` | `PatientController` | ✅ |
-| Consultas | `/consulta` | `ConsultationController` | ✅ |
+| Consultas | `/consulta?paciente=ID` (se entra desde la ficha del paciente; sin item de menu) | `ConsultationController` | ✅ |
 | Agenda / Citas | `/agenda` (FullCalendar) | `AppointmentController` | ✅ |
 | Ordenes de trabajo | `/ordenes-trabajo` | `LabOrderController` | ✅ |
 | Lentes especiales | `/lentes-especiales` | `SpecialContactLensController` | ✅ |
 | Referencias oftalmologicas | `/referencias` | `OphthalmologyReferenceController` | ✅ |
 | Brigadas | `/brigadas` | `BrigadeController` | ✅ |
 | Informes de garantia | `/informes-garantia` | `GuaranteeReportController` | ✅ |
-| Certificados | (en ficha de paciente) | `CertificateController` | ✅ |
+| Certificados | (en ficha de paciente) — modelos General y Escolar/Vehicular (sin RX final) | `CertificateController` | ✅ |
 | Catalogos clinicos | `/catalogos` | `CatalogController` | ✅ |
 | Plantillas de impresion | ⚠️ sin UI de gestion | `PrintTemplate` + `updateTemplate` | 🟡 |
 | CIE-10 | ⚠️ componente huerfano | `Cie10Controller` | 🟡 |
@@ -125,6 +125,22 @@ de texto libre, ojo "general" o items desactivados se editan aparte en "Otros di
 `rx_uso_entries` admite varias recetas; la primera se desnormaliza a las columnas planas
 `rx_uso_*` para no romper PDF, reportes ni la importacion legacy.
 
+Historial de RX (`components/forms/RxHistoryPicker.jsx`, `GET /api/patients/{id}/rx-history`):
+sobre "RX en uso" se listan las ultimas 5 consultas del paciente con su RX final; el boton
+"Usar" copia esa fila a la primera receta en uso vacia (o agrega otra) y deja la procedencia en
+la observacion.
+
+Formato de las medidas (`utils/opticalFormat.js`): esfera, cilindro y ADD se muestran siempre con
+signo y dos decimales. Las columnas son decimales y no guardan el "+", asi que
+`formatOpticalForInput` lo repone al cargar. Un cilindro tecleado sin signo se toma negativo
+(convencion de optometria); eso solo ocurre en el formulario, el backend respeta el numero que
+recibe.
+
+Certificado (`components/pdf/CertificadoPdf.jsx`): lo firma el doctor certificador vinculado al
+medico de la cabecera clinica (`certifying_doctors.user_id`, o el que se llama igual); el
+predeterminado es solo el respaldo y se avisa cuando se usa. Con logo cargado no se imprimen el
+nombre ni el eslogan de la clinica.
+
 Grupos de catalogo (`clinical_catalog_groups.key`): `diagnoses`, `lens_materials`,
 `lens_thicknesses`, `lens_protections`, `recommendations`, `contact_lens_types`
 (este ultimo sembrado pero sin consumir en el formulario).
@@ -173,8 +189,12 @@ Solo viajan nombre, identificacion, telefono, email y direccion; nunca datos cli
 Ordenados por impacto.
 
 1. **Datos legacy fuera de rango** — 4.209 de 4.592 consultas tienen valores que violan los
-   rangos clinicos. Hoy se toleran si no se editan (ver gotcha 5 en CLAUDE.md). Una limpieza
-   real necesita una migracion de saneamiento revisada con la clinica.
+   rangos clinicos. Hoy se toleran si no se editan (ver gotcha 5 en CLAUDE.md). La limpieza ya
+   existe (`php artisan consultations:repair-legacy-import`, ver gotcha 14) y esta probada sobre
+   una copia de la BD, pero **todavia no se ha aplicado**: falta que la optica valide el informe
+   de `--dry-run`. Quedan fuera 4 valores imposibles y la regla `subj` (sin confirmar).
+   Sin el respaldo original del sistema anterior no se pueden recuperar ~205 RX en uso que
+   perdieron los decimales, ni importar "Quien le recomienda" y el diagnostico de la ficha.
 2. **IA por voz** — diseñado y con la configuracion lista; falta captura, transcripcion y
    autocompletado. Especificacion completa en [ai-consulta-por-voz.md](ai-consulta-por-voz.md).
 3. **`mail_password` en texto plano** en `settings`. `openai_api_key` ya usa `Crypt::encryptString`
@@ -190,6 +210,24 @@ Ordenados por impacto.
 ---
 
 ## Historial de cambios relevantes
+
+### 2026-10-07 — Notas de la optica: flujo por paciente, historial de RX, certificado y datos importados
+
+- **Flujo por paciente**: se quitaron "Consulta" y "Nueva consulta" del menu y del dashboard; el
+  login lleva a Pacientes. La consulta se abre desde la ficha.
+- **Historial de RX** en "RX en uso" con boton "Usar" (`RxHistoryPicker`, `rx-history`).
+- **Certificado**: firma el medico de la cabecera clinica, segundo modelo Escolar/Vehicular sin
+  RX final (`certificates.tipo`), y con logo no se imprime el nombre ni el eslogan.
+- **Signo explicito** en esfera, cilindro y ADD, tambien al recargar la consulta.
+- **`retinoscopia_od/oi` y `vision_colores` pasan a TEXT**: eran VARCHAR(20)/(30) con 100/50
+  caracteres permitidos en la validacion; en MariaDB una retinoscopia larga abortaba el guardado.
+- **Ruta de navegacion** en la consulta (`components/ui/Breadcrumbs.jsx`): Pacientes › paciente ›
+  consulta. Acceso rapido "Pacientes" como primer boton del menu.
+- **Service worker**: dejo de cachear `/api/*` y `/me` (servia datos viejos en produccion; ver
+  gotcha 15 en CLAUDE.md). `CACHE_NAME` pasa a `clarity-shell-v2`.
+- **Reparacion de la importacion** (`consultations:repair-legacy-import`, bitacora en
+  `consultation_legacy_repairs`) e importadores corregidos (`LegacyOpticalParser`). Pendiente de
+  aplicar en cada instancia.
 
 ### 2026-10-04 — Navegacion con Enter/flechas y campo activo visible
 

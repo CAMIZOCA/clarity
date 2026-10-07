@@ -8,7 +8,7 @@ export const MENU_SECTION_OPTIONS = [
     {
         key: 'atencion_clinica',
         label: 'Atencion clinica',
-        description: 'Pacientes, consulta, agenda, ordenes, lentes especiales, oftalmologia y brigadas.',
+        description: 'Pacientes, agenda, ordenes, lentes especiales, oftalmologia y brigadas.',
     },
     {
         key: 'operacion_diaria',
@@ -34,8 +34,10 @@ export const MENU_SECTION_OPTIONS = [
 
 export const MENU_ITEM_OPTIONS_BY_SECTION = {
     atencion_clinica: [
+        // `consulta` ya no es un item del menu: se entra desde la ficha del
+        // paciente. La clave sigue en la lista blanca de `SettingController`
+        // porque el valor guardado en `settings.menu_visible_items` la conserva.
         { key: 'pacientes', label: 'Pacientes' },
-        { key: 'consulta', label: 'Consulta' },
         { key: 'agenda', label: 'Agenda' },
         { key: 'ordenes_trabajo', label: 'Ordenes de trabajo' },
         { key: 'lentes_especiales', label: 'Lentes especiales' },

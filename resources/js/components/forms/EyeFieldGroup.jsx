@@ -26,9 +26,9 @@ import { focusField, navigationIntent } from '../../utils/fieldNavigation';
 
 const FIELD_META = {
     esfera:    { label: 'Esfera',     placeholder: '±0.00', inputMode: 'decimal' },
-    cilindro:  { label: 'Cilindro',   placeholder: '±0.00', inputMode: 'decimal' },
+    cilindro:  { label: 'Cilindro',   placeholder: '-0.00', inputMode: 'decimal' },
     eje:       { label: 'Eje (°)',    placeholder: '0–180', inputMode: 'numeric' },
-    add:       { label: 'ADD',        placeholder: '0.00',  inputMode: 'decimal' },
+    add:       { label: 'ADD',        placeholder: '+0.00', inputMode: 'decimal' },
     distancia: { label: 'Distancia',  placeholder: 'a 50cm', inputMode: 'text' },
     avcc:      { label: 'AV.CC',      placeholder: '20/20', inputMode: 'text' },
     avl:       { label: 'AVL',        placeholder: '20/20', inputMode: 'text' },

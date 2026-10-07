@@ -6,6 +6,7 @@ import { Save, FileText, CheckCircle, Clock, Plus, Trash2, Printer, AlertTriangl
 import client from '../../api/client';
 import Button from '../../components/ui/Button';
 import EyeFieldGroup from '../../components/forms/EyeFieldGroup';
+import RxHistoryPicker from '../../components/forms/RxHistoryPicker';
 import DiagnosisPicker, { checklistRowIndexes } from '../../components/forms/DiagnosisPicker';
 import CollapsibleSection, { openCollapsibleSection } from '../../components/forms/CollapsibleSection';
 import { AdvancedToggleButton, useAdvancedToggle } from '../../components/forms/AdvancedFieldsToggle';
@@ -14,8 +15,8 @@ import { useToast } from '../../components/ui/Toast';
 import { useSettings } from '../../contexts/SettingsContext';
 import { useAdvancedFields } from '../../hooks/useAdvancedFields';
 import { RequiredErrorsCtx } from '../../components/forms/RequiredErrorsContext';
-import { displaySphere, displaySigned } from '../../utils/opticalFormat';
-import { toIsoDate, todayIso } from '../../utils/dates';
+import { displaySphere, displaySigned, formatOpticalForInput } from '../../utils/opticalFormat';
+import { toDisplayDate, toIsoDate, todayIso } from '../../utils/dates';
 import { handleFieldNavigation } from '../../utils/fieldNavigation';
 
 const REQUIRED_FIELD_LABELS = {
@@ -74,7 +75,24 @@ const NEUTRAL_SPHERE_FIELDS = [
     'vc_esfera_od', 'vc_esfera_oi',
 ];
 
+// Medidas que se muestran con signo explicito ("+0.75", "-0.25").
+const SIGNED_OPTICAL_COLUMNS = ['esfera', 'cilindro', 'add'];
+const SIGNED_OPTICAL_FIELDS = ['rx_uso', 'subj', 'rx_final', 'vc'].flatMap((prefix) =>
+    SIGNED_OPTICAL_COLUMNS.flatMap((column) => [`${prefix}_${column}_od`, `${prefix}_${column}_oi`])
+);
+
 const isBlank = (value) => value === null || value === undefined || String(value).trim() === '';
+
+/** Repone el signo en esfera, cilindro y ADD de una receta en uso. */
+function signRxUsoEntry(entry) {
+    for (const column of SIGNED_OPTICAL_COLUMNS) {
+        for (const eye of ['od', 'oi']) {
+            const key = `${column}_${eye}`;
+            if (!isBlank(entry[key])) entry[key] = formatOpticalForInput(entry[key]);
+        }
+    }
+    return entry;
+}
 
 /** Importe escrito a mano: acepta coma decimal ("25,50"). */
 const parseAmount = (value) => parseFloat(String(value ?? '').replace(',', '.')) || 0;
@@ -146,6 +164,7 @@ function buildRxUsoEntries(consultation) {
                     Object.entries(entry).map(([key, value]) => [key, value ?? ''])
                 ),
             };
+            signRxUsoEntry(row);
             applyNeutralSphereFlag(row, 'od');
             applyNeutralSphereFlag(row, 'oi');
             return row;
@@ -158,6 +177,7 @@ function buildRxUsoEntries(consultation) {
             legacy[`${column}_${eye}`] = consultation?.[`rx_uso_${column}_${eye}`] ?? '';
         }
     }
+    signRxUsoEntry(legacy);
     if (consultation?.rx_uso_esfera_od_neutral) legacy.esfera_od = 'N';
     if (consultation?.rx_uso_esfera_oi_neutral) legacy.esfera_oi = 'N';
 
@@ -324,6 +344,13 @@ function buildDefaultValues(patient, consultation, meta) {
             }))
             : [defaultSaleItem()],
     };
+
+    // Las columnas son decimales y no guardan el "+": se repone al cargar.
+    for (const field of SIGNED_OPTICAL_FIELDS) {
+        if (!isBlank(values[field])) {
+            values[field] = formatOpticalForInput(values[field]);
+        }
+    }
 
     for (const field of NEUTRAL_SPHERE_FIELDS) {
         if (consultation?.[`${field}_neutral`]) {
@@ -831,6 +858,44 @@ export default function ConsultationForm({ patient, consultation, meta }) {
         }
     };
 
+    /**
+     * Copia la RX final de una consulta anterior a "RX en uso": rellena la
+     * primera receta que siga en blanco o, si todas tienen datos, agrega otra.
+     */
+    const copyRxFromHistory = (row) => {
+        const entry = emptyRxUsoEntry();
+        for (const eye of ['od', 'oi']) {
+            entry[`esfera_${eye}`] = row[`rx_final_esfera_${eye}_neutral`]
+                ? 'N'
+                : formatOpticalForInput(row[`rx_final_esfera_${eye}`]);
+            entry[`cilindro_${eye}`] = formatOpticalForInput(row[`rx_final_cilindro_${eye}`]);
+            entry[`eje_${eye}`] = row[`rx_final_eje_${eye}`] ?? '';
+            entry[`add_${eye}`] = formatOpticalForInput(row[`rx_final_add_${eye}`]);
+            entry[`avcc_${eye}`] = row[`rx_final_av_${eye}`] ?? '';
+        }
+        entry.observacion = `RX final de la consulta #${row.numero_consulta} (${toDisplayDate(row.fecha_consulta)})`;
+
+        const blankIndex = (getValues('rx_uso_entries') ?? [])
+            .findIndex((current) => Object.keys(emptyRxUsoEntry()).every((key) => isBlank(current?.[key])));
+        if (blankIndex >= 0) {
+            rxUsoFieldArray.update(blankIndex, entry);
+        } else {
+            rxUsoFieldArray.append(entry);
+        }
+
+        addToast(`RX de la consulta #${row.numero_consulta} copiada a RX en uso`, 'success');
+    };
+
+    /**
+     * Medico de la cabecera clinica tal como esta ahora en el formulario: el
+     * certificado lo firma el, aunque el cambio todavia no se haya guardado.
+     * Sin medico elegido devuelve `undefined` y el certificado usa el guardado.
+     */
+    const currentDoctor = () => {
+        const selected = optometrists.find((item) => String(item.id) === String(getValues('optometrista_id')));
+        return selected ? { id: selected.id, name: selected.name } : undefined;
+    };
+
     // Filas de diagnostico que no salen del checklist por ojo: texto libre,
     // ojo "general", items de catalogo desactivados o duplicados historicos.
     const diagnosesWatch = watch('diagnoses') || [];
@@ -1035,6 +1100,7 @@ export default function ConsultationForm({ patient, consultation, meta }) {
                             <Plus size={16} /> Agregar RX en uso
                         </Button>
                     </div>
+                    <RxHistoryPicker patientId={patient.id} excludeId={consultationId} onUse={copyRxFromHistory} />
                     <div className="space-y-4">
                         {rxUsoFieldArray.fields.map((field, index) => (
                             <div key={field.id} className="rounded-2xl border border-slate-200 p-4">
@@ -1493,7 +1559,7 @@ export default function ConsultationForm({ patient, consultation, meta }) {
 
         {/* Fuera del <form>: Enter en el correo del certificado completaba la consulta. */}
         {showPdf && pdfData && (
-            <CertificadoPdf data={pdfData} onClose={() => setShowPdf(false)} />
+            <CertificadoPdf data={pdfData} onClose={() => setShowPdf(false)} consultationDoctor={currentDoctor()} />
         )}
 
         {showRequiredModal && (

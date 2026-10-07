@@ -14,6 +14,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Validation\Rule;
 
 class CertificateController extends Controller
 {
@@ -57,6 +58,7 @@ class CertificateController extends Controller
             'consultation_id' => ['required', 'integer', 'exists:consultations,id'],
             'pdf' => ['required', 'file', 'mimes:pdf', 'max:8192'],
             'certifying_doctor_id' => ['nullable', 'integer', 'exists:certifying_doctors,id'],
+            'tipo' => ['nullable', Rule::in(Certificate::TIPOS)],
             'recipient_email' => ['nullable', 'email'],
             'subject' => ['nullable', 'string', 'max:255'],
             'send' => ['nullable', 'boolean'],
@@ -76,6 +78,8 @@ class CertificateController extends Controller
             'branch_id' => $branchId,
             'certifying_doctor_id' => $validated['certifying_doctor_id'] ?? null,
             'numero_consulta' => $consultation->numero_consulta,
+            // La columna es NOT NULL con default: un null explicito no cae al default.
+            'tipo' => $validated['tipo'] ?? Certificate::TIPO_GENERAL,
             'pdf_path' => $path,
             'recipient_email' => $validated['recipient_email'] ?? null,
             'subject' => $validated['subject'] ?? null,

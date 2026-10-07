@@ -6,6 +6,7 @@ import { cached, invalidate } from '../../api/cache';
 import PatientAutocomplete from '../../components/ui/PatientAutocomplete';
 import ConsultationForm from './ConsultationForm';
 import Button from '../../components/ui/Button';
+import Breadcrumbs from '../../components/ui/Breadcrumbs';
 import { getPayload } from '../../api/response';
 import { toDisplayDate, getYear } from '../../utils/dates';
 
@@ -92,8 +93,16 @@ export default function ConsultationPage() {
 
     const patientName = selectedPatient?.nombre_completo || selectedPatient?.nombre || '';
 
+    // La consulta es hija de la ficha del paciente: la ruta permite volver a ella.
+    const breadcrumbs = [
+        { label: 'Pacientes', to: '/pacientes' },
+        selectedPatient?.id && { label: patientName || 'Paciente', to: `/pacientes/${selectedPatient.id}` },
+        { label: consultationId ? `Consulta #${consultation?.numero_consulta ?? '...'}` : 'Nueva consulta' },
+    ].filter(Boolean);
+
     return (
         <div className="p-6 max-w-7xl mx-auto">
+            <Breadcrumbs items={breadcrumbs} />
             <div className="mb-6">
                 <h1 className="text-3xl font-bold text-gray-900">
                     {consultationId ? `Consulta #${consultation?.numero_consulta ?? '...'}` : 'Nueva Consulta'}
@@ -155,6 +164,7 @@ export default function ConsultationPage() {
                                 ['Fecha nac.', toDisplayDate(selectedPatient.fecha_nacimiento, '—')],
                                 ['Año', getYear(selectedPatient.fecha_nacimiento, '—')],
                                 ['Edad', selectedPatient.edad != null ? `${selectedPatient.edad} años` : '—'],
+                                ['Quién le recomienda', selectedPatient.como_nos_conocio || '—'],
                             ].map(([term, value]) => (
                                 <div key={term}>
                                     <dt className="text-[11px] uppercase tracking-wide text-blue-300">{term}</dt>

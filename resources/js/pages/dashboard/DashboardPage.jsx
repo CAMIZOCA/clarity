@@ -71,7 +71,7 @@ export default function DashboardPage() {
             {/* Stats */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
                 <StatCard icon={Users} label="Pacientes registrados" value={data?.totalPacientes} color="bg-[#1a2a4a]" to="/pacientes" />
-                <StatCard icon={Stethoscope} label="Consultas hoy" value={data?.consultasHoy} color="bg-blue-500" to="/consulta" />
+                <StatCard icon={Stethoscope} label="Consultas hoy" value={data?.consultasHoy} color="bg-blue-500" to="/pacientes" />
                 <StatCard icon={Calendar} label="Citas próximos 7 días" value={data?.citasPendientes} color="bg-amber-500" to="/agenda" />
             </div>
 
@@ -139,10 +139,10 @@ export default function DashboardPage() {
             <div className="mt-6 bg-[#1a2a4a] rounded-2xl p-6 text-white">
                 <h2 className="font-semibold mb-4 flex items-center gap-2"><TrendingUp size={18} /> Acciones rápidas</h2>
                 <div className="flex flex-wrap gap-3">
-                    {isMenuItemVisible('consulta') && (
-                        <Link to="/consulta">
+                    {isMenuItemVisible('pacientes') && (
+                        <Link to="/pacientes">
                             <button className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
-                                <Stethoscope size={16} /> Nueva consulta
+                                <Stethoscope size={16} /> Buscar paciente
                             </button>
                         </Link>
                     )}

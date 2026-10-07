@@ -21,7 +21,7 @@ export default function LoginPage() {
         setLoading(true);
         try {
             await login(email, password);
-            navigate('/consulta');
+            navigate('/pacientes');
         } catch (err) {
             console.groupCollapsed('[Login Debug] submit error');
             console.log({
