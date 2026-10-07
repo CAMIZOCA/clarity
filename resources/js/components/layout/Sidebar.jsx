@@ -42,10 +42,11 @@ import client from '../../api/client';
 import { motionTransition, SPRING_SHEET, REDUCED_MOTION_TRANSITION } from '../../utils/motion';
 const primaryLinkClass = 'flex items-center gap-3 rounded-xl px-4 py-3 text-[15px] font-medium transition-colors';
 
-function NavItem({ to, icon: Icon, label, badge, compact = false, onNavigate }) {
+function NavItem({ to, icon: Icon, label, badge, compact = false, end = false, onNavigate }) {
     return (
         <NavLink
             to={to}
+            end={end}
             onClick={onNavigate}
             className={({ isActive }) =>
                 `${primaryLinkClass} ${
@@ -102,8 +103,11 @@ function SidebarContent({ onNavigate, onLogout, isAdmin, canManageSettings, pend
         MENU_ITEM_OPTIONS_BY_SECTION[section]?.some((item) => isMenuItemVisible(item.key));
     const shouldShowSection = (section) => isMenuSectionVisible(section) && hasVisibleItemsInSection(section);
 
+    // La consulta no tiene acceso directo: se abre siempre desde la ficha del
+    // paciente (`/consulta?paciente=ID`), que es donde esta su historial.
     const quickActions = [
-        { to: '/consulta', label: 'Nueva consulta', icon: Stethoscope, section: 'atencion_clinica', item: 'consulta' },
+        // `end`: que no quede resaltado tambien en /pacientes/nuevo.
+        { to: '/pacientes', label: 'Pacientes', icon: Users, section: 'atencion_clinica', item: 'pacientes', end: true },
         { to: '/pacientes/nuevo', label: 'Nuevo paciente', icon: Plus, section: 'atencion_clinica', item: 'pacientes' },
         { to: '/pos', label: 'Nueva venta', icon: ShoppingCart, section: 'operacion_diaria', item: 'pos' },
     ];
@@ -129,6 +133,7 @@ function SidebarContent({ onNavigate, onLogout, isAdmin, canManageSettings, pend
                             to={action.to}
                             icon={action.icon}
                             label={action.label}
+                            end={action.end}
                             compact
                             onNavigate={onNavigate}
                         />
@@ -146,7 +151,6 @@ function SidebarContent({ onNavigate, onLogout, isAdmin, canManageSettings, pend
                 {shouldShowSection('atencion_clinica') && (
                     <Section title="Atencion clinica" icon={Stethoscope} defaultOpen>
                         {isMenuItemVisible('pacientes') && <NavItem to="/pacientes" icon={Users} label="Pacientes" onNavigate={onNavigate} />}
-                        {isMenuItemVisible('consulta') && <NavItem to="/consulta" icon={Stethoscope} label="Consulta" onNavigate={onNavigate} />}
                         {isMenuItemVisible('agenda') && <NavItem to="/agenda" icon={Calendar} label="Agenda" badge={pendingAppointments} onNavigate={onNavigate} />}
                         {isMenuItemVisible('ordenes_trabajo') && <NavItem to="/ordenes-trabajo" icon={ClipboardList} label="Ordenes de trabajo" onNavigate={onNavigate} />}
                         {isMenuItemVisible('lentes_especiales') && <NavItem to="/lentes-especiales" icon={Eye} label="Lentes especiales" onNavigate={onNavigate} />}

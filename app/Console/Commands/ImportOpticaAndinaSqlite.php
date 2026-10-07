@@ -8,6 +8,7 @@ use App\Models\ConsultationOphthalmoscopyModule;
 use App\Models\ConsultationTreatmentModule;
 use App\Models\Patient;
 use App\Models\User;
+use App\Support\LegacyOpticalParser;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Model;
@@ -321,6 +322,10 @@ class ImportOpticaAndinaSqlite extends Command
             'telefono' => $this->limit($this->firstValue($row, ['CLIE_TELEFONO1', 'CLIE_TELEFONO2', 'CLIE_TELEFONO3']), 20),
             'email' => $this->limit($this->validEmail($this->v($row, 'CLIE_CORREO')), 255),
             'antecedentes' => $this->v($row, 'CLIE_ANTECEDENTES'),
+            // "Quien le recomienda" de la ficha del cliente. La primera
+            // importacion no lo trajo; el nombre exacto de la columna no esta
+            // documentado, asi que se busca por patron.
+            'como_nos_conocio' => $this->limit($this->valueMatching($row, '/^CLIE.*RECOM/i'), 500),
             'created_by' => $this->createdBy ?: null,
             'customer_type' => 'particular',
             'preferred_contact' => 'whatsapp',
@@ -366,6 +371,26 @@ class ImportOpticaAndinaSqlite extends Command
         $phOd = $this->mergeFields($this->v($row, 'PH_OD'), $this->v($row, 'PH_OD1'));
         $phOi = $this->mergeFields($this->v($row, 'PH_OI'), $this->v($row, 'PH_OI1'));
 
+        // Las medidas no estan donde dicen las columnas del sistema anterior:
+        // ver LegacyOpticalParser.
+        $rxUso = [];
+        foreach (['od' => 'OD', 'oi' => 'OI'] as $eye => $suffix) {
+            $rxUso[$eye] = LegacyOpticalParser::rxUso(
+                $this->v($row, "RX_EN USO_ESFERA_{$suffix}"),
+                $this->v($row, "RX_EN USO_CILINDRO_{$suffix}"),
+                $this->v($row, "RX_EN USO_EJE_{$suffix}"),
+                $this->v($row, "RX_EN USO_ADD_{$suffix}"),
+                $this->v($row, "RX_EN USO_AVCC_{$suffix}"),
+            );
+        }
+        $retinoscopy = LegacyOpticalParser::retinoscopy(
+            $this->v($row, 'ARK_OD'),
+            $this->v($row, 'ARK_OI'),
+            $this->v($row, 'RETINOSCOPIA_OD'),
+            $this->v($row, 'RETINOSCOPIA_OI'),
+            $this->v($row, 'RETINOSCOPIA_COVER TEST'),
+        );
+
         $consultation->fill([
             'legacy_id' => $legacyId,
             'patient_id' => $patient->id,
@@ -386,8 +411,8 @@ class ImportOpticaAndinaSqlite extends Command
             'avcc_oi' => $this->limit($this->v($row, 'AVCC_LEJOS_IZQUIERDA'), 20),
             'avcc_cerca_od' => $this->limit($this->v($row, 'AVCC_CERCA_DERECHA'), 20),
             'avcc_cerca_oi' => $this->limit($this->v($row, 'AVCC_CERCA_IZQUIERDA'), 20),
-            'retinoscopia_od' => $this->limit($this->v($row, 'RETINOSCOPIA_OD'), 20),
-            'retinoscopia_oi' => $this->limit($this->v($row, 'RETINOSCOPIA_OI'), 20),
+            'retinoscopia_od' => $this->limit($retinoscopy['retinoscopia_od'], 100),
+            'retinoscopia_oi' => $this->limit($retinoscopy['retinoscopia_oi'], 100),
             'retinoscopia_esfera_od' => $this->limit($this->v($row, 'RETINOSCOPIA_ESFERA_OD'), 20),
             'retinoscopia_esfera_oi' => $this->limit($this->v($row, 'RETINOSCOPIA_ESFERA_OI'), 20),
             'retinoscopia_cilindro_od' => $this->limit($this->v($row, 'RETINOSCOPIA_CILINDRO_OD'), 20),
@@ -395,50 +420,50 @@ class ImportOpticaAndinaSqlite extends Command
             'retinoscopia_eje_od' => $this->limit($this->v($row, 'RETINOSCOPIA_EJE_OD'), 20),
             'retinoscopia_eje_oi' => $this->limit($this->v($row, 'RETINOSCOPIA_EJE_OI'), 20),
             'retinoscopia_ppc' => $this->limit($this->v($row, 'RETINOSCOPIA_PPC'), 50),
-            'cover_test' => $this->limit($this->v($row, 'RETINOSCOPIA_COVER TEST'), 100),
-            'rx_uso_esfera_od' => $this->decimal($this->v($row, 'RX_EN USO_ESFERA_OD')),
-            'rx_uso_cilindro_od' => $this->decimal($this->v($row, 'RX_EN USO_CILINDRO_OD')),
-            'rx_uso_eje_od' => $this->integer($this->v($row, 'RX_EN USO_EJE_OD')),
-            'rx_uso_add_od' => $this->decimal($this->v($row, 'RX_EN USO_ADD_OD')),
-            'rx_uso_avcc_od' => $this->limit($this->v($row, 'RX_EN USO_AVCC_OD'), 20),
-            'rx_uso_esfera_oi' => $this->decimal($this->v($row, 'RX_EN USO_ESFERA_OI')),
-            'rx_uso_cilindro_oi' => $this->decimal($this->v($row, 'RX_EN USO_CILINDRO_OI')),
-            'rx_uso_eje_oi' => $this->integer($this->v($row, 'RX_EN USO_EJE_OI')),
-            'rx_uso_add_oi' => $this->decimal($this->v($row, 'RX_EN USO_ADD_OI')),
-            'rx_uso_avcc_oi' => $this->limit($this->v($row, 'RX_EN USO_AVCC_OI'), 20),
-            'subj_esfera_od' => $this->decimal($this->v($row, 'RXPARCIAL_ESFERA_OD')),
-            'subj_cilindro_od' => $this->decimal($this->v($row, 'RXPARCIAL_CILINDRO_OD')),
+            'cover_test' => $this->limit($retinoscopy['cover_test'], 100),
+            'rx_uso_esfera_od' => $rxUso['od']['esfera'],
+            'rx_uso_cilindro_od' => $rxUso['od']['cilindro'],
+            'rx_uso_eje_od' => $rxUso['od']['eje'],
+            'rx_uso_add_od' => $rxUso['od']['add'],
+            'rx_uso_avcc_od' => $this->limit($rxUso['od']['avcc'], 20),
+            'rx_uso_esfera_oi' => $rxUso['oi']['esfera'],
+            'rx_uso_cilindro_oi' => $rxUso['oi']['cilindro'],
+            'rx_uso_eje_oi' => $rxUso['oi']['eje'],
+            'rx_uso_add_oi' => $rxUso['oi']['add'],
+            'rx_uso_avcc_oi' => $this->limit($rxUso['oi']['avcc'], 20),
+            'subj_esfera_od' => LegacyOpticalParser::diopter($this->v($row, 'RXPARCIAL_ESFERA_OD')),
+            'subj_cilindro_od' => LegacyOpticalParser::diopter($this->v($row, 'RXPARCIAL_CILINDRO_OD')),
             'subj_eje_od' => $this->integer($this->v($row, 'RXPARCIAL_EJE_OD')),
             'subj_avl_od' => $this->limit($this->v($row, 'RXPARCIAL_AVL_OD'), 20),
             'subj_add_od' => $this->limit($this->v($row, 'RXPARCIAL_ADD_OD'), 20),
             'subj_avc_od' => $this->limit($this->v($row, 'RXPARCIAL_AVC_OD'), 20),
-            'subj_esfera_oi' => $this->decimal($this->v($row, 'RXPARCIAL_ESFERA_OI')),
-            'subj_cilindro_oi' => $this->decimal($this->v($row, 'RXPARCIAL_CILINDRO_OI')),
+            'subj_esfera_oi' => LegacyOpticalParser::diopter($this->v($row, 'RXPARCIAL_ESFERA_OI')),
+            'subj_cilindro_oi' => LegacyOpticalParser::diopter($this->v($row, 'RXPARCIAL_CILINDRO_OI')),
             'subj_eje_oi' => $this->integer($this->v($row, 'RXPARCIAL_EJE_OI')),
             'subj_avl_oi' => $this->limit($this->v($row, 'RXPARCIAL_AVL_OI'), 20),
             'subj_add_oi' => $this->limit($this->v($row, 'RXPARCIAL_ADD_OI'), 20),
             'subj_avc_oi' => $this->limit($this->v($row, 'RXPARCIAL_AVC_OI'), 20),
             'subj_dp' => $this->limit($this->v($row, 'RXPARCIAL_DP'), 20),
-            'rx_final_esfera_od' => $this->decimal($this->v($row, 'RX_FINAL_OD_ESFRERA')),
-            'rx_final_cilindro_od' => $this->decimal($this->v($row, 'RX_FINAL_OD_CILINDRO')),
+            'rx_final_esfera_od' => LegacyOpticalParser::diopter($this->v($row, 'RX_FINAL_OD_ESFRERA')),
+            'rx_final_cilindro_od' => LegacyOpticalParser::diopter($this->v($row, 'RX_FINAL_OD_CILINDRO')),
             'rx_final_eje_od' => $this->integer($this->v($row, 'RX_FINAL_OD_EJE')),
-            'rx_final_add_od' => $this->decimal($this->v($row, 'RX_FINAL_OD_ADD')),
+            'rx_final_add_od' => LegacyOpticalParser::diopter($this->v($row, 'RX_FINAL_OD_ADD')),
             'rx_final_avl_od' => $this->limit($this->v($row, 'RX_FINAL_OD_AVL'), 20),
             'rx_final_dnp_od' => $this->limit($this->v($row, 'RX_FINAL_DNP_OD'), 20),
-            'rx_final_esfera_oi' => $this->decimal($this->v($row, 'RX_FINAL_OI_ESFRERA')),
-            'rx_final_cilindro_oi' => $this->decimal($this->v($row, 'RX_FINAL_OI_CILINDRO')),
+            'rx_final_esfera_oi' => LegacyOpticalParser::diopter($this->v($row, 'RX_FINAL_OI_ESFRERA')),
+            'rx_final_cilindro_oi' => LegacyOpticalParser::diopter($this->v($row, 'RX_FINAL_OI_CILINDRO')),
             'rx_final_eje_oi' => $this->integer($this->v($row, 'RX_FINAL_OI_EJE')),
-            'rx_final_add_oi' => $this->decimal($this->v($row, 'RX_FINAL_OI_ADD')),
+            'rx_final_add_oi' => LegacyOpticalParser::diopter($this->v($row, 'RX_FINAL_OI_ADD')),
             'rx_final_avl_oi' => $this->limit($this->v($row, 'RX_FINAL_OI_AVL'), 20),
             'rx_final_dnp_oi' => $this->limit($this->v($row, 'RX_FINAL_DNP_OIZ'), 20),
-            'vc_esfera_od' => $this->decimal($this->v($row, 'VISION_CERCA_ESFERA_OD')),
-            'vc_cilindro_od' => $this->decimal($this->v($row, 'VISION_CERCA_Cyl_OD')),
+            'vc_esfera_od' => LegacyOpticalParser::diopter($this->v($row, 'VISION_CERCA_ESFERA_OD')),
+            'vc_cilindro_od' => LegacyOpticalParser::diopter($this->v($row, 'VISION_CERCA_Cyl_OD')),
             'vc_eje_od' => $this->integer($this->v($row, 'VISION_CERCA_EJE_OD')),
             'vc_av_od' => $this->limit($this->v($row, 'VISION_CERCA_AV_OD'), 20),
             'vc_dnp_od' => $this->limit($this->v($row, 'VISION_CERCA_DNP_OD'), 20),
             'vc_avcc_od' => $this->limit($this->v($row, 'VISION_CERCA_AVCC OD'), 20),
-            'vc_esfera_oi' => $this->decimal($this->v($row, 'VISION_CERCA_ESFERA_OI')),
-            'vc_cilindro_oi' => $this->decimal($this->v($row, 'VISION_CERCA_Cyl_OI')),
+            'vc_esfera_oi' => LegacyOpticalParser::diopter($this->v($row, 'VISION_CERCA_ESFERA_OI')),
+            'vc_cilindro_oi' => LegacyOpticalParser::diopter($this->v($row, 'VISION_CERCA_Cyl_OI')),
             'vc_eje_oi' => $this->integer($this->v($row, 'VISION_CERCA_EJE_OI')),
             'vc_av_oi' => $this->limit($this->v($row, 'VISION_CERCA_AV_OI'), 20),
             'vc_dnp_oi' => $this->limit($this->v($row, 'VISION_CERCA_DNP_OI'), 20),
@@ -456,8 +481,8 @@ class ImportOpticaAndinaSqlite extends Command
             'queratometria_calificacion' => $this->limit($this->v($row, 'QUERATOMETRIA_CALIFICACION'), 50),
             'examen_externo_od' => $this->v($row, 'EXAMEN_INTERNO_OD'),
             'examen_externo_oi' => $this->v($row, 'EXAMEN_INTERNO_OI'),
-            'ark_od' => $this->limit($this->v($row, 'ARK_OD'), 50),
-            'ark_oi' => $this->limit($this->v($row, 'ARK_OI'), 50),
+            'ark_od' => $this->limit($retinoscopy['ark_od'], 50),
+            'ark_oi' => $this->limit($retinoscopy['ark_oi'], 50),
             'morfoscopica_lejos_od' => $this->limit($this->v($row, 'MORFOSCOPICA_LEJOS_OD'), 50),
             'morfoscopica_lejos_oi' => $this->limit($this->v($row, 'MORFOSCOPICA_LEJOS_OI'), 50),
             'morfoscopica_cerca_od' => $this->limit($this->v($row, 'MORFOSCOPICA_CERCA_OD'), 50),
@@ -931,6 +956,18 @@ class ImportOpticaAndinaSqlite extends Command
         return count($digits[0]) >= 5 || preg_match('/[A-Za-z]/', $value) === 1;
     }
 
+    /** Primer valor no vacio entre las columnas cuyo nombre cumple el patron. */
+    private function valueMatching(array $row, string $pattern): ?string
+    {
+        foreach (array_keys($row) as $key) {
+            if (preg_match($pattern, (string) $key) === 1 && ($value = $this->v($row, $key)) !== null) {
+                return $value;
+            }
+        }
+
+        return null;
+    }
+
     private function firstValue(array $row, array $keys): ?string
     {
         foreach ($keys as $key) {
@@ -968,6 +1005,13 @@ class ImportOpticaAndinaSqlite extends Command
             if ($value !== null) {
                 $notes[] = "{$label}: {$value}";
             }
+        }
+
+        // "Diagnostico" de la ficha del cliente: aqui el diagnostico va en cada
+        // consulta, asi que el de la ficha se conserva como nota.
+        $diagnosis = $this->valueMatching($row, '/^CLIE.*DIAG/i');
+        if ($diagnosis !== null) {
+            $notes[] = "Diagnostico (ficha del cliente): {$diagnosis}";
         }
 
         return implode("\n", $notes);

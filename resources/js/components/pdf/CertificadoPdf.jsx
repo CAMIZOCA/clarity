@@ -7,6 +7,7 @@ import { useSettings } from '../../contexts/SettingsContext';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { parseDate } from '../../utils/dates';
+import { formatOpticalForInput } from '../../utils/opticalFormat';
 
 const RX_COLS = [
     { key: 'rx_final_esfera', label: 'ESFERA' },
@@ -19,6 +20,16 @@ const RX_COLS = [
     { key: 'rx_final_dnp', label: 'DNP/DP' },
 ];
 
+// Medidas que se imprimen con signo explicito ("+0.75", "-0.25").
+const SIGNED_RX_KEYS = new Set(['rx_final_esfera', 'rx_final_cilindro', 'rx_final_add']);
+
+// Modelos de certificado. El escolar/vehicular es identico al general, pero no
+// muestra la RX final. Las claves son las de `Certificate::TIPOS`.
+const CERTIFICATE_TYPES = [
+    { key: 'general', label: 'General', showRx: true },
+    { key: 'escolar_vehicular', label: 'Escolar / Vehicular (sin RX final)', showRx: false },
+];
+
 const NAVY = '#1a2a4a';
 const BLUE = '#2f6db5';
 
@@ -26,7 +37,40 @@ function val(v) {
     return v === null || v === undefined || v === '' ? '' : String(v);
 }
 
-function PdfContent({ data, settings, logoUrl, doctor }) {
+/** Valor de una celda de la RX final: la esfera neutra va como "N". */
+function rxCell(consultation, key, eye) {
+    if (key === 'rx_final_esfera' && consultation[`${key}_${eye}_neutral`]) return 'N';
+    const value = consultation[`${key}_${eye}`];
+    return SIGNED_RX_KEYS.has(key) ? formatOpticalForInput(value) : val(value);
+}
+
+/** Nombre comparable: sin tildes, sin tratamiento ("Opt.", "Dr.") ni puntuacion. */
+function comparableName(name) {
+    return String(name ?? '')
+        .normalize('NFD').replace(/[̀-ͯ]/g, '')
+        .toLowerCase()
+        .replace(/\b(opt|dra?|doc|lic|md)\b\.?/g, ' ')
+        .replace(/[^a-z\s]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+/**
+ * Doctor certificador que corresponde al medico de la consulta: primero el
+ * vinculado a su usuario y, si nadie lo esta, el que se llama igual.
+ */
+function doctorForConsultation(doctors, consultationDoctor) {
+    if (!consultationDoctor?.id) return null;
+
+    const linked = doctors.find(d => String(d.user_id ?? '') === String(consultationDoctor.id));
+    if (linked) return linked;
+
+    const target = comparableName(consultationDoctor.name);
+    if (!target) return null;
+    return doctors.find(d => !d.user_id && comparableName(d.nombre) === target) ?? null;
+}
+
+function PdfContent({ data, settings, logoUrl, doctor, showRx = true }) {
     const c = data?.consultation ?? data ?? {};
     const patient = data?.patient ?? c.patient ?? {};
     const diagnoses = c.diagnoses ?? data?.diagnoses ?? [];
@@ -62,15 +106,17 @@ function PdfContent({ data, settings, logoUrl, doctor }) {
 
     return (
         <div id="pdf-content" style={{ fontFamily: 'Arial, sans-serif', fontSize: '12px', color: '#111', background: '#fff', padding: '28px 34px', maxWidth: '820px', margin: '0 auto' }}>
-            {/* Encabezado con logo */}
+            {/* Encabezado: el logo ya identifica a la clinica, asi que el nombre
+                y el eslogan en texto solo van cuando no hay logo cargado. */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '6px' }}>
-                {logoUrl && (
+                {logoUrl ? (
                     <img src={logoUrl} alt="Logo" style={{ height: '70px', objectFit: 'contain' }} crossOrigin="anonymous" />
+                ) : (
+                    <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: '18px', fontWeight: 'bold', color: NAVY }}>{settings.clinic_name}</div>
+                        {settings.clinic_tagline && <div style={{ fontSize: '11px', color: '#666' }}>{settings.clinic_tagline}</div>}
+                    </div>
                 )}
-                <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '18px', fontWeight: 'bold', color: NAVY }}>{settings.clinic_name}</div>
-                    {settings.clinic_tagline && <div style={{ fontSize: '11px', color: '#666' }}>{settings.clinic_tagline}</div>}
-                </div>
             </div>
 
             {/* Título */}
@@ -132,7 +178,7 @@ function PdfContent({ data, settings, logoUrl, doctor }) {
             )}
 
             {/* RX Final */}
-            {hasRx && (
+            {showRx && hasRx && (
                 <div style={{ marginBottom: '16px' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <thead>
@@ -146,7 +192,7 @@ function PdfContent({ data, settings, logoUrl, doctor }) {
                             {['od', 'oi'].map(eye => (
                                 <tr key={eye}>
                                     <td style={{ ...td, fontWeight: 'bold' }}>{eye === 'od' ? 'O.D' : 'O.I'}</td>
-                                    {RX_COLS.map(col => <td key={col.key} style={td}>{val(c[`${col.key}_${eye}`])}</td>)}
+                                    {RX_COLS.map(col => <td key={col.key} style={td}>{rxCell(c, col.key, eye)}</td>)}
                                 </tr>
                             ))}
                         </tbody>
@@ -200,18 +246,36 @@ function PdfContent({ data, settings, logoUrl, doctor }) {
     );
 }
 
-export default function CertificadoPdf({ data, onClose }) {
+/**
+ * @param {object} data - respuesta de `/consultations/{id}/pdf-data`
+ * @param {{id: number|string, name: string}|null} [consultationDoctor] - medico
+ *   elegido en la cabecera clinica del formulario. `data` trae lo guardado, y el
+ *   medico pudo cambiarse sin guardar; si no se pasa, se usa el de `data`.
+ */
+export default function CertificadoPdf({ data, onClose, consultationDoctor }) {
     const { settings, logoUrl } = useSettings();
     const { addToast } = useToast();
 
     const doctors = data?.certifying_doctors ?? [];
+    const attendingDoctor = consultationDoctor !== undefined
+        ? consultationDoctor
+        : (data?.optometrista ? { id: data.optometrista.id, name: data.optometrista.name } : null);
+    const matchedDoctor = useMemo(
+        () => doctorForConsultation(doctors, attendingDoctor),
+        [doctors, attendingDoctor?.id, attendingDoctor?.name]
+    );
+
+    // Firma quien atendio la consulta; el predeterminado es solo el respaldo.
     const defaultDoctorId = useMemo(() => {
-        const def = doctors.find(d => d.is_default) ?? doctors[0];
+        const def = matchedDoctor ?? doctors.find(d => d.is_default) ?? doctors[0];
         return def ? String(def.id) : '';
-    }, [doctors]);
+    }, [doctors, matchedDoctor]);
 
     const [doctorId, setDoctorId] = useState(defaultDoctorId);
     const selectedDoctor = doctors.find(d => String(d.id) === String(doctorId)) ?? null;
+
+    const [typeKey, setTypeKey] = useState(CERTIFICATE_TYPES[0].key);
+    const certificateType = CERTIFICATE_TYPES.find(t => t.key === typeKey) ?? CERTIFICATE_TYPES[0];
 
     const patient = data?.patient ?? data?.consultation?.patient ?? {};
     const [email, setEmail] = useState(patient.email || '');
@@ -220,10 +284,13 @@ export default function CertificadoPdf({ data, onClose }) {
 
     const consultationId = data?.consultation?.id ?? data?.consultation_id ?? null;
     const numero = data?.consultation?.numero_consulta || 'consulta';
+    const fileName = certificateType.key === 'general'
+        ? `certificado_${numero}.pdf`
+        : `certificado_${certificateType.key}_${numero}.pdf`;
 
     const pdfOptions = () => ({
         margin: 8,
-        filename: `certificado_${numero}.pdf`,
+        filename: fileName,
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: { scale: 2, useCORS: true },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
@@ -242,7 +309,8 @@ export default function CertificadoPdf({ data, onClose }) {
         if (!consultationId) return;
         const fd = new FormData();
         fd.append('consultation_id', consultationId);
-        fd.append('pdf', blob, `certificado_${numero}.pdf`);
+        fd.append('pdf', blob, fileName);
+        fd.append('tipo', certificateType.key);
         if (selectedDoctor) fd.append('certifying_doctor_id', selectedDoctor.id);
         if (email) fd.append('recipient_email', email);
         fd.append('send', send ? '1' : '0');
@@ -280,7 +348,7 @@ export default function CertificadoPdf({ data, onClose }) {
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `certificado_${numero}.pdf`;
+            a.download = fileName;
             a.click();
             URL.revokeObjectURL(url);
             // Guardar copia en la base de datos.
@@ -311,10 +379,21 @@ export default function CertificadoPdf({ data, onClose }) {
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 px-6 py-4 shrink-0">
                     <h2 className="text-lg font-semibold text-gray-900">Certificado visual</h2>
                     <div className="flex flex-wrap items-center gap-2">
+                        <select
+                            value={typeKey}
+                            onChange={e => setTypeKey(e.target.value)}
+                            aria-label="Modelo de certificado"
+                            title="Modelo de certificado"
+                            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]"
+                        >
+                            {CERTIFICATE_TYPES.map(t => <option key={t.key} value={t.key}>{t.label}</option>)}
+                        </select>
                         {doctors.length > 0 && (
                             <select
                                 value={doctorId}
                                 onChange={e => setDoctorId(e.target.value)}
+                                aria-label="Doctor que firma"
+                                title="Doctor que firma"
                                 className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]"
                             >
                                 {doctors.map(d => <option key={d.id} value={d.id}>{d.nombre}</option>)}
@@ -348,10 +427,17 @@ export default function CertificadoPdf({ data, onClose }) {
                     </div>
                 )}
 
+                {doctors.length > 0 && attendingDoctor?.id && !matchedDoctor && (
+                    <div className="bg-amber-50 border-b border-amber-200 px-6 py-2 text-xs text-amber-800">
+                        El médico de la consulta ({attendingDoctor.name}) no tiene un doctor certificador vinculado:
+                        se propone el predeterminado. Vincúlalo en Configuración → Doctores.
+                    </div>
+                )}
+
                 {/* Preview */}
                 <div className="flex-1 overflow-y-auto bg-gray-100 p-4">
                     <div className="shadow-lg">
-                        <PdfContent data={data} settings={settings} logoUrl={logoUrl} doctor={selectedDoctor} />
+                        <PdfContent data={data} settings={settings} logoUrl={logoUrl} doctor={selectedDoctor} showRx={certificateType.showRx} />
                     </div>
                 </div>
             </div>

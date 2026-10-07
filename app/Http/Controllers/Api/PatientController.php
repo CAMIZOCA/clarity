@@ -97,6 +97,21 @@ class PatientController extends Controller
         return response()->json($consultations);
     }
 
+    /**
+     * RX final de las ultimas consultas, para copiarla a "RX en uso".
+     * GET /api/patients/{patient}/rx-history?exclude={consultaId}&limit=5
+     */
+    public function rxHistory(Request $request, Patient $patient): JsonResponse
+    {
+        $history = $this->patientService->rxHistory(
+            $patient,
+            $request->integer('exclude') ?: null,
+            $request->integer('limit') ?: PatientService::RX_HISTORY_LIMIT,
+        );
+
+        return response()->json(['data' => $history]);
+    }
+
     public function lastConsultation(Patient $patient): JsonResponse
     {
         $consultation = $patient->consultations()

@@ -78,6 +78,70 @@ class CertificateTest extends TestCase
         Storage::disk('public')->assertExists($certificate->pdf_path);
     }
 
+    public function test_certificate_defaults_to_the_general_model(): void
+    {
+        Sanctum::actingAs($this->userWith(Permission::CONSULTATIONS_PDF->value));
+        $consultation = $this->makeConsultation();
+
+        $this->post('/api/certificates', [
+            'consultation_id' => $consultation->id,
+            'pdf' => $this->pdf(),
+        ])->assertCreated();
+
+        $this->assertSame(Certificate::TIPO_GENERAL, Certificate::first()->tipo);
+    }
+
+    public function test_school_and_vehicle_model_is_stored(): void
+    {
+        Sanctum::actingAs($this->userWith(Permission::CONSULTATIONS_PDF->value));
+        $consultation = $this->makeConsultation();
+
+        $this->post('/api/certificates', [
+            'consultation_id' => $consultation->id,
+            'tipo' => Certificate::TIPO_ESCOLAR_VEHICULAR,
+            'pdf' => $this->pdf(),
+        ])->assertCreated();
+
+        $this->assertSame(Certificate::TIPO_ESCOLAR_VEHICULAR, Certificate::first()->tipo);
+
+        $this->getJson('/api/certificates?patient_id='.$consultation->patient_id)
+            ->assertOk()
+            ->assertJsonPath('data.0.tipo', Certificate::TIPO_ESCOLAR_VEHICULAR);
+    }
+
+    public function test_unknown_certificate_model_is_rejected(): void
+    {
+        Sanctum::actingAs($this->userWith(Permission::CONSULTATIONS_PDF->value));
+        $consultation = $this->makeConsultation();
+
+        $this->post('/api/certificates', [
+            'consultation_id' => $consultation->id,
+            'tipo' => 'laboral',
+            'pdf' => $this->pdf(),
+        ], ['Accept' => 'application/json'])->assertStatus(422);
+    }
+
+    public function test_certifying_doctor_can_be_linked_to_a_system_user(): void
+    {
+        Sanctum::actingAs($this->userWith(Permission::SETTINGS_EDIT->value));
+        $optometrist = User::factory()->create();
+
+        $this->postJson('/api/certifying-doctors', [
+            'nombre' => 'Ramiro López',
+            'user_id' => $optometrist->id,
+        ])->assertCreated();
+
+        $doctor = CertifyingDoctor::first();
+        $this->assertSame($optometrist->id, $doctor->user_id);
+
+        $this->putJson("/api/certifying-doctors/{$doctor->id}", [
+            'nombre' => 'Ramiro López',
+            'user_id' => null,
+        ])->assertOk();
+
+        $this->assertNull($doctor->fresh()->user_id);
+    }
+
     public function test_certificate_is_emailed_when_send_is_requested(): void
     {
         Mail::fake();

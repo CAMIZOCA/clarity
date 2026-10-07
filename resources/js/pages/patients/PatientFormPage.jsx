@@ -134,7 +134,7 @@ export default function PatientFormPage() {
                     </div>
                     <div className="md:col-span-2">
                         <Input
-                            label="¿Cómo nos conoció?"
+                            label="Quién le recomienda / ¿cómo nos conoció?"
                             placeholder="Recomendación de un conocido, redes sociales, pasaba por el local..."
                             hint="Texto libre: anote lo que indique el paciente."
                             nextFieldId="antecedentes"

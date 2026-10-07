@@ -30,7 +30,7 @@ const sections = [
             'Si acabas de entrar al sistema, empieza por ubicarte en el panel principal y luego abre el area que necesites segun tu trabajo del dia.',
         bullets: [
             'Busca primero al paciente o registralo si es nuevo.',
-            'Usa Consulta para dejar la atencion clinica completa.',
+            'Abre la consulta desde la ficha del paciente (boton "Nueva Consulta") para dejar la atencion clinica completa.',
             'Revisa Agenda si necesitas programar o confirmar citas.',
             'Entra a Inventario, Ventas, Caja o Laboratorio si tu trabajo es operativo.',
             'La ayuda puede consultarse en cualquier momento desde el menu lateral.',
@@ -72,6 +72,7 @@ const sections = [
         summary:
             'Este es el espacio donde registras la atencion clinica. Esta pensado para que el proceso sea ordenado y facil de seguir.',
         bullets: [
+            'La consulta se abre desde la ficha del paciente: busca al paciente en Pacientes y pulsa "Nueva Consulta", o abre una consulta anterior desde su historial.',
             'Registrar el paciente atendido, el profesional y la fecha.',
             'Guardar datos clinicos, diagnosticos y recomendaciones.',
             'Completar medidas, observaciones y prescripcion cuando aplique.',
@@ -314,7 +315,7 @@ function HelpPage() {
                 </div>
                 <div className="rounded-xl bg-white px-4 py-3 shadow-sm">
                     <p className="font-semibold text-slate-900">2. Registra la atencion</p>
-                    <p className="mt-1">Usa Consulta para dejar la informacion clinica organizada.</p>
+                    <p className="mt-1">Desde la ficha del paciente, pulsa "Nueva Consulta" para dejar la informacion clinica organizada.</p>
                 </div>
                 <div className="rounded-xl bg-white px-4 py-3 shadow-sm">
                     <p className="font-semibold text-slate-900">3. Revisa la operacion</p>

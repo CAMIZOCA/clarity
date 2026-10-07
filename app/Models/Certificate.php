@@ -8,12 +8,20 @@ use Illuminate\Support\Facades\Storage;
 
 class Certificate extends Model
 {
+    public const TIPO_GENERAL = 'general';
+
+    /** Certificado escolar o vehicular: igual al general, sin RX final. */
+    public const TIPO_ESCOLAR_VEHICULAR = 'escolar_vehicular';
+
+    public const TIPOS = [self::TIPO_GENERAL, self::TIPO_ESCOLAR_VEHICULAR];
+
     protected $fillable = [
         'consultation_id',
         'patient_id',
         'branch_id',
         'certifying_doctor_id',
         'numero_consulta',
+        'tipo',
         'pdf_path',
         'recipient_email',
         'subject',

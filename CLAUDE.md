@@ -83,6 +83,11 @@ y `2026_08_08_000001`, que recreo columnas que un ALTER anterior no llego a crea
 **Toda columna nueva en `consultations` debe ser `TEXT`, nunca `VARCHAR`** — TEXT solo ocupa un
 puntero en la fila. Las tablas hijas no tienen esta restriccion.
 
+Las columnas que siguen siendo VARCHAR tienen otra trampa: SQLite no impone la longitud y
+MariaDB si. `retinoscopia_od/oi` eran VARCHAR(20) con `max:100` en la validacion, y una
+retinoscopia de 24 caracteres abortaba el guardado solo en produccion (corregido en
+`2026_10_07_000002`). El `max:` de `StoreConsultationRequest` nunca puede superar el VARCHAR.
+
 ### 3. `ConsultationController::extraFields()` es una lista blanca manual
 
 Un campo nuevo de consulta necesita estar en **tres** sitios o se descarta en silencio al guardar:
@@ -157,6 +162,8 @@ normal, que si se registra antes.
 `.env` tiene `SESSION_DOMAIN=sistemaclinico.test`. Servir con `php artisan serve` en
 `localhost:8000` hace que la cookie nunca llegue y **todo `/api/*` responde 401**, lo que parece
 un bug de la app. Probar siempre en `http://sistemaclinico.test` (vhost de Laragon).
+Con Laragon apagado, la configuracion `app-sin-vhost` de `.claude/launch.json` levanta
+`localhost:8000` con `SESSION_DOMAIN=null`, que si conserva la sesion.
 Si sobra un `public/hot` de un `npm run dev` muerto, borrarlo o los assets dan 404.
 
 ### 12. Contifico: el token viaja en la URL
@@ -189,6 +196,40 @@ Ahora el autoguardado solo trae las columnas planas que el servidor asigna o nor
 modulos/filas. El `reset()` completo queda para el guardado manual, y solo si nadie escribio
 entretanto. Los guardados van en serie (`doSave` encola): dos a la vez duplicaban la consulta.
 
+### 14. Las consultas importadas no guardan lo que dicen sus columnas
+
+El sistema anterior de Optica Andina escribia las dioptrias sin punto ("+300" es +3.00) y usaba
+varios campos para otra cosa. La importacion lo copio literal, asi que en las consultas con
+`legacy_id`:
+
+- esfera, cilindro y ADD de `rx_final_*`, `subj_*` y `vc_*` estan multiplicados por 100;
+- en RX en uso la esfera esta en `eje`, y `esfera` trae un 20 residual (de una AV "20/20");
+- `ark_*` (rotulado "Queratometria") trae la refraccion, que aqui es la Retinoscopia, y
+  `retinoscopia_*` trae el cover test ("ORTHO", "X").
+
+`php artisan consultations:repair-legacy-import` lo corrige (`LegacyConsultationRepairService`).
+Correr siempre primero con `--dry-run`: imprime ejemplos antes/despues para validar con la
+optica. Cada cambio queda en `consultation_legacy_repairs` con el valor anterior; eso permite
+`--revert` y evita que una segunda pasada divida dos veces (2500 -> 25.00 -> 0.25). La regla
+`subj` (esfera del subjetivo en la columna cilindro) no esta confirmada y solo corre con
+`--only=subj`. **No esta aplicado en ninguna instancia todavia**: hasta entonces la BD local
+sigue mostrando esferas de -500.
+
+Los importadores leen esas columnas con `App\Support\LegacyOpticalParser`; una importacion
+nueva no debe volver a usar `decimal()` sobre una medida optica.
+
+### 15. El service worker no puede cachear datos
+
+`public/sw.js` solo se registra con build de produccion y en contexto seguro (HTTPS o
+`localhost`), asi que en `http://sistemaclinico.test` no corre y el fallo no se ve en desarrollo.
+Aplicaba "cache primero" a **todo** GET del mismo origen, `/api/*` y `/me` incluidos: cada
+pantalla mostraba la respuesta anterior (una consulta recien guardada se reabria con los valores
+viejos, y guardarla otra vez los reescribia) y `/me` devolvia un usuario despues de cerrar sesion.
+
+`/api/`, `/sanctum/`, `/storage/`, `/me`, `/login` y `/logout` van siempre a la red
+(`isNetworkOnly`). Un endpoint de datos fuera de `/api/` hay que agregarlo ahi, y cualquier
+cambio de estrategia exige subir `CACHE_NAME` para purgar lo ya guardado en los navegadores.
+
 ---
 
 ## Convenciones
@@ -207,6 +248,13 @@ entretanto. Los guardados van en serie (`doSave` encola): dos a la vez duplicaba
   el `<form>`. Ahi Enter ya no envia el formulario: lleva al boton de guardar. El borde ambar del
   campo activo es una regla **sin capa** en `app.css`, asi que un `focus:outline-*` de Tailwind
   no la pisa.
+- **Medidas opticas**: esfera, cilindro y ADD se muestran con signo explicito y dos decimales
+  ("+0.75", "-0.25"). Las columnas son `decimal` y no guardan el "+": al cargar un valor en un
+  input o en un PDF usar `formatOpticalForInput` (`resources/js/utils/opticalFormat.js`). Un
+  cilindro tecleado sin signo se vuelve negativo solo en el formulario; `OpticalValueNormalizer`
+  (PHP) respeta el signo recibido a proposito, para no invertir un valor ya guardado.
+- **La consulta se abre desde el paciente**: no hay item "Consulta" en el menu. Las rutas
+  `/consulta?paciente=ID` y `/consulta/:id` siguen existiendo y son las que usa la ficha.
 - **Servicios**: los controladores delegan en `app/Services/`. La logica de negocio no va en el controlador.
 - **Permisos**: Spatie. Roles en `app/Enums/Role.php`, permisos en `app/Enums/Permission.php`.
   `user.roles` es un array de **strings** (`['admin']`), no de objetos.

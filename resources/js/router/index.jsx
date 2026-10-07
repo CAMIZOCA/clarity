@@ -84,7 +84,7 @@ function RootRoute() {
 function PublicRoute({ children }) {
     const { user, loading } = useAuth();
     if (loading) return <Loader />;
-    if (user) return <Navigate to="/consulta" replace />;
+    if (user) return <Navigate to="/pacientes" replace />;
     return children;
 }
 

@@ -39,6 +39,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('patients', PatientController::class);
     Route::get('/patients/{patient}/consultations', [PatientController::class, 'consultations']);
     Route::get('/patients/{patient}/last-consultation', [PatientController::class, 'lastConsultation']);
+    Route::get('/patients/{patient}/rx-history', [PatientController::class, 'rxHistory']);
 
     // Consultations
     Route::get('/consultations-meta', ConsultationMetaController::class);

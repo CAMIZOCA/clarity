@@ -1,4 +1,14 @@
-const CACHE_NAME = 'clarity-shell-v1';
+// v2: la v1 guardaba tambien respuestas de la API; cambiar el nombre las purga.
+const CACHE_NAME = 'clarity-shell-v2';
+
+// Datos y sesion: siempre de la red. Con "cache primero" cada pantalla mostraba
+// la respuesta anterior (una consulta recien guardada se reabria con los valores
+// viejos) y `/me` seguia devolviendo un usuario despues de cerrar sesion.
+const NETWORK_ONLY_PREFIXES = ['/api/', '/sanctum/', '/storage/'];
+const NETWORK_ONLY_PATHS = ['/me', '/login', '/logout'];
+
+const isNetworkOnly = (pathname) =>
+    NETWORK_ONLY_PATHS.includes(pathname) || NETWORK_ONLY_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 const PRECACHE_URLS = [
     '/',
     '/login',
@@ -79,6 +89,11 @@ self.addEventListener('fetch', (event) => {
             })(),
         );
 
+        return;
+    }
+
+    // Sin `respondWith` el navegador hace la peticion normal, sin cache.
+    if (isNetworkOnly(url.pathname)) {
         return;
     }
 

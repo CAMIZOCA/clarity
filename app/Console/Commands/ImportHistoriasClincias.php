@@ -8,6 +8,7 @@ use App\Models\ConsultationOphthalmoscopyModule;
 use App\Models\ConsultationTreatmentModule;
 use App\Models\Patient;
 use App\Models\User;
+use App\Support\LegacyOpticalParser;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use PhpOffice\PhpSpreadsheet\IOFactory;
@@ -186,7 +187,7 @@ class ImportHistoriasClincias extends Command
         $phOd = $this->mergeFields($this->val($row, $colIndex, 'PH_OD'), $this->val($row, $colIndex, 'PH_OD1'));
         $phOi = $this->mergeFields($this->val($row, $colIndex, 'PH_OI'), $this->val($row, $colIndex, 'PH_OI1'));
 
-        $consultation = Consultation::create([
+        $consultation = Consultation::create(array_merge([
             'legacy_id'          => $legacyId,
             'patient_id'         => $patient->id,
             'optometrista_id'    => $optometristaId,
@@ -330,7 +331,7 @@ class ImportHistoriasClincias extends Command
 
             // Texto libre
             'observaciones' => $this->val($row, $colIndex, 'OBSERVACIONES'),
-        ]);
+        ], $this->legacyOpticalAttributes($row, $colIndex)));
 
         // Módulo de lente de contacto (si hay datos)
         $this->createContactLensModule($consultation, $row, $colIndex);
@@ -447,6 +448,49 @@ class ImportHistoriasClincias extends Command
     }
 
     // Obtener valor de la fila por nombre de columna (colIndex mapea nombre→letra)
+    /**
+     * Medidas que en el sistema anterior no estan escritas ni ubicadas como
+     * dicen sus columnas (ver LegacyOpticalParser). Pisan las lecturas crudas
+     * del arreglo principal.
+     */
+    private function legacyOpticalAttributes(array $row, array $colIndex): array
+    {
+        $attributes = [];
+
+        foreach ([
+            'subj_esfera_od' => 'RXPARCIAL_ESFERA_OD', 'subj_cilindro_od' => 'RXPARCIAL_CILINDRO_OD',
+            'subj_esfera_oi' => 'RXPARCIAL_ESFERA_OI', 'subj_cilindro_oi' => 'RXPARCIAL_CILINDRO_OI',
+            'rx_final_esfera_od' => 'RX_FINAL_OD_ESFRERA', 'rx_final_cilindro_od' => 'RX_FINAL_OD_CILINDRO', 'rx_final_add_od' => 'RX_FINAL_OD_ADD',
+            'rx_final_esfera_oi' => 'RX_FINAL_OI_ESFRERA', 'rx_final_cilindro_oi' => 'RX_FINAL_OI_CILINDRO', 'rx_final_add_oi' => 'RX_FINAL_OI_ADD',
+            'vc_esfera_od' => 'VISION_CERCA_ESFERA_OD', 'vc_cilindro_od' => 'VISION_CERCA_Cyl_OD',
+            'vc_esfera_oi' => 'VISION_CERCA_ESFERA_OI', 'vc_cilindro_oi' => 'VISION_CERCA_Cyl_OI',
+        ] as $attribute => $column) {
+            $attributes[$attribute] = LegacyOpticalParser::diopter($this->val($row, $colIndex, $column));
+        }
+
+        foreach (['od' => 'OD', 'oi' => 'OI'] as $eye => $suffix) {
+            $rxUso = LegacyOpticalParser::rxUso(
+                $this->val($row, $colIndex, "RX_EN USO_ESFERA_{$suffix}"),
+                $this->val($row, $colIndex, "RX_EN USO_CILINDRO_{$suffix}"),
+                $this->val($row, $colIndex, "RX_EN USO_EJE_{$suffix}"),
+                $this->val($row, $colIndex, "RX_EN USO_ADD_{$suffix}"),
+                $this->val($row, $colIndex, "RX_EN USO_AVCC_{$suffix}"),
+            );
+
+            foreach ($rxUso as $column => $value) {
+                $attributes["rx_uso_{$column}_{$eye}"] = $value;
+            }
+        }
+
+        return array_merge($attributes, LegacyOpticalParser::retinoscopy(
+            $this->val($row, $colIndex, 'ARK_OD'),
+            $this->val($row, $colIndex, 'ARK_OI'),
+            $this->val($row, $colIndex, 'RETINOSCOPIA_OD'),
+            $this->val($row, $colIndex, 'RETINOSCOPIA_OI'),
+            $this->val($row, $colIndex, 'RETINOSCOPIA_COVER TEST'),
+        ));
+    }
+
     private function val(array $row, array $colIndex, string $colName): ?string
     {
         if (! isset($colIndex[$colName])) {

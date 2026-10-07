@@ -1,12 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Plus, Upload, Trash2, Pencil, Star, Save } from 'lucide-react';
 import client from '../../api/client';
+import { cached } from '../../api/cache';
 import Button from '../../components/ui/Button';
 import Modal from '../../components/ui/Modal';
 import ConfirmModal from '../../components/ui/ConfirmModal';
 import { useToast } from '../../components/ui/Toast';
 
 const EMPTY = {
+    user_id: '',
     nombre: '',
     titulo: 'OPTÓMETRA',
     registro_senescyt: '',
@@ -27,6 +29,16 @@ export default function CertifyingDoctorsTab() {
     const [uploadingId, setUploadingId] = useState(null);
     const fileRef = useRef(null);
     const uploadTarget = useRef(null);
+    // Medicos/optometras del sistema: el mismo listado del select de la consulta.
+    const [users, setUsers] = useState([]);
+
+    useEffect(() => {
+        cached('consultation_meta', 300_000, () => client.get('/consultations-meta').then(r => r.data))
+            .then(meta => setUsers(Array.isArray(meta?.optometrists) ? meta.optometrists : []))
+            .catch(() => { /* sin el listado solo se pierde el vinculo opcional */ });
+    }, []);
+
+    const userName = (userId) => users.find(u => String(u.id) === String(userId))?.name;
 
     const load = () => {
         setLoading(true);
@@ -42,6 +54,7 @@ export default function CertifyingDoctorsTab() {
     const openEdit = (d) => {
         setEditing(d);
         setForm({
+            user_id: d.user_id ?? '',
             nombre: d.nombre || '',
             titulo: d.titulo || 'OPTÓMETRA',
             registro_senescyt: d.registro_senescyt || '',
@@ -57,12 +70,13 @@ export default function CertifyingDoctorsTab() {
     const handleSave = async () => {
         if (!form.nombre.trim()) { addToast('El nombre es obligatorio', 'error'); return; }
         setSaving(true);
+        const payload = { ...form, user_id: form.user_id || null };
         try {
             if (editing) {
-                await client.put(`/certifying-doctors/${editing.id}`, form);
+                await client.put(`/certifying-doctors/${editing.id}`, payload);
                 addToast('Doctor actualizado', 'success');
             } else {
-                await client.post('/certifying-doctors', form);
+                await client.post('/certifying-doctors', payload);
                 addToast('Doctor creado', 'success');
             }
             setModalOpen(false);
@@ -112,7 +126,8 @@ export default function CertifyingDoctorsTab() {
                     <h2 className="font-semibold text-gray-900">Doctores certificadores</h2>
                     <p className="text-sm text-gray-500 mt-1 max-w-xl">
                         Registra los doctores que firman los certificados con su REG. SENESCYT e imagen de firma.
-                        El doctor predeterminado se selecciona automáticamente al generar un certificado.
+                        Al generar un certificado se propone el doctor vinculado al médico de la consulta;
+                        si no hay ninguno vinculado, el predeterminado.
                     </p>
                 </div>
                 <Button onClick={openNew}><Plus size={16} /> Nuevo doctor</Button>
@@ -146,6 +161,11 @@ export default function CertifyingDoctorsTab() {
                             </div>
                             <div className="text-xs text-gray-500 mt-0.5">
                                 {d.titulo}{d.registro_senescyt ? ` · REG. SENESCYT: ${d.registro_senescyt}` : ''}{d.codigo ? ` · ${d.codigo}` : ''}
+                            </div>
+                            <div className="text-xs mt-0.5">
+                                {d.user_id
+                                    ? <span className="text-gray-500">Firma las consultas de: {userName(d.user_id) ?? `usuario #${d.user_id}`}</span>
+                                    : <span className="text-amber-700">Sin médico del sistema vinculado</span>}
                             </div>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
@@ -182,6 +202,17 @@ export default function CertifyingDoctorsTab() {
                         <label className="block text-sm font-medium text-gray-700 mb-1">REG. SENESCYT</label>
                         <input type="text" value={form.registro_senescyt} onChange={e => set('registro_senescyt', e.target.value)}
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]" />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Médico del sistema</label>
+                        <select value={form.user_id ?? ''} onChange={e => set('user_id', e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]">
+                            <option value="">— Sin vincular —</option>
+                            {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                        </select>
+                        <p className="text-xs text-gray-400 mt-1">
+                            Las consultas atendidas por este médico proponen a este doctor en el certificado.
+                        </p>
                     </div>
                     <div className="flex items-center gap-6">
                         <label className="flex items-center gap-2 text-sm text-gray-800 cursor-pointer">

@@ -79,6 +79,19 @@ export default function PatientDetailPage() {
         </div>
     );
 
+    // El sistema anterior tenia un "Diagnostico" en la ficha del cliente; aqui el
+    // diagnostico vive en cada consulta, asi que se muestra el mas reciente.
+    const lastDiagnosis = history
+        .filter(h => h._type === 'consulta')
+        .map(c => {
+            const byEye = [
+                c.certificado_diagnostico_od && `OD: ${c.certificado_diagnostico_od}`,
+                c.certificado_diagnostico_oi && `OI: ${c.certificado_diagnostico_oi}`,
+            ].filter(Boolean).join(' · ');
+            return c.diagnostico_descripcion || byEye;
+        })
+        .find(Boolean);
+
     const consultaCount = history.filter(h => h._type === 'consulta').length;
     const garantiaCount = history.filter(h => h._type === 'garantia').length;
 
@@ -126,7 +139,8 @@ export default function PatientDetailPage() {
                             ['Dirección', patient.direccion || '—'],
                             ['Teléfono', patient.telefono || '—'],
                             ['Email', patient.email || '—'],
-                            ['¿Cómo nos conoció?', patient.como_nos_conocio || '—'],
+                            ['Quién le recomienda / cómo nos conoció', patient.como_nos_conocio || '—'],
+                            ['Diagnóstico (última consulta)', lastDiagnosis || '—'],
                         ].map(([label, value]) => (
                             <div key={label}>
                                 <dt className="text-xs text-gray-500 uppercase tracking-wide">{label}</dt>
@@ -176,6 +190,7 @@ export default function PatientDetailPage() {
                                         <div className="min-w-0">
                                             <div className="text-gray-800 truncate">
                                                 Consulta #{cert.numero_consulta}
+                                                {cert.tipo === 'escolar_vehicular' && ' · Escolar / Vehicular'}
                                                 {cert.certifying_doctor?.nombre && ` · ${cert.certifying_doctor.nombre}`}
                                             </div>
                                             <div className="text-xs text-gray-500">
