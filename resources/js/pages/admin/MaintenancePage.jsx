@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import { useToast } from '../../components/ui/Toast';
+import { prefersReducedMotion } from '../../utils/motion';
 import {
     analyzeLegacyImport,
     createBackup,
@@ -43,6 +44,127 @@ function uploadErrorMessage(error) {
     }
 
     return error.response?.data?.message || 'Archivo invalido';
+}
+
+const PROCESS_RATE_KEY = 'maintenance.processMsPerMb';
+const DEFAULT_PROCESS_MS_PER_MB = 4000;
+const MIN_PROCESS_ESTIMATE_MS = 3000;
+const MEGABYTE = 1024 * 1024;
+
+function formatDuration(ms) {
+    const seconds = Math.max(1, Math.round(ms / 1000));
+    if (seconds < 60) return `${seconds} s`;
+    return `${Math.floor(seconds / 60)} min ${seconds % 60} s`;
+}
+
+/**
+ * El servidor no informa avance mientras procesa el archivo, asi que el
+ * estimado sale de lo que tardo la carga anterior en este navegador.
+ */
+function estimateProcessMs(fileSize) {
+    let rate = DEFAULT_PROCESS_MS_PER_MB;
+    try {
+        const stored = Number(window.localStorage.getItem(PROCESS_RATE_KEY));
+        if (stored > 0) rate = stored;
+    } catch {
+        // sin almacenamiento local se usa el valor por defecto
+    }
+
+    return Math.max(MIN_PROCESS_ESTIMATE_MS, rate * (fileSize / MEGABYTE));
+}
+
+function rememberProcessRate(durationMs, fileSize) {
+    try {
+        window.localStorage.setItem(PROCESS_RATE_KEY, String(durationMs / Math.max(fileSize / MEGABYTE, 0.1)));
+    } catch {
+        // el estimado es una ayuda, no un requisito
+    }
+}
+
+/**
+ * Avance de una subida o restauracion. El envio del archivo se mide en bytes;
+ * la etapa del servidor solo puede mostrarse por tiempo transcurrido.
+ */
+function OperationProgress({ progress }) {
+    const { kind, phase, fileName, fileSize, loaded, total, startedAt, phaseStartedAt, finishedAt, estimateMs, message } = progress;
+    const active = phase === 'uploading' || phase === 'processing';
+    const [now, setNow] = useState(Date.now());
+
+    useEffect(() => {
+        if (!active) return undefined;
+        const timer = setInterval(() => setNow(Date.now()), 500);
+        return () => clearInterval(timer);
+    }, [active]);
+
+    const isUpload = kind === 'upload';
+    let label;
+    let detail;
+    let percent = 100;
+    let barClass = 'bg-[#1a2a4a]';
+    let Icon = Loader2;
+    let iconClass = 'animate-spin text-slate-500';
+
+    if (phase === 'uploading') {
+        const elapsed = now - startedAt;
+        percent = total > 0 ? Math.min(100, (loaded / total) * 100) : 0;
+        label = 'Paso 1 de 2 · Enviando archivo';
+        detail = `${Math.round(percent)}%`;
+        if (loaded > 0 && loaded < total && elapsed > 0) {
+            detail += ` · quedan ~${formatDuration((elapsed * (total - loaded)) / loaded)}`;
+        }
+    } else if (phase === 'processing') {
+        const elapsed = Math.max(0, now - phaseStartedAt);
+        label = isUpload ? 'Paso 2 de 2 · Procesando en el servidor' : 'Restaurando base de datos';
+        detail = `Transcurrido ${formatDuration(elapsed)}`;
+        if (estimateMs) {
+            percent = Math.min(95, (elapsed / estimateMs) * 95);
+            detail += elapsed > estimateMs
+                ? ' · esta tardando mas de lo habitual, sigue en proceso'
+                : ` · estimado ~${formatDuration(estimateMs)}`;
+        } else {
+            barClass += ' animate-pulse';
+        }
+    } else if (phase === 'done') {
+        label = isUpload ? 'Carga completada' : 'Restauracion completada';
+        detail = `Termino en ${formatDuration(finishedAt - startedAt)}`;
+        barClass = 'bg-emerald-500';
+        Icon = CheckCircle2;
+        iconClass = 'text-emerald-600';
+    } else {
+        label = isUpload ? 'La carga fallo' : 'La restauracion fallo';
+        detail = message;
+        barClass = 'bg-rose-500';
+        Icon = AlertTriangle;
+        iconClass = 'text-rose-600';
+    }
+
+    return (
+        <div className="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-4" role="status" aria-live="polite">
+            <div className="flex items-start gap-3">
+                <Icon size={18} className={`mt-0.5 shrink-0 ${iconClass}`} />
+                <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-slate-900">{label}</p>
+                    <p className="truncate text-xs text-slate-500">
+                        {fileName}{fileSize ? ` · ${formatBytes(fileSize)}` : ''}
+                    </p>
+                </div>
+            </div>
+            <div
+                role="progressbar"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={Math.round(percent)}
+                aria-label={label}
+                className="mt-3 h-2 overflow-hidden rounded-full bg-slate-200"
+            >
+                <div
+                    className={`h-full rounded-full ${barClass} ${prefersReducedMotion() ? '' : 'transition-[width] duration-500 ease-out'}`}
+                    style={{ width: `${percent}%` }}
+                />
+            </div>
+            <p className={`mt-2 text-xs ${phase === 'failed' ? 'text-rose-700' : 'text-slate-600'}`}>{detail}</p>
+        </div>
+    );
 }
 
 function StatusPill({ status }) {
@@ -82,6 +204,15 @@ export default function MaintenancePage() {
     const [rewriteLegacy, setRewriteLegacy] = useState(true);
     const [confirmBackup, setConfirmBackup] = useState(false);
     const [confirmRestore, setConfirmRestore] = useState(false);
+    const [progress, setProgress] = useState(null);
+
+    // El resultado correcto se retira solo: debajo ya queda el resumen. El
+    // fallido se queda hasta el siguiente intento, porque el toast desaparece.
+    useEffect(() => {
+        if (progress?.phase !== 'done') return undefined;
+        const timer = setTimeout(() => setProgress(null), 8000);
+        return () => clearTimeout(timer);
+    }, [progress?.phase]);
 
     const summary = importOperation?.summary || {};
     const stats = summary.stats || {};
@@ -157,15 +288,52 @@ export default function MaintenancePage() {
         const file = event.target.files?.[0];
         if (!file) return;
 
+        const startedAt = Date.now();
+        let processingStartedAt = null;
+
         setUploading(true);
+        setProgress({
+            kind: 'upload',
+            phase: 'uploading',
+            fileName: file.name,
+            fileSize: file.size,
+            loaded: 0,
+            total: file.size,
+            startedAt,
+            estimateMs: estimateProcessMs(file.size),
+        });
+        addToast(`Subiendo ${file.name} (${formatBytes(file.size)}). No cierres esta pagina.`, 'info', null, null, 'Carga iniciada');
+
         try {
-            const response = await uploadLegacyImport(file);
+            const response = await uploadLegacyImport(file, {
+                onUploadProgress: (event) => {
+                    const total = event.total || file.size;
+                    const sent = event.loaded >= total;
+                    if (sent && processingStartedAt === null) processingStartedAt = Date.now();
+
+                    setProgress((current) => (current?.phase === 'uploading' ? {
+                        ...current,
+                        loaded: event.loaded,
+                        total,
+                        ...(sent ? { phase: 'processing', phaseStartedAt: processingStartedAt } : {}),
+                    } : current));
+                },
+            });
+            const finishedAt = Date.now();
+
+            if (processingStartedAt !== null) rememberProcessRate(finishedAt - processingStartedAt, file.size);
             setImportOperation(response.data.data);
             setConfirmBackup(false);
             setConfirmRestore(false);
-            addToast(response.data.data?.type === 'system_restore' ? 'Backup del sistema validado' : 'Archivo legacy validado', 'success');
+            setProgress((current) => current && { ...current, phase: 'done', finishedAt });
+            addToast(
+                `${response.data.data?.type === 'system_restore' ? 'Backup del sistema validado' : 'Archivo legacy validado'} en ${formatDuration(finishedAt - startedAt)}`,
+                'success',
+            );
         } catch (error) {
-            addToast(uploadErrorMessage(error), 'error');
+            const message = uploadErrorMessage(error);
+            setProgress((current) => current && { ...current, phase: 'failed', message });
+            addToast(message, 'error');
         } finally {
             setUploading(false);
             event.target.value = '';
@@ -205,15 +373,31 @@ export default function MaintenancePage() {
 
     const handleRestoreSystem = async () => {
         if (!importOperation?.id) return;
+        const startedAt = Date.now();
+
         setRestoring(true);
+        setProgress({
+            kind: 'restore',
+            phase: 'processing',
+            fileName: importOperation.original_filename,
+            fileSize: importOperation.file_size,
+            startedAt,
+            phaseStartedAt: startedAt,
+        });
+        addToast('Restaurando la base de datos. No cierres esta pagina.', 'info', null, null, 'Restauracion iniciada');
+
         try {
             const response = await restoreSystemBackup(importOperation.id, {
                 confirm_restore: confirmRestore,
             });
+            const finishedAt = Date.now();
             setImportOperation(response.data.data);
-            addToast('Backup restaurado', 'success');
+            setProgress((current) => current && { ...current, phase: 'done', finishedAt });
+            addToast(`Backup restaurado en ${formatDuration(finishedAt - startedAt)}`, 'success');
         } catch (error) {
-            addToast(error.response?.data?.message || 'No se pudo restaurar', 'error');
+            const message = error.response?.data?.message || 'No se pudo restaurar';
+            setProgress((current) => current && { ...current, phase: 'failed', message });
+            addToast(message, 'error');
         } finally {
             setRestoring(false);
         }
@@ -288,13 +472,15 @@ export default function MaintenancePage() {
                         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                             <div>
                                 <h2 className="text-lg font-semibold text-slate-950">Importar o restaurar backup</h2>
-                                <p className="mt-1 text-sm text-slate-500">Acepta backups del sistema .sqlite.gz restaurables en SQLite/MySQL/MariaDB y archivos legacy Optica Andina.</p>
+                                <p className="mt-1 text-sm text-slate-500">Acepta backups del sistema (.sqlite.gz o .sql.gz de MySQL/MariaDB), restaurables en cualquiera de los tres motores, y archivos legacy Optica Andina.</p>
                             </div>
-                            <input ref={fileRef} type="file" accept=".sqlite,.sqlite3,.db,.sqlite.gz,.sqlite3.gz,.db.gz,.gz" onChange={handleUpload} className="hidden" />
+                            <input ref={fileRef} type="file" accept=".sqlite,.sqlite3,.db,.sql,.gz" onChange={handleUpload} className="hidden" />
                             <Button variant="secondary" onClick={() => fileRef.current?.click()} loading={uploading}>
-                                <Upload size={18} /> Subir SQLite
+                                <Upload size={18} /> Subir backup
                             </Button>
                         </div>
+
+                        {progress && <OperationProgress progress={progress} />}
 
                         {importOperation ? (
                             <div className="mt-6 space-y-5">
@@ -319,6 +505,14 @@ export default function MaintenancePage() {
                                             <Stat label="Pacientes backup" value={summary.patients} />
                                             <Stat label="Historias backup" value={summary.consultations} />
                                         </div>
+
+                                        {summary.converted_from && (
+                                            <p className="text-sm text-slate-600">
+                                                Backup de MySQL/MariaDB convertido: {summary.converted_from.loaded_rows} filas en {summary.converted_from.loaded_tables} tablas.
+                                                {summary.converted_from.pending_migrations_applied?.length > 0
+                                                    && ` Se aplicaron ${summary.converted_from.pending_migrations_applied.length} migraciones que el backup no traia.`}
+                                            </p>
+                                        )}
 
                                         <div className="flex gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
                                             <AlertTriangle size={18} className="shrink-0" />
@@ -404,7 +598,7 @@ export default function MaintenancePage() {
                         ) : (
                             <div className="mt-6 rounded-lg border border-dashed border-slate-300 p-8 text-center">
                                 <Upload className="mx-auto text-slate-400" size={30} />
-                                <p className="mt-3 text-sm font-medium text-slate-800">Sube un backup SQLite</p>
+                                <p className="mt-3 text-sm font-medium text-slate-800">Sube un backup SQLite o MySQL/MariaDB</p>
                                 <p className="mt-1 text-sm text-slate-500">El sistema detectara si es restauracion completa o importacion legacy.</p>
                             </div>
                         )}

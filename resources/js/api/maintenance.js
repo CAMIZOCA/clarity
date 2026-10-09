@@ -7,12 +7,13 @@ export const createBackup = () => client.post('/admin/maintenance/backups');
 export const downloadBackup = (id) =>
     client.get(`/admin/maintenance/backups/${id}/download`, { responseType: 'blob' });
 
-export const uploadLegacyImport = (file) => {
+export const uploadLegacyImport = (file, { onUploadProgress } = {}) => {
     const formData = new FormData();
     formData.append('file', file);
 
     return client.post('/admin/maintenance/imports/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
+        onUploadProgress,
     });
 };
 

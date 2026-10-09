@@ -36,6 +36,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Patients
     Route::get('/patients/search', [PatientController::class, 'search']);
+    Route::get('/patients/lookup', [PatientController::class, 'lookup']);
+    Route::get('/patients/identity', [PatientController::class, 'identity'])->middleware('throttle:30,1');
+    Route::post('/patients/{id}/restore', [PatientController::class, 'restore'])->whereNumber('id');
     Route::apiResource('patients', PatientController::class);
     Route::get('/patients/{patient}/consultations', [PatientController::class, 'consultations']);
     Route::get('/patients/{patient}/last-consultation', [PatientController::class, 'lastConsultation']);

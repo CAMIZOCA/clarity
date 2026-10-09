@@ -17,38 +17,43 @@ class StorePatientRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'nombre'              => ['required', 'string', 'min:2', 'max:150'],
-            'apellido'            => ['nullable', 'string', 'max:150'],
-            'como_nos_conocio'    => ['nullable', 'string', 'max:500'],
-            'fecha_registro'      => ['nullable', 'date', 'before_or_equal:today'],
-            'cedula'              => ['nullable', 'string', new ValidEcuadorCedula(), Rule::unique('patients', 'cedula')->whereNull('deleted_at')],
-            'codigo_interno'      => ['nullable', 'string', 'max:50', Rule::unique('patients', 'codigo_interno')],
-            'fecha_nacimiento'    => ['nullable', 'date', 'before:today', 'after:1900-01-01'],
-            'telefono'            => ['nullable', 'string', new ValidEcuadorPhone()],
-            'email'               => ['nullable', 'email', 'max:150', Rule::unique('patients', 'email')->whereNull('deleted_at')],
-            'ocupacion'           => ['nullable', 'string', 'max:100'],
-            'direccion'           => ['nullable', 'string', 'max:250'],
-            'antecedentes'        => ['nullable', 'string', 'max:2000'],
-            'avatar_path'         => ['nullable', 'string', 'max:255'],
-            'customer_type'       => ['nullable', Rule::in(['particular', 'convenio', 'empresa'])],
-            'company_name'        => ['nullable', 'string', 'max:150', 'required_if:customer_type,empresa'],
-            'company_ruc'         => ['nullable', 'string', new ValidEcuadorCedula(allowRuc: true, allowPassport: false)],
-            'preferred_contact'   => ['nullable', Rule::in(['whatsapp', 'email', 'phone'])],
-            'internal_notes'      => ['nullable', 'string', 'max:1000'],
+            'nombre' => ['required', 'string', 'min:2', 'max:150'],
+            'apellido' => ['nullable', 'string', 'max:150'],
+            'como_nos_conocio' => ['nullable', 'string', 'max:500'],
+            'fecha_registro' => ['nullable', 'date', 'before_or_equal:today'],
+            // `cedula` y `fecha_nacimiento` son NOT NULL: sin `required`, un alta
+            // sin ellas llegaba al INSERT y respondia 500 en vez de 422. El unique
+            // incluye a los eliminados porque el indice de la BD tambien.
+            'cedula' => ['required', 'string', new ValidEcuadorCedula, Rule::unique('patients', 'cedula')],
+            'codigo_interno' => ['nullable', 'string', 'max:50', Rule::unique('patients', 'codigo_interno')],
+            'fecha_nacimiento' => ['required', 'date', 'before:today', 'after:1900-01-01'],
+            'telefono' => ['nullable', 'string', new ValidEcuadorPhone],
+            'email' => ['nullable', 'email', 'max:150', Rule::unique('patients', 'email')->whereNull('deleted_at')],
+            'ocupacion' => ['nullable', 'string', 'max:100'],
+            'direccion' => ['nullable', 'string', 'max:250'],
+            'antecedentes' => ['nullable', 'string', 'max:2000'],
+            'avatar_path' => ['nullable', 'string', 'max:255'],
+            'customer_type' => ['nullable', Rule::in(['particular', 'convenio', 'empresa'])],
+            'company_name' => ['nullable', 'string', 'max:150', 'required_if:customer_type,empresa'],
+            'company_ruc' => ['nullable', 'string', new ValidEcuadorCedula(allowRuc: true, allowPassport: false)],
+            'preferred_contact' => ['nullable', Rule::in(['whatsapp', 'email', 'phone'])],
+            'internal_notes' => ['nullable', 'string', 'max:1000'],
         ];
     }
 
     public function messages(): array
     {
         return [
-            'nombre.required'             => 'El nombre del paciente es obligatorio.',
-            'nombre.min'                  => 'El nombre debe tener al menos 2 caracteres.',
-            'cedula.unique'               => 'Ya existe un paciente registrado con esta cédula.',
-            'codigo_interno.unique'       => 'Ya existe un paciente con este código interno.',
-            'email.unique'                => 'Ya existe un paciente registrado con este email.',
-            'fecha_nacimiento.before'     => 'La fecha de nacimiento debe ser anterior a hoy.',
-            'fecha_nacimiento.after'      => 'La fecha de nacimiento debe ser posterior al año 1900.',
-            'company_name.required_if'    => 'El nombre de empresa es requerido cuando el tipo de cliente es empresa.',
+            'nombre.required' => 'El nombre del paciente es obligatorio.',
+            'nombre.min' => 'El nombre debe tener al menos 2 caracteres.',
+            'cedula.required' => 'La cédula o RUC es obligatoria.',
+            'cedula.unique' => 'Ya existe un paciente registrado con esta cédula.',
+            'fecha_nacimiento.required' => 'La fecha de nacimiento es obligatoria.',
+            'codigo_interno.unique' => 'Ya existe un paciente con este código interno.',
+            'email.unique' => 'Ya existe un paciente registrado con este email.',
+            'fecha_nacimiento.before' => 'La fecha de nacimiento debe ser anterior a hoy.',
+            'fecha_nacimiento.after' => 'La fecha de nacimiento debe ser posterior al año 1900.',
+            'company_name.required_if' => 'El nombre de empresa es requerido cuando el tipo de cliente es empresa.',
         ];
     }
 

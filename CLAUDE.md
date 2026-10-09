@@ -234,9 +234,11 @@ cambio de estrategia exige subir `CACHE_NAME` para purgar lo ya guardado en los 
 
 ## Convenciones
 
-- **Toast**: `const { addToast } = useToast(); addToast('Mensaje', 'error')`. Los errores duran
-  12 s y suenan; el resto 3 s. La firma es `addToast(mensaje, tipo, duracionMs?, accion?)`;
-  `accion` (`{ label, onClick }`) vuelve el aviso clicable.
+- **Toast**: `const { addToast } = useToast(); addToast('Mensaje', 'error')`. Tipos: `success`,
+  `error`, `warning`, `info`. Los errores duran 12 s y suenan; el resto 5 s (el raton encima
+  pausa la cuenta). La firma es `addToast(mensaje, tipo, duracionMs?, accion?, titulo?)`;
+  `accion` (`{ label, onClick }`) vuelve el aviso clicable y el titulo sale del tipo si se omite.
+  Maximo 5 a la vez, arriba a la derecha; los estilos son las clases `toast-*` de `app.css`.
 - **Errores de la consulta**: todo aviso de validacion lleva al campo con `goToField(nombre)`, que
   abre la seccion colapsada (`openCollapsibleSection`) y revela los campos avanzados si hace falta.
   Una seccion nueva necesita su regla en `FIELD_SECTION_RULES` (`ConsultationForm.jsx`).
@@ -255,6 +257,20 @@ cambio de estrategia exige subir `CACHE_NAME` para purgar lo ya guardado en los 
   (PHP) respeta el signo recibido a proposito, para no invertir un valor ya guardado.
 - **La consulta se abre desde el paciente**: no hay item "Consulta" en el menu. Las rutas
   `/consulta?paciente=ID` y `/consulta/:id` siguen existiendo y son las que usa la ficha.
+- **El alta de paciente empieza por la cedula**: `PatientFormPage` no habilita el resto del
+  formulario hasta que `GET /api/patients/lookup?cedula=` responde `nuevo`
+  (`PatientService::lookupByDocument`). La comparacion no es literal porque la importacion dejo la
+  misma cedula escrita de varias formas (sin cero inicial, RUC = cedula + `001`, con letra o un
+  digito menos al final); los nombres parecidos (`findSimilarByName`) son la segunda red para los
+  importados con codigo provisional `HIST-`/`IMPORT-`. El indice unico de `patients.cedula` cuenta
+  tambien a los eliminados, asi que las reglas `unique` de cedula no llevan `whereNull('deleted_at')`.
+- **Autocompletado del alta (EcuadorAPI)**: con la cedula en `nuevo`, el formulario pide
+  `GET /api/patients/identity` en segundo plano y llena nombre, apellido y fecha de nacimiento
+  solo en los campos vacios (`EcuadorApiService`, key en `ECUADORAPI_KEY`). Es pago por consulta
+  y **nunca muestra errores**: sin key, sin saldo o con la API caida responde `encontrado: false`.
+  Un 401/402/403/429 pausa las consultas hasta una hora (`ecuadorapi:paused` en cache) para no
+  sumar espera a cada alta. Solo consulta cedulas validas y sin registrar, y no se loguea la
+  cedula ni el mensaje de la excepcion (trae la URL con la cedula).
 - **Servicios**: los controladores delegan en `app/Services/`. La logica de negocio no va en el controlador.
 - **Permisos**: Spatie. Roles en `app/Enums/Role.php`, permisos en `app/Enums/Permission.php`.
   `user.roles` es un array de **strings** (`['admin']`), no de objetos.

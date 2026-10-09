@@ -166,6 +166,7 @@ El menu lateral se filtra por rol **y** por los settings `menu_visible_sections`
 | SMTP | Activo | `MailConfigService`, credenciales en `settings` (⚠️ `mail_password` en texto plano) |
 | WhatsApp | Servicio presente | `WhatsAppService`, `SendWhatsAppMessage` job |
 | Contifico | Listo, apagado por defecto | `ContificoService`; API key y API token **cifrados** en `settings`; historial en `contifico_sync_logs` (90 dias) |
+| EcuadorAPI (datos por cedula) | Listo, apagado sin key (falta prueba con saldo) | `EcuadorApiService`, key en entorno (`ECUADORAPI_KEY`); pago por consulta, falla en silencio |
 
 ### Contifico
 
@@ -210,6 +211,33 @@ Ordenados por impacto.
 ---
 
 ## Historial de cambios relevantes
+
+### 2026-10-09 — Autocompletado del alta con EcuadorAPI
+
+- Con la cedula o RUC en `nuevo`, `GET /api/patients/identity?cedula=` (permiso `patients.create`,
+  `throttle:30,1`) trae nombre, apellido y fecha de nacimiento y el formulario llena los campos
+  que sigan vacios. `EcuadorApiService` pide en paralelo `/cedulas/{id}/nombres` y
+  `/cedulas/{id}/nacimiento` ($0.01 cada uno); de un RUC se consultan los primeros 10 digitos.
+- **Silencioso**: sin key, sin saldo (402), con limite (429) o con la API caida el endpoint
+  responde `encontrado: false` y el alta sigue a mano. Un rechazo pausa las consultas hasta 1 h.
+- Resultado completo cacheado 24 h por cedula. Cubierto por `tests/Feature/PatientIdentityLookupTest.php`.
+- Pendiente: probar con una key con saldo (la de prueba respondia 402) y confirmar el formato
+  real de `birth_date`, que la API no documenta.
+
+### 2026-10-09 — El alta de paciente empieza por la cedula
+
+- **Cedula / RUC como primer campo** de `/pacientes/nuevo`: el resto del formulario se habilita
+  cuando `GET /api/patients/lookup` confirma que no existe. Si existe, una tarjeta ofrece Nueva
+  consulta, Ver ficha o Actualizar datos (`components/patients/PatientMatchCard.jsx`).
+- **Comparacion tolerante**: encuentra la cedula sin cero inicial, el RUC de la misma persona y
+  lista como "relacionadas" las que llevan letra o un digito menos. Aviso de **nombres parecidos**
+  para los importados con codigo provisional; "Es este paciente" abre su edicion con la cedula nueva.
+- **Paciente eliminado**: se informa y se puede restaurar (`POST /api/patients/{id}/restore`,
+  permiso `patients.delete`). Antes, registrar su cedula respondia 500.
+- **Errores 422 por campo** en el formulario de paciente (antes solo un toast con el primero).
+- `StorePatientRequest`: `cedula` y `fecha_nacimiento` son `required` (las columnas son NOT NULL).
+- Migracion `2026_10_09_000001`: los triggers FTS5 de pacientes (solo SQLite) corrompian la base al
+  restaurar un eliminado.
 
 ### 2026-10-07 — Notas de la optica: flujo por paciente, historial de RX, certificado y datos importados
 

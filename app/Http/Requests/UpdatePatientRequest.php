@@ -19,33 +19,34 @@ class UpdatePatientRequest extends FormRequest
         $patientId = $this->route('patient') ?? $this->route('id');
 
         return [
-            'nombre'            => ['sometimes', 'string', 'min:2', 'max:150'],
-            'apellido'          => ['nullable', 'string', 'max:150'],
-            'como_nos_conocio'  => ['nullable', 'string', 'max:500'],
-            'fecha_registro'    => ['nullable', 'date', 'before_or_equal:today'],
-            'cedula'            => ['nullable', 'string', new ValidEcuadorCedula(), Rule::unique('patients', 'cedula')->ignore($patientId)->whereNull('deleted_at')],
-            'codigo_interno'    => ['nullable', 'string', 'max:50', Rule::unique('patients', 'codigo_interno')->ignore($patientId)],
-            'fecha_nacimiento'  => ['nullable', 'date', 'before:today', 'after:1900-01-01'],
-            'telefono'          => ['nullable', 'string', new ValidEcuadorPhone()],
-            'email'             => ['nullable', 'email', 'max:150', Rule::unique('patients', 'email')->ignore($patientId)->whereNull('deleted_at')],
-            'ocupacion'         => ['nullable', 'string', 'max:100'],
-            'direccion'         => ['nullable', 'string', 'max:250'],
-            'antecedentes'      => ['nullable', 'string', 'max:2000'],
-            'avatar_path'       => ['nullable', 'string', 'max:255'],
-            'customer_type'     => ['nullable', Rule::in(['particular', 'convenio', 'empresa'])],
-            'company_name'      => ['nullable', 'string', 'max:150'],
-            'company_ruc'       => ['nullable', 'string', new ValidEcuadorCedula(allowRuc: true, allowPassport: false)],
+            'nombre' => ['sometimes', 'string', 'min:2', 'max:150'],
+            'apellido' => ['nullable', 'string', 'max:150'],
+            'como_nos_conocio' => ['nullable', 'string', 'max:500'],
+            'fecha_registro' => ['nullable', 'date', 'before_or_equal:today'],
+            // Sin `whereNull('deleted_at')`: el indice unico de la BD tambien cuenta a los eliminados.
+            'cedula' => ['nullable', 'string', new ValidEcuadorCedula, Rule::unique('patients', 'cedula')->ignore($patientId)],
+            'codigo_interno' => ['nullable', 'string', 'max:50', Rule::unique('patients', 'codigo_interno')->ignore($patientId)],
+            'fecha_nacimiento' => ['nullable', 'date', 'before:today', 'after:1900-01-01'],
+            'telefono' => ['nullable', 'string', new ValidEcuadorPhone],
+            'email' => ['nullable', 'email', 'max:150', Rule::unique('patients', 'email')->ignore($patientId)->whereNull('deleted_at')],
+            'ocupacion' => ['nullable', 'string', 'max:100'],
+            'direccion' => ['nullable', 'string', 'max:250'],
+            'antecedentes' => ['nullable', 'string', 'max:2000'],
+            'avatar_path' => ['nullable', 'string', 'max:255'],
+            'customer_type' => ['nullable', Rule::in(['particular', 'convenio', 'empresa'])],
+            'company_name' => ['nullable', 'string', 'max:150'],
+            'company_ruc' => ['nullable', 'string', new ValidEcuadorCedula(allowRuc: true, allowPassport: false)],
             'preferred_contact' => ['nullable', Rule::in(['whatsapp', 'email', 'phone'])],
-            'internal_notes'    => ['nullable', 'string', 'max:1000'],
+            'internal_notes' => ['nullable', 'string', 'max:1000'],
         ];
     }
 
     public function messages(): array
     {
         return [
-            'nombre.min'    => 'El nombre debe tener al menos 2 caracteres.',
+            'nombre.min' => 'El nombre debe tener al menos 2 caracteres.',
             'cedula.unique' => 'Ya existe otro paciente con esta cédula.',
-            'email.unique'  => 'Ya existe otro paciente con este email.',
+            'email.unique' => 'Ya existe otro paciente con este email.',
         ];
     }
 

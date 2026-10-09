@@ -56,6 +56,13 @@ return [
         'base_url' => env('CONTIFICO_BASE_URL', 'https://api.contifico.com/sistema/api/v1'),
     ],
 
+    // Autocompleta nombre y fecha de nacimiento en el alta de paciente (ver
+    // EcuadorApiService). Sin key la consulta queda apagada.
+    'ecuadorapi' => [
+        'base_url' => env('ECUADORAPI_BASE_URL', 'https://api.ecuadorapi.com/api/v1'),
+        'key' => env('ECUADORAPI_KEY'),
+    ],
+
     'whatsapp' => [
         'provider' => env('WHATSAPP_PROVIDER', 'log'),
     ],

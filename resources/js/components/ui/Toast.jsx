@@ -1,14 +1,27 @@
-import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
-import { AnimatePresence, motion } from 'motion/react';
-import { CheckCircle, XCircle, Info, X } from 'lucide-react';
-import { motionTransition, SPRING_MOVE } from '../../utils/motion';
+import React, { createContext, useContext, useState, useCallback, useEffect, useLayoutEffect, useRef } from 'react';
+import { CheckCircle, XCircle, AlertTriangle, Info, X } from 'lucide-react';
+import { prefersReducedMotion } from '../../utils/motion';
 
 const ToastContext = createContext(null);
 
 let toastId = 0;
 
 /** Los errores permanecen mucho mas tiempo: hay que poder leerlos y actuar. */
-const DEFAULT_DURATION = { success: 3000, info: 3000, error: 12000 };
+const DEFAULT_DURATION = { success: 5000, info: 5000, warning: 5000, error: 12000 };
+
+/** Titulo e icono por tipo; el color sale de `--toast-accent` en app.css. */
+const TOAST_TYPES = {
+    success: { title: 'Listo', Icon: CheckCircle },
+    error: { title: 'Error', Icon: XCircle },
+    warning: { title: 'Atención', Icon: AlertTriangle },
+    info: { title: 'Aviso', Icon: Info },
+};
+
+/** Al superar este numero, el aviso mas antiguo se cierra solo. */
+const MAX_VISIBLE = 5;
+
+/** Debe coincidir con la transicion de `.toast-card.is-leaving` en app.css. */
+const EXIT_MS = 300;
 
 /**
  * Aviso sonoro corto para los errores, generado con Web Audio API.
@@ -61,36 +74,132 @@ export function notifyToast(message, type = 'info', duration = null) {
     externalAddToast?.(message, type, duration);
 }
 
+function ToastItem({ toast, onDismiss, onExited }) {
+    const { id, type, title, message, action, duration, leaving } = toast;
+    const { Icon } = TOAST_TYPES[type];
+    const cardRef = useRef(null);
+    const timerRef = useRef(null);
+    const remainingRef = useRef(duration);
+    const startedAtRef = useRef(0);
+
+    const startTimer = useCallback(() => {
+        clearTimeout(timerRef.current);
+        startedAtRef.current = Date.now();
+        timerRef.current = setTimeout(() => onDismiss(id), remainingRef.current);
+    }, [id, onDismiss]);
+
+    // Pasar el raton por encima congela la cuenta; la barra se pausa por CSS (:hover).
+    const pauseTimer = () => {
+        clearTimeout(timerRef.current);
+        remainingRef.current = Math.max(0, remainingRef.current - (Date.now() - startedAtRef.current));
+    };
+
+    useEffect(() => {
+        startTimer();
+        return () => clearTimeout(timerRef.current);
+    }, [startTimer]);
+
+    useLayoutEffect(() => {
+        if (!leaving) return undefined;
+        clearTimeout(timerRef.current);
+
+        if (prefersReducedMotion()) {
+            onExited(id);
+            return undefined;
+        }
+
+        // max-height no transiciona desde `auto`: se fija la altura real y luego se colapsa.
+        const card = cardRef.current;
+        card.style.maxHeight = `${card.offsetHeight}px`;
+        void card.offsetHeight;
+        card.classList.add('is-leaving');
+        card.style.maxHeight = '0px';
+
+        const exitTimer = setTimeout(() => onExited(id), EXIT_MS);
+        return () => clearTimeout(exitTimer);
+    }, [leaving, id, onExited]);
+
+    const body = (
+        <>
+            <span className="toast-title">{title}</span>
+            <span className="toast-message">{message}</span>
+        </>
+    );
+
+    return (
+        <div
+            ref={cardRef}
+            role={type === 'error' ? 'alert' : 'status'}
+            data-type={type}
+            className="toast-card"
+            onMouseEnter={leaving ? undefined : pauseTimer}
+            onMouseLeave={leaving ? undefined : startTimer}
+        >
+            <div className="toast-content">
+                <span className="toast-icon"><Icon size={18} /></span>
+                {action ? (
+                    <button
+                        type="button"
+                        onClick={() => { action.onClick(); onDismiss(id); }}
+                        className="toast-body text-left"
+                    >
+                        {body}
+                        <span className="toast-action">{action.label}</span>
+                    </button>
+                ) : (
+                    <div className="toast-body">{body}</div>
+                )}
+                <button
+                    type="button"
+                    onClick={() => onDismiss(id)}
+                    aria-label="Cerrar aviso"
+                    className="toast-close"
+                >
+                    <X size={14} />
+                </button>
+            </div>
+            <span className="toast-progress" style={{ animationDuration: `${duration}ms` }} />
+        </div>
+    );
+}
+
 export function ToastProvider({ children }) {
     const [toasts, setToasts] = useState([]);
-    const timersRef = useRef(new Map());
 
+    // Marca el aviso para salir; `ToastItem` anima y despues avisa con `dropToast`.
     const removeToast = useCallback((id) => {
-        const timer = timersRef.current.get(id);
-        if (timer) {
-            clearTimeout(timer);
-            timersRef.current.delete(id);
-        }
+        setToasts(prev => prev.map(t => (t.id === id ? { ...t, leaving: true } : t)));
+    }, []);
+
+    const dropToast = useCallback((id) => {
         setToasts(prev => prev.filter(t => t.id !== id));
     }, []);
 
     // `action` ({ label, onClick }) vuelve el aviso clicable: lo usa el formulario
     // de consulta para llevar al campo que provoco el error.
-    const addToast = useCallback((message, type = 'info', duration = null, action = null) => {
+    const addToast = useCallback((message, type = 'info', duration = null, action = null, title = null) => {
         const id = ++toastId;
-        const ttl = duration ?? DEFAULT_DURATION[type] ?? DEFAULT_DURATION.info;
+        const kind = TOAST_TYPES[type] ? type : 'info';
+        const toast = {
+            id,
+            message,
+            type: kind,
+            action,
+            title: title ?? TOAST_TYPES[kind].title,
+            duration: duration ?? DEFAULT_DURATION[kind],
+            leaving: false,
+        };
 
-        setToasts(prev => [...prev, { id, message, type, action }]);
+        // El mas nuevo va arriba; los que pasan del limite salen empezando por el mas antiguo.
+        setToasts(prev => {
+            const next = [toast, ...prev];
+            const overflow = new Set(next.filter(t => !t.leaving).slice(MAX_VISIBLE).map(t => t.id));
+            return overflow.size ? next.map(t => (overflow.has(t.id) ? { ...t, leaving: true } : t)) : next;
+        });
 
-        if (type === 'error') {
+        if (kind === 'error') {
             playErrorSound();
         }
-
-        const timer = setTimeout(() => {
-            timersRef.current.delete(id);
-            setToasts(prev => prev.filter(t => t.id !== id));
-        }, ttl);
-        timersRef.current.set(id, timer);
 
         return id;
     }, []);
@@ -100,58 +209,13 @@ export function ToastProvider({ children }) {
         return () => { externalAddToast = null; };
     }, [addToast]);
 
-    useEffect(() => {
-        const timers = timersRef.current;
-        return () => {
-            timers.forEach(clearTimeout);
-            timers.clear();
-        };
-    }, []);
-
     return (
         <ToastContext.Provider value={{ addToast, removeToast }}>
             {children}
-            <div className="fixed bottom-4 right-4 z-[100] flex flex-col gap-2">
-                <AnimatePresence initial={false}>
-                    {toasts.map(t => (
-                        <motion.div key={t.id}
-                            role={t.type === 'error' ? 'alert' : 'status'}
-                            aria-live={t.type === 'error' ? 'assertive' : 'polite'}
-                            layout
-                            initial={{ opacity: 0, x: 24, scale: 0.95 }}
-                            animate={{ opacity: 1, x: 0, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.12 } }}
-                            transition={motionTransition(SPRING_MOVE)}
-                            className={`flex items-start gap-3 px-4 py-3 rounded-lg shadow-lg text-white text-sm max-w-sm
-                                ${t.type === 'success' ? 'bg-green-600' : t.type === 'error' ? 'bg-red-600' : 'bg-[#1a2a4a]'}`}>
-                            <span className="mt-0.5 flex-shrink-0">
-                                {t.type === 'success' && <CheckCircle size={18} />}
-                                {t.type === 'error' && <XCircle size={18} />}
-                                {t.type === 'info' && <Info size={18} />}
-                            </span>
-                            {t.action ? (
-                                <button
-                                    type="button"
-                                    onClick={() => { t.action.onClick(); removeToast(t.id); }}
-                                    className="flex-1 text-left"
-                                >
-                                    <span className="whitespace-pre-line">{t.message}</span>
-                                    <span className="mt-1 block font-semibold underline underline-offset-2">{t.action.label}</span>
-                                </button>
-                            ) : (
-                                <span className="flex-1 whitespace-pre-line">{t.message}</span>
-                            )}
-                            <button
-                                type="button"
-                                onClick={() => removeToast(t.id)}
-                                aria-label="Cerrar aviso"
-                                className="mt-0.5 flex-shrink-0 opacity-70 hover:opacity-100"
-                            >
-                                <X size={16} />
-                            </button>
-                        </motion.div>
-                    ))}
-                </AnimatePresence>
+            <div className="toast-stack" role="log" aria-live="polite" aria-label="Notificaciones">
+                {toasts.map(t => (
+                    <ToastItem key={t.id} toast={t} onDismiss={removeToast} onExited={dropToast} />
+                ))}
             </div>
         </ToastContext.Provider>
     );
