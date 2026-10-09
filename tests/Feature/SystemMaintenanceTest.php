@@ -68,7 +68,57 @@ class SystemMaintenanceTest extends TestCase
         $this->postJson('/api/admin/maintenance/imports/upload', [
             'file' => UploadedFile::fake()->create('backup.txt', 2, 'text/plain'),
         ])->assertUnprocessable()
-            ->assertJsonPath('message', 'Solo se permiten archivos SQLite (.sqlite, .sqlite3, .db, .sqlite.gz, .sqlite3.gz, .db.gz).');
+            ->assertJsonPath('message', 'Solo se permiten backups SQLite (.sqlite, .sqlite3, .db) o MySQL/MariaDB (.sql), solos o comprimidos en .gz.');
+    }
+
+    public function test_upload_converts_mysql_dump_into_restorable_system_backup(): void
+    {
+        Storage::fake('local');
+        Sanctum::actingAs($this->adminUser());
+
+        // El backup declara todas las migraciones menos la ultima, como un
+        // ambiente de produccion que va un despliegue por detras.
+        $migrations = $this->migrationNames();
+        $latest = array_pop($migrations);
+
+        $this->postJson('/api/admin/maintenance/imports/upload', [
+            'file' => $this->mysqlDumpUpload($migrations),
+        ])->assertCreated()
+            ->assertJsonPath('data.type', 'system_restore')
+            ->assertJsonPath('data.summary.source_type', 'system_backup')
+            ->assertJsonPath('data.summary.users', 2)
+            ->assertJsonPath('data.summary.converted_from.source_driver', 'mysql')
+            ->assertJsonPath('data.summary.converted_from.skipped_tables', ['tabla_que_ya_no_existe'])
+            ->assertJsonPath('data.summary.converted_from.pending_migrations_applied', [$latest]);
+
+        $operation = MaintenanceOperation::where('type', 'system_restore')->latest()->first();
+        $this->assertStringEndsWith('.sqlite', $operation->path);
+
+        $pdo = new PDO('sqlite:'.Storage::disk('local')->path($operation->path));
+        $names = $pdo->query('select name from users order by id')->fetchAll(PDO::FETCH_COLUMN);
+
+        $this->assertSame(["Dra. O'Brien \"Ñandú\"\nlinea (a,b); fin", "It's \\ ok"], $names);
+        $this->assertSame(0, (int) $pdo->query('select count(*) from sessions')->fetchColumn());
+        $this->assertSame(
+            count($migrations) + 1,
+            (int) $pdo->query('select count(*) from migrations')->fetchColumn()
+        );
+
+        // La conexion por defecto vuelve a ser la de la aplicacion.
+        $this->assertDatabaseHas('maintenance_operations', ['id' => $operation->id]);
+    }
+
+    public function test_upload_rejects_mysql_dump_from_a_newer_version(): void
+    {
+        Storage::fake('local');
+        Sanctum::actingAs($this->adminUser());
+
+        $response = $this->postJson('/api/admin/maintenance/imports/upload', [
+            'file' => $this->mysqlDumpUpload([...$this->migrationNames(), '2999_01_01_000000_migracion_futura']),
+        ])->assertUnprocessable();
+
+        $this->assertStringContainsString('2999_01_01_000000_migracion_futura', $response->json('message'));
+        $this->assertSame([], Storage::disk('local')->files('imports'));
     }
 
     public function test_upload_accepts_valid_legacy_sqlite_and_queues_analysis(): void
@@ -201,6 +251,72 @@ class SystemMaintenanceTest extends TestCase
         @unlink($sqlitePath);
 
         return new UploadedFile($gzipPath, 'backup-system.sqlite.gz', 'application/gzip', null, true);
+    }
+
+    private function migrationNames(): array
+    {
+        $names = array_map(
+            fn (string $file): string => basename($file, '.php'),
+            glob(database_path('migrations/*_*.php'))
+        );
+        sort($names);
+
+        return $names;
+    }
+
+    /**
+     * Imita la salida de mysqldump: INSERT extendido sin lista de columnas,
+     * comillas escapadas con barra y con comilla doble, y tablas de runtime.
+     */
+    private function mysqlDumpUpload(array $migrations): UploadedFile
+    {
+        $migrationRows = [];
+        foreach ($migrations as $index => $migration) {
+            $migrationRows[] = sprintf("(%d,'%s',1)", $index + 1, $migration);
+        }
+
+        $dump = implode("\n", [
+            '-- MariaDB dump 10.19  Distrib 10.11.6-MariaDB',
+            '/*!40101 SET NAMES utf8mb4 */;',
+            'DROP TABLE IF EXISTS `migrations`;',
+            'CREATE TABLE `migrations` (',
+            '  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,',
+            '  `migration` varchar(255) NOT NULL,',
+            '  `batch` int(11) NOT NULL,',
+            '  PRIMARY KEY (`id`)',
+            ') ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;',
+            'INSERT INTO `migrations` VALUES '.implode(',', $migrationRows).';',
+            'CREATE TABLE `sessions` (',
+            '  `id` varchar(255) NOT NULL,',
+            '  `payload` longtext NOT NULL,',
+            '  `last_activity` int(11) NOT NULL,',
+            '  PRIMARY KEY (`id`)',
+            ') ENGINE=InnoDB;',
+            "INSERT INTO `sessions` VALUES ('abc','payload',1);",
+            'CREATE TABLE `tabla_que_ya_no_existe` (',
+            '  `id` int(11) NOT NULL',
+            ') ENGINE=InnoDB;',
+            'INSERT INTO `tabla_que_ya_no_existe` VALUES (1);',
+            'CREATE TABLE `users` (',
+            '  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,',
+            '  `name` varchar(255) NOT NULL,',
+            '  `columna_retirada` varchar(10) DEFAULT NULL,',
+            '  `email` varchar(255) NOT NULL,',
+            '  `password` varchar(255) NOT NULL,',
+            '  `created_at` timestamp NULL DEFAULT NULL,',
+            '  PRIMARY KEY (`id`),',
+            '  UNIQUE KEY `users_email_unique` (`email`)',
+            ') ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4;',
+            'INSERT INTO `users` VALUES '
+                ."(5,'Dra. O\\'Brien \\\"Ñandú\\\"\\nlinea (a,b); fin','x','a@clinica.test','hash',NULL),"
+                ."(7,'It''s \\\\ ok',NULL,'b@clinica.test','hash','2026-10-09 14:26:01');",
+            '',
+        ]);
+
+        $path = tempnam(sys_get_temp_dir(), 'mysql-dump-').'.sql.gz';
+        file_put_contents($path, gzencode($dump, 9));
+
+        return new UploadedFile($path, 'backup-20261009-142601-6.sql.gz', 'application/gzip', null, true);
     }
 
     private function legacySqlitePath(): string

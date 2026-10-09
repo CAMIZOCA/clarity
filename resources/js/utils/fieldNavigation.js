@@ -91,7 +91,9 @@ export function navigationIntent(event) {
 }
 
 function isNavigable(field) {
-    if (field.disabled || field.readOnly || field.tabIndex < 0) return false;
+    // `:disabled` y no `.disabled`: un campo dentro de un <fieldset disabled>
+    // no tiene el atributo propio, pero tampoco acepta el foco.
+    if (field.matches(':disabled') || field.readOnly || field.tabIndex < 0) return false;
     if (field.tagName === 'INPUT' && NON_FIELD_TYPES.has(field.type)) return false;
 
     // Sin cajas de layout = oculto (display: none propio o de un ancestro).

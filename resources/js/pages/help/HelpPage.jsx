@@ -58,6 +58,9 @@ const sections = [
             'Aqui se guarda la informacion de cada paciente y se organiza su historial para que sea facil volver a encontrarlo.',
         bullets: [
             'Crear, editar y buscar pacientes por nombre, cedula o telefono.',
+            'Un paciente nuevo se empieza por la cedula o RUC: escribela y pulsa Enter. Si ya esta registrado, el sistema te lo muestra para abrir su consulta, ver su ficha o actualizar sus datos, en vez de crearlo dos veces.',
+            'Si la cedula es nueva, el sistema intenta completar solo el nombre, el apellido y la fecha de nacimiento. Revisalos antes de guardar; si no aparecen, escribelos a mano como siempre.',
+            'Si al escribir el nombre aparece un aviso de "nombre parecido", revisa que no sea la misma persona registrada con otra cedula antes de continuar.',
             'Ver su historial clinico en un solo lugar.',
             'Abrir una nueva consulta desde la ficha del paciente.',
             'Consultar informacion de contacto y observaciones relevantes.',

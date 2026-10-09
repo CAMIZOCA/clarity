@@ -11,6 +11,7 @@ use App\Jobs\RunLegacyImportJob;
 use App\Models\MaintenanceOperation;
 use App\Services\DatabaseBackupService;
 use App\Services\LegacyImportService;
+use App\Services\MysqlDumpSqliteConverter;
 use App\Services\SystemRestoreService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -102,8 +103,12 @@ class SystemMaintenanceController extends Controller
         );
     }
 
-    public function uploadImport(Request $request, LegacyImportService $imports, SystemRestoreService $restores): JsonResponse
-    {
+    public function uploadImport(
+        Request $request,
+        LegacyImportService $imports,
+        SystemRestoreService $restores,
+        MysqlDumpSqliteConverter $dumps
+    ): JsonResponse {
         if (! $this->allowed($request)) {
             return $this->forbidden();
         }
@@ -114,24 +119,33 @@ class SystemMaintenanceController extends Controller
 
         $file = $request->file('file');
         $originalFilename = $file->getClientOriginalName();
-        $extension = $this->sqliteImportExtension($originalFilename);
+        $extension = $this->importExtension($originalFilename);
 
         if ($extension === null) {
-            return $this->error('Solo se permiten archivos SQLite (.sqlite, .sqlite3, .db, .sqlite.gz, .sqlite3.gz, .db.gz).');
+            return $this->error('Solo se permiten backups SQLite (.sqlite, .sqlite3, .db) o MySQL/MariaDB (.sql), solos o comprimidos en .gz.');
         }
 
-        $filename = 'legacy-import-'.now()->format('Ymd-His').'-'.Str::uuid().'.'.$extension;
+        // Un dump de MySQL/MariaDB se convierte a SQLite al subirlo; de ahi en
+        // adelante sigue el mismo camino que un backup SQLite.
+        $isMysqlDump = $extension === 'sql';
+        $filename = 'legacy-import-'.now()->format('Ymd-His').'-'.Str::uuid().'.'.($isMysqlDump ? 'sqlite' : $extension);
         $path = 'imports/'.$filename;
         $absolutePath = Storage::disk('local')->path($path);
 
         try {
-            if (str_ends_with(strtolower($originalFilename), '.gz')) {
+            if ($isMysqlDump) {
+                $conversion = $dumps->convert($file->getPathname(), $absolutePath);
+            } elseif (str_ends_with(strtolower($originalFilename), '.gz')) {
                 $this->storeDecompressedGzip($file->getPathname(), $absolutePath);
             } else {
                 $file->storeAs('imports', $filename, 'local');
             }
 
             [$type, $summary] = $this->classifyImportFile($absolutePath, $imports, $restores);
+
+            if ($isMysqlDump) {
+                $summary['converted_from'] = $conversion;
+            }
         } catch (Throwable $e) {
             Storage::disk('local')->delete($path);
 
@@ -178,11 +192,11 @@ class SystemMaintenanceController extends Controller
         }
     }
 
-    private function sqliteImportExtension(string $filename): ?string
+    private function importExtension(string $filename): ?string
     {
         $lower = strtolower($filename);
 
-        foreach (['sqlite', 'sqlite3', 'db'] as $extension) {
+        foreach (['sqlite', 'sqlite3', 'db', 'sql'] as $extension) {
             if (str_ends_with($lower, '.'.$extension)) {
                 return $extension;
             }

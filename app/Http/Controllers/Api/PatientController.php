@@ -2,8 +2,9 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Controller;
+use App\Enums\Permission;
 use App\Http\Controllers\Api\Concerns\ApiResponses;
+use App\Http\Controllers\Controller;
 use App\Http\Requests\StorePatientRequest;
 use App\Http\Requests\UpdatePatientRequest;
 use App\Http\Resources\PatientCollection;
@@ -50,11 +51,67 @@ class PatientController extends Controller
         $patients = $this->patientService->search($q, 15);
 
         $result = $patients->map(fn ($p) => array_merge($p->toArray(), [
-            'edad'            => $p->edad,
+            'edad' => $p->edad,
             'nombre_completo' => $p->nombre_completo,
         ]));
 
         return response()->json($result);
+    }
+
+    /**
+     * Verificacion previa al alta: la cedula ya registrada y los nombres parecidos.
+     * GET /api/patients/lookup?cedula=&nombre=&apellido=&exclude={pacienteId}
+     */
+    public function lookup(Request $request): JsonResponse
+    {
+        $exclude = $request->integer('exclude') ?: null;
+        $cedula = trim((string) $request->input('cedula', ''));
+        $nombre = trim((string) $request->input('nombre', ''));
+        $apellido = trim((string) $request->input('apellido', ''));
+
+        $data = $cedula !== ''
+            ? $this->patientService->lookupByDocument($cedula, $exclude)
+            : ['cedula' => '', 'estado' => null, 'mensaje' => null, 'paciente' => null, 'relacionados' => []];
+
+        $data['similares'] = $nombre.$apellido !== ''
+            ? $this->patientService->findSimilarByName($nombre, $apellido, $exclude)
+            : [];
+
+        return response()->json(['data' => $data]);
+    }
+
+    /**
+     * Datos del titular de una cedula sin registrar, para llenar el alta.
+     * GET /api/patients/identity?cedula=
+     *
+     * Siempre responde 200: sin datos (API sin saldo, caida, cedula ya
+     * registrada) el formulario se llena a mano y no hay error que mostrar.
+     */
+    public function identity(Request $request): JsonResponse
+    {
+        abort_unless($request->user()->can(Permission::PATIENTS_CREATE->value), 403);
+
+        $person = $this->patientService->suggestIdentity((string) $request->input('cedula', ''));
+
+        return response()->json(['data' => [
+            'encontrado' => $person !== null,
+            'nombre' => $person['nombre'] ?? null,
+            'apellido' => $person['apellido'] ?? null,
+            'fecha_nacimiento' => $person['fecha_nacimiento'] ?? null,
+        ]]);
+    }
+
+    /**
+     * Restaurar un paciente eliminado.
+     * POST /api/patients/{id}/restore
+     */
+    public function restore(Request $request, int $id): JsonResponse
+    {
+        abort_unless($request->user()->can(Permission::PATIENTS_DELETE->value), 403);
+
+        $patient = $this->patientService->restore(Patient::onlyTrashed()->findOrFail($id));
+
+        return (new PatientResource($patient))->response();
     }
 
     public function store(StorePatientRequest $request): JsonResponse

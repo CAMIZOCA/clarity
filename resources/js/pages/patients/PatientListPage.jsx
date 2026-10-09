@@ -120,8 +120,11 @@ export default function PatientListPage() {
                             <tr><td colSpan={7} className="py-16 text-center">
                                 <User size={48} className="mx-auto text-gray-300 mb-3" />
                                 <p className="text-gray-500 text-lg">No se encontraron pacientes</p>
-                                <Link to="/pacientes/nuevo">
-                                    <Button className="mt-4" variant="secondary">Registrar primer paciente</Button>
+                                {/* Si lo buscado es una cedula, el alta arranca con ella ya verificada. */}
+                                <Link to={/^\d{9,13}$/.test(search.trim()) ? `/pacientes/nuevo?cedula=${search.trim()}` : '/pacientes/nuevo'}>
+                                    <Button className="mt-4" variant="secondary">
+                                        {search.trim() ? 'Registrar paciente' : 'Registrar primer paciente'}
+                                    </Button>
                                 </Link>
                             </td></tr>
                         ) : patients.map((p, i) => (
