@@ -44,6 +44,17 @@ class ImportOpticaAndinaSqlite extends Command
 
     private array $userByCode = [];
 
+    /** Igual que $userByCode pero sin ceros a la izquierda: "003" y "3" son el mismo medico. */
+    private array $userByLooseCode = [];
+
+    private bool $createMissingUsers = true;
+
+    /** Medicos del backup que no se crearon por no existir ya en el sistema. */
+    private array $doctorsNotCreated = [];
+
+    /** Codigo de medico sin usuario => consultas importadas que quedaron sin medico. */
+    private array $unmatchedDoctorCodes = [];
+
     private array $stats = [
         'users_created' => 0,
         'users_updated' => 0,
@@ -101,6 +112,10 @@ class ImportOpticaAndinaSqlite extends Command
         if ($this->dryRun) {
             $this->warn('MODO DRY-RUN activo: no se guardaran cambios.');
         }
+
+        // En una actualizacion, un medico que falta fue retirado a proposito del
+        // sistema nuevo: no se vuelve a crear salvo que se pida con --only=users.
+        $this->createMissingUsers = $only === 'users' || ! Consultation::whereNotNull('legacy_id')->exists();
 
         $this->createdBy = $this->resolveCreatorId();
         $this->loadUserMap();
@@ -163,15 +178,21 @@ class ImportOpticaAndinaSqlite extends Command
                 $email = $this->emailOrGenerated($this->v($row, 'MED_ORREO'), $code ?? $this->v($row, 'Id'));
                 $registration = $this->limit($this->v($row, 'CODIGO DE SALUD') ?? $this->v($row, 'MED_UMERO DE CED'), 100);
 
-                if ($this->dryRun) {
-                    User::where('email', $email)->orWhere('codigo', $code)->exists()
-                        ? $this->stats['users_updated']++
-                        : $this->stats['users_created']++;
+                $user = $this->userForLegacyDoctor($code, $email);
+
+                if (! $user && ! $this->createMissingUsers) {
+                    $this->doctorsNotCreated[] = "{$name} (codigo {$code})";
+                    $this->stats['users_skipped']++;
 
                     continue;
                 }
 
-                $user = User::where('codigo', $code)->first() ?? User::where('email', $email)->first();
+                if ($this->dryRun) {
+                    $user ? $this->stats['users_updated']++ : $this->stats['users_created']++;
+
+                    continue;
+                }
+
                 if (! $user) {
                     User::create([
                         'name' => $name,
@@ -852,28 +873,56 @@ class ImportOpticaAndinaSqlite extends Command
     private function loadUserMap(): void
     {
         $this->userByCode = [];
+        $this->userByLooseCode = [];
         User::query()
             ->select(['id', 'codigo'])
             ->whereNotNull('codigo')
+            ->orderBy('id')
             ->get()
             ->each(function (User $user): void {
                 $this->userByCode[(string) $user->codigo] = $user->id;
+                $this->userByLooseCode[$this->looseCode((string) $user->codigo)] ??= $user->id;
             });
+    }
+
+    /**
+     * Usuario que corresponde a un codigo de medico del sistema anterior.
+     *
+     * Solo por codigo, nunca por id: MEDICO_RESPONSABLE "3" con el usuario
+     * recodificado a "003" caia en User::find(3), que era otra persona.
+     */
+    private function userIdForCode(?string $code): ?int
+    {
+        if ($code === null) {
+            return null;
+        }
+
+        return $this->userByCode[$code] ?? $this->userByLooseCode[$this->looseCode($code)] ?? null;
+    }
+
+    private function looseCode(string $code): string
+    {
+        $code = ltrim(Str::upper(trim($code)), '0');
+
+        return $code === '' ? '0' : $code;
+    }
+
+    private function userForLegacyDoctor(?string $code, string $email): ?User
+    {
+        $id = $this->userIdForCode($code);
+
+        return $id !== null ? User::find($id) : User::where('email', $email)->first();
     }
 
     private function optometristId(?string $value): ?int
     {
-        if ($value === null) {
-            return null;
+        $id = $this->userIdForCode($value);
+
+        if ($value !== null && $id === null) {
+            $this->unmatchedDoctorCodes[$value] = ($this->unmatchedDoctorCodes[$value] ?? 0) + 1;
         }
 
-        if (isset($this->userByCode[$value])) {
-            return $this->userByCode[$value];
-        }
-
-        $user = User::where('codigo', $value)->first() ?? User::find((int) $value);
-
-        return $user?->id;
+        return $id;
     }
 
     private function uniqueCedula(?string $wanted, string $fallback, ?int $ignoreId = null): string
@@ -1190,6 +1239,20 @@ class ImportOpticaAndinaSqlite extends Command
             ['Errores', $this->stats['errors']],
         ]);
 
+        if ($this->doctorsNotCreated !== []) {
+            $this->warn('Medicos del backup sin usuario en el sistema (no se crearon; --only=users los crea):');
+            foreach ($this->doctorsNotCreated as $doctor) {
+                $this->line(' - '.$doctor);
+            }
+        }
+
+        if ($this->unmatchedDoctorCodes !== []) {
+            $this->warn('Consultas importadas sin medico, por codigo sin usuario:');
+            foreach ($this->unmatchedDoctorCodes as $code => $count) {
+                $this->line(" - codigo {$code}: {$count}");
+            }
+        }
+
         if ($this->errors !== []) {
             $this->warn('Primeros errores:');
             foreach (array_slice($this->errors, 0, 20) as $error) {
@@ -1213,6 +1276,8 @@ class ImportOpticaAndinaSqlite extends Command
         file_put_contents($path, json_encode([
             'stats' => $this->stats,
             'errors' => $this->errors,
+            'doctors_not_created' => $this->doctorsNotCreated,
+            'unmatched_doctor_codes' => $this->unmatchedDoctorCodes,
             'dry_run' => $this->dryRun,
             'replace' => $this->replace,
             'generated_at' => now()->toIso8601String(),
