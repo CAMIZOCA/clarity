@@ -110,6 +110,13 @@ rango **solo** si el valor enviado es identico al almacenado.
 **No relajar los rangos de `ValidOpticalPrescription`**: hay un test que fija esa intencion
 clinica a proposito (`tests/Unit/ValidOpticalPrescriptionTest.php`).
 
+Esa tolerancia es para lo heredado, no para un borrador: al pasar de borrador a completada
+(`isCompleting()`) todo se valida menos la receta en uso, que suele copiarse del historial. Sin
+eso, el autoguardado ya habia persistido el valor, llegaba "sin cambios" y la consulta se
+completaba con una esfera de 99.99. Lo mismo aplica al eje obligatorio de un cilindro en la RX
+Final y a los obligatorios de `settings.required_fields`, que el servidor exige solo en ese paso
+(`tests/Feature/ConsultationCompletionRulesTest.php`).
+
 ### 6. Doble cache del catalogo de consulta
 
 `GET /api/consultations-meta` se cachea 10 min en servidor y 5 min en el SPA (`api/cache.js`).
@@ -196,6 +203,16 @@ Ahora el autoguardado solo trae las columnas planas que el servidor asigna o nor
 modulos/filas. El `reset()` completo queda para el guardado manual, y solo si nadie escribio
 entretanto. Los guardados van en serie (`doSave` encola): dos a la vez duplicaban la consulta.
 
+**El autoguardado solo escribe si hay cambios.** Antes hacia un `PUT` cada 30 s con cualquier
+consulta abierta: leerla ya la modificaba (2.831 entradas de auditoria para 8 consultas). Ahora
+compara `snapshotOf(getValues())` con la foto de lo ultimo guardado. Esa foto pasa por
+`meaningfulContent()`, que descarta vacios, objetos y filas en blanco, y compara todo como texto:
+react-hook-form crea `{ campo: '' }` al montar un input sin valor inicial (los modulos de una
+consulta importada llegan en `null`) y eso no es un cambio del usuario. Un campo nuevo que el
+formulario rellene solo al cargar debe entrar en `buildDefaultValues`, o cuenta como cambio.
+Una consulta nueva nace cuando cambia algo fuera de la cabecera (`HEADER_FIELD_KEYS`), y al salir
+con cambios se intenta guardar antes de preguntar (`useBlocker` + `beforeunload`).
+
 ### 14. Las consultas importadas no guardan lo que dicen sus columnas
 
 El sistema anterior de Optica Andina escribia las dioptrias sin punto ("+300" es +3.00) y usaba
@@ -230,6 +247,23 @@ viejos, y guardarla otra vez los reescribia) y `/me` devolvia un usuario despues
 (`isNetworkOnly`). Un endpoint de datos fuera de `/api/` hay que agregarlo ahi, y cualquier
 cambio de estrategia exige subir `CACHE_NAME` para purgar lo ya guardado en los navegadores.
 
+### 16. Guardar una consulta importada no puede borrarle columnas
+
+El formulario reenvia la consulta entera, y varias columnas planas se reescriben desde un modulo
+(`luna_*` desde "Recomendacion de lunas", `diagnostico_*` desde `diagnoses`, `rx_uso_*` desde la
+primera receta en uso). Si el modulo llega vacio porque el formulario no muestra ese dato, la
+columna se pierde: `luna_espesor` y `luna_proteccion` traen texto del sistema anterior en 752
+consultas importadas (a veces notas clinicas) y cada guardado lo dejaba en `null`.
+
+- `ConsultationService::syncLensRecommendation()` solo cambia una columna `luna_*` si se elige un
+  item o se quita uno que estaba elegido; el texto heredado se muestra en el formulario como
+  "Registro del sistema anterior".
+- En `buildDefaultValues` los modulos anidados van **despues** del `...consultation`: la consulta
+  importada los trae en `null`, y antes ese `null` pisaba el valor por defecto (se perdian en
+  pantalla `luna_observacion` y las pruebas binoculares heredadas).
+- Antes de mapear un modulo a columnas planas, comprobar que el formulario muestra lo que ya
+  hay en ellas. Lo cubre `tests/Feature/ConsultationLensRecommendationTest.php`.
+
 ---
 
 ## Convenciones
@@ -242,6 +276,23 @@ cambio de estrategia exige subir `CACHE_NAME` para purgar lo ya guardado en los 
 - **Errores de la consulta**: todo aviso de validacion lleva al campo con `goToField(nombre)`, que
   abre la seccion colapsada (`openCollapsibleSection`) y revela los campos avanzados si hace falta.
   Una seccion nueva necesita su regla en `FIELD_SECTION_RULES` (`ConsultationForm.jsx`).
+  `RequiredErrorsCtx` es un `Map` campo -> mensaje: el texto sale bajo el campo (`FieldNote`) y se
+  quita al editarlo. Los obligatorios llevan `*` desde el principio (`FieldLabel`).
+- **Avisos de medidas**: `resources/js/utils/refractionChecks.js` marca en ambar lo que el formato
+  rapido deja pasar ("25" es +25.00, cilindro sin eje, eje 0, valor que no es multiplo de 0.25,
+  cambio de signo respecto a la RX en uso). No bloquean: "Completar consulta" los lista y permite
+  seguir, salvo un cilindro sin eje en la RX Final, que tambien rechaza el servidor. Solo miran lo
+  que cambio desde la carga, igual que la tolerancia del gotcha 5. Un chequeo nuevo va ahi, no en
+  `ValidOpticalPrescription`.
+- **Campos con una refraccion completa** ("Lectura computador", "Retinoscopia"): al salir del
+  campo `normalizeRefractionText` deja `-125-225x2` como `-1.25 -2.25 x 2`. Nunca al cargar, y lo
+  que no reconoce (una AV, una queratometria, un "ORTHO" heredado) queda como se escribio.
+- **Medico de la consulta**: una consulta nueva queda a nombre de quien la crea solo si es medico
+  (`User::CLINICIAN_ROLES`, lo resuelve `StoreConsultationRequest`). Al elegir medico se trae su
+  registro SENESCYT a `doctor_license`, sin pisar uno escrito a mano.
+- **Probar la consulta en el navegador**: el interceptor de escrituras se instala en otra pagina
+  y se llega a la consulta navegando dentro del SPA (`history.pushState` + `popstate`). Instalarlo
+  despues de cargar la consulta deja pasar el primer autoguardado.
 - **Fechas**: toda fecha de calendario viaja como `YYYY-MM-DD` y se muestra `DD/MM/AAAA`.
   Usar `resources/js/utils/dates.js` (`toDisplayDate`, `toIsoDate`, `todayIso`) y el componente
   `DateInput`. **Nunca** `new Date('YYYY-MM-DD')` a secas: en UTC-5 devuelve el dia anterior.
@@ -264,6 +315,23 @@ cambio de estrategia exige subir `CACHE_NAME` para purgar lo ya guardado en los 
   digito menos al final); los nombres parecidos (`findSimilarByName`) son la segunda red para los
   importados con codigo provisional `HIST-`/`IMPORT-`. El indice unico de `patients.cedula` cuenta
   tambien a los eliminados, asi que las reglas `unique` de cedula no llevan `whereNull('deleted_at')`.
+  Esa misma comparacion se repite en el servidor al guardar (`duplicateDocumentMessage`): no puede
+  vivir solo en el formulario, que deja continuar cuando la verificacion no responde.
+- **Tipo de documento del paciente**: el formulario envia `document_type` (`cedula` | `otro`), que
+  no se guarda y solo elige la regla de `App\Rules\ValidPatientDocument`. Sin el, se exige una
+  cedula: una letra ya **no** convierte el documento en pasaporte (una cedula mal tecleada se
+  registraba sin digito verificador). "Otro" no admite guion a proposito, para que un `HIST-00123`
+  siga sin pasar por documento valido.
+- **Validar un paciente en dos sitios**: `resources/js/utils/patientValidation.js` adelanta al
+  salir del campo lo que deciden `ValidPatientDocument`, `ValidEcuadorPhone` y
+  `Store/UpdatePatientRequest`. Una regla que cambie en el servidor cambia tambien ahi.
+- **Editar un paciente importado exige limpiar sus datos**: a diferencia de la consulta (gotcha 5),
+  `UpdatePatientRequest` **no** relaja lo que no cambio. Es decision de la optica; el formulario
+  lista los datos heredados invalidos al abrir en vez de fallar al guardar. El email no es unico
+  (las familias lo comparten): solo se avisa.
+- **Salir del formulario de paciente**: `useBlocker` pide confirmacion si hay datos escritos. Todo
+  `navigate()` que sea una salida ya decidida (guardar, restaurar, "es este paciente") debe poner
+  antes `allowLeave.current = true`, o el aviso aparece despues de guardar.
 - **Autocompletado del alta (EcuadorAPI)**: con la cedula en `nuevo`, el formulario pide
   `GET /api/patients/identity` en segundo plano y llena nombre, apellido y fecha de nacimiento
   solo en los campos vacios (`EcuadorApiService`, key en `ECUADORAPI_KEY`). Es pago por consulta

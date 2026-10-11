@@ -31,6 +31,9 @@ class User extends Authenticatable
         'phone',
     ];
 
+    /** Valores de la columna `role` que atienden consultas y salen en el selector de medico. */
+    public const CLINICIAN_ROLES = ['admin', 'optometra'];
+
     protected $hidden = ['password', 'remember_token'];
 
     protected function casts(): array
@@ -44,6 +47,11 @@ class User extends Authenticatable
     public function getFirmaDigitalUrlAttribute(): ?string
     {
         return $this->firma_digital ? Storage::url($this->firma_digital) : null;
+    }
+
+    public function isClinician(): bool
+    {
+        return in_array($this->role, self::CLINICIAN_ROLES, true);
     }
 
     public function branch(): BelongsTo

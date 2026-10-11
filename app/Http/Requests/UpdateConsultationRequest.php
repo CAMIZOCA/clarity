@@ -23,6 +23,29 @@ class UpdateConsultationRequest extends StoreConsultationRequest
         return $this->relaxRangesForUnchangedValues($rules);
     }
 
+    /** Una consulta que ya estaba completada no vuelve a pasar por sus obligatorios. */
+    protected function isCompleting(): bool
+    {
+        $consultation = $this->route('consultation');
+
+        return parent::isCompleting()
+            && ! ($consultation instanceof Consultation && $consultation->estado === 'completada');
+    }
+
+    /** En una edicion parcial, un dato que no viaja puede estar ya guardado. */
+    protected function hasStoredValue(string $field): bool
+    {
+        $consultation = $this->route('consultation');
+
+        if (! $consultation instanceof Consultation || $this->has($field)) {
+            return false;
+        }
+
+        return $field === 'diagnoses'
+            ? $consultation->diagnoses()->exists()
+            : filled($consultation->getAttribute($field));
+    }
+
     /**
      * No revalidar los rangos clinicos de un valor que el usuario no toco.
      *
@@ -34,6 +57,11 @@ class UpdateConsultationRequest extends StoreConsultationRequest
      * Aqui se retira la regla de rango unicamente cuando el valor enviado es
      * identico al almacenado: lo que el usuario escribe se sigue validando con
      * el mismo rigor, pero un dato heredado deja de bloquear la edicion.
+     *
+     * Al completar un borrador solo se perdona la receta en uso, que suele
+     * venir copiada del historial. El resto lo escribio el usuario en esta
+     * consulta: como el autoguardado ya lo habia persistido, llegaba "sin
+     * cambios" y la consulta se completaba con un valor fuera de rango.
      */
     private function relaxRangesForUnchangedValues(array $rules): array
     {
@@ -43,8 +71,14 @@ class UpdateConsultationRequest extends StoreConsultationRequest
             return $rules;
         }
 
+        $completingDraft = $this->isCompleting();
+
         foreach ($rules as $field => $fieldRules) {
             if (! is_array($fieldRules) || str_contains($field, '*')) {
+                continue;
+            }
+
+            if ($completingDraft && ! str_starts_with($field, 'rx_uso_')) {
                 continue;
             }
 
@@ -64,7 +98,39 @@ class UpdateConsultationRequest extends StoreConsultationRequest
             }
         }
 
+        $rules = $this->relaxAxisRequirementForUnchangedCylinder($rules, $consultation);
+
         return $this->relaxRxUsoEntryRanges($rules, $consultation);
+    }
+
+    /**
+     * El eje obligatorio de un cilindro tampoco se le exige a un dato heredado:
+     * solo aplica si el cilindro o el eje cambiaron respecto de lo guardado.
+     */
+    private function relaxAxisRequirementForUnchangedCylinder(array $rules, Consultation $consultation): array
+    {
+        // Un borrador que se completa no trae datos heredados en la RX Final.
+        if ($this->isCompleting()) {
+            return $rules;
+        }
+
+        foreach (['od', 'oi'] as $eye) {
+            $axis = "rx_final_eje_{$eye}";
+            $cylinder = "rx_final_cilindro_{$eye}";
+
+            if (! in_array('required', $rules[$axis] ?? [], true)) {
+                continue;
+            }
+
+            $unchanged = $this->isUnchanged($this->input($cylinder), $consultation->getAttribute($cylinder))
+                && $this->isUnchanged($this->input($axis), $consultation->getAttribute($axis));
+
+            if ($unchanged) {
+                $rules[$axis] = ['nullable', 'numeric'];
+            }
+        }
+
+        return $rules;
     }
 
     /**

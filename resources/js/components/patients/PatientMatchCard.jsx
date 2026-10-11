@@ -78,9 +78,14 @@ export default function PatientMatchCard({
 /**
  * Lista compacta de posibles coincidencias (cedulas relacionadas, nombres
  * parecidos). Avisa sin bloquear: quien registra decide si es la misma persona.
+ *
+ * `newTab` abre la ficha en otra pestaña: dentro de un formulario a medio
+ * llenar, salir a mirar una ficha perdia todo lo escrito.
  */
-export function PatientMatchList({ title, description, patients, renderAction }) {
+export function PatientMatchList({ title, description, patients, renderAction, newTab = false }) {
     if (!patients?.length) return null;
+
+    const linkProps = newTab ? { target: '_blank', rel: 'noopener' } : {};
 
     return (
         <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-4">
@@ -94,7 +99,7 @@ export function PatientMatchList({ title, description, patients, renderAction })
                             <p className="text-sm text-gray-600">{summaryLine(patient)}</p>
                         </div>
                         <div className="flex flex-shrink-0 gap-2">
-                            <Link to={`/pacientes/${patient.id}`}>
+                            <Link to={`/pacientes/${patient.id}`} {...linkProps}>
                                 <Button variant="secondary" size="sm"><Eye size={16} /> Ver ficha</Button>
                             </Link>
                             {renderAction?.(patient)}

@@ -25,8 +25,9 @@ class ConsultationService extends BaseService
     public function create(array $data, int $userId): Consultation
     {
         return $this->transaction(function () use ($data, $userId) {
+            // El medico por defecto lo pone `StoreConsultationRequest`, y solo
+            // si quien crea la consulta es medico: aqui no se asigna a nadie.
             $attributes = $this->extractConsultationAttributes($data);
-            $attributes['optometrista_id'] = $attributes['optometrista_id'] ?? $userId;
             $attributes['created_by'] = $userId;
             $attributes['updated_by'] = $userId;
 
@@ -204,6 +205,59 @@ class ConsultationService extends BaseService
     }
 
     /**
+     * Recomendacion de lunas y sus columnas planas `luna_*`.
+     *
+     * `luna_material`, `luna_espesor` y `luna_proteccion` repiten la etiqueta
+     * del catalogo elegido, para la orden de trabajo y los reportes. En las
+     * consultas importadas esas columnas traen texto del sistema anterior que
+     * el formulario no muestra: como aqui se reescribian siempre, cualquier
+     * guardado de una consulta importada lo borraba. Ahora una columna solo
+     * cambia si se elige un item o se quita uno que estaba elegido.
+     */
+    private function syncLensRecommendation(Consultation $consultation, array $input): void
+    {
+        $slots = [
+            'material_item_id' => 'luna_material',
+            'thickness_item_id' => 'luna_espesor',
+            'protection_item_id' => 'luna_proteccion',
+        ];
+
+        // Con los null incluidos: al filtrarlos, quitar una seleccion no se
+        // guardaba y volvia a aparecer al recargar.
+        $payload = Arr::only($input, [...array_keys($slots), 'observation']);
+        $previous = $consultation->lensRecommendation()->first();
+
+        if ($previous || filled(array_filter($payload, fn ($value) => filled($value)))) {
+            $consultation->lensRecommendation()->updateOrCreate(['consultation_id' => $consultation->id], $payload);
+        }
+
+        $labels = ClinicalCatalogItem::query()
+            ->whereIn('id', array_filter(Arr::only($payload, array_keys($slots))))
+            ->pluck('label', 'id');
+
+        $flat = [];
+        foreach ($slots as $key => $column) {
+            if (! array_key_exists($key, $payload)) {
+                continue;
+            }
+
+            if (filled($payload[$key])) {
+                $flat[$column] = $labels[$payload[$key]] ?? null;
+            } elseif (filled($previous?->{$key})) {
+                $flat[$column] = null;
+            }
+        }
+
+        if (array_key_exists('observation', $payload)) {
+            $flat['luna_observacion'] = $payload['observation'];
+        }
+
+        if ($flat !== []) {
+            $consultation->forceFill($flat)->save();
+        }
+    }
+
+    /**
      * Sincronizar todos los sub-módulos de una consulta.
      * Preserva exactamente la lógica de ConsultationController::syncModules().
      */
@@ -317,26 +371,7 @@ class ConsultationService extends BaseService
 
         // --- Recomendación de lentes ---
         if (array_key_exists('lens_recommendation', $data)) {
-            $payload = Arr::whereNotNull($data['lens_recommendation'] ?? []);
-            $consultation->lensRecommendation()->updateOrCreate(
-                ['consultation_id' => $consultation->id],
-                $payload
-            );
-
-            $itemLabels = ClinicalCatalogItem::query()
-                ->whereIn('id', array_filter([
-                    $payload['material_item_id'] ?? null,
-                    $payload['thickness_item_id'] ?? null,
-                    $payload['protection_item_id'] ?? null,
-                ]))
-                ->pluck('label', 'id');
-
-            $consultation->forceFill([
-                'luna_material' => $itemLabels[$payload['material_item_id'] ?? 0] ?? null,
-                'luna_espesor' => $itemLabels[$payload['thickness_item_id'] ?? 0] ?? null,
-                'luna_proteccion' => $itemLabels[$payload['protection_item_id'] ?? 0] ?? null,
-                'luna_observacion' => $payload['observation'] ?? null,
-            ])->save();
+            $this->syncLensRecommendation($consultation, $data['lens_recommendation'] ?? []);
         }
 
         // --- Módulo de lentes de contacto ---

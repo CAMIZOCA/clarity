@@ -118,7 +118,8 @@ Enter sobre una casilla de diagnostico sale de la lista. El resto de formularios
 Diagnostico (`components/forms/DiagnosisPicker.jsx`): dos listas de seleccion multiple
 lado a lado (OD / OI) con todo el catalogo `diagnoses`. Marcar un item agrega la fila
 `{eye, catalog_item_id, code, description}` al mismo array `diagnoses`; `notes` se muestra
-como "Recomendaciones". El catalogo se ordena por probabilidad segun RX Final (o Subjetivo)
+como "Nota del diagnostico" (no se imprime; el certificado toma sus RECOMENDACIONES de
+"Recomendaciones medicas"). El catalogo se ordena por probabilidad segun RX Final (o Subjetivo)
 con `utils/diagnosisSuggestions.js` (umbrales OMS/IMI/AOA/AAO); nada se pre-marca. Las filas
 de texto libre, ojo "general" o items desactivados se editan aparte en "Otros diagnosticos".
 
@@ -211,6 +212,101 @@ Ordenados por impacto.
 ---
 
 ## Historial de cambios relevantes
+
+### 2026-10-11 — Auditoria del formulario de consulta
+
+Revision de lo que podia perder datos, dejar pasar un dato equivocado o confundir al llenar una
+consulta, respetando el formato rapido de la optica (`025` -> 0.25, `N`, Enter y flechas).
+
+**Guardado**
+- **El autoguardado solo escribe si hay cambios.** Hacia un `PUT` cada 30 s con cualquier consulta
+  abierta: leerla la modificaba (filas hijas recreadas, `updated_by`, auditoria: 2.831 entradas
+  para 8 consultas). Ahora compara una foto del contenido (`snapshotOf` / `meaningfulContent`).
+- **Guardar una consulta importada ya no le borra `luna_espesor` / `luna_proteccion`.** Esas
+  columnas traen texto del sistema anterior en 752 consultas y se reescribian desde los selectores
+  de "Recomendacion de lunas", que para ellas estan vacios. Junto con el punto anterior, bastaba
+  abrir la consulta 30 s para perderlo. `ConsultationService::syncLensRecommendation()` solo cambia
+  la columna si se elige o se quita un item; el texto heredado se ve en el formulario. De paso,
+  quitar una seleccion de material/espesor/proteccion ahora si se guarda.
+- Una consulta nueva se autoguarda al cambiar cualquier dato clinico (antes solo con 12 campos:
+  copiar una RX del historial no guardaba nada).
+- **Aviso al salir** con cambios pendientes: primero intenta guardar y solo pregunta si falla.
+- El campo enfocado viaja normalizado (un cilindro `075` a medio escribir se guardaba +0.75).
+- Los datos del paciente en la cabecera ya no son campos del formulario (viajaban en cada envio).
+- Sesion vencida: mensaje propio en vez de "Unauthenticated.". "Guardar borrador" pasa a
+  "Guardar cambios" en una consulta completada.
+- Un borrador rechaza medidas que no caben en `decimal(5,2)` (en MariaDB respondian 500).
+
+**Medidas**
+- **Avisos en ambar** (`utils/refractionChecks.js`): cilindro sin eje, eje sin cilindro, eje 0,
+  valor que no es multiplo de 0.25, valor poco habitual con sugerencia ("+25.00... si quiso +0.25
+  escriba 025"), cilindro positivo, cambio de signo o salto de 2.00 D frente a la RX en uso, ADD
+  distinta entre ojos, AV no reconocida. "Completar consulta" los lista y deja seguir; solo
+  bloquea un cilindro sin eje en la RX Final (tambien en el servidor).
+- **Lectura computador y Retinoscopia se uniforman** al salir del campo: `-125-225x2` ->
+  `-1.25 -2.25 x 2` (`normalizeRefractionText`). Lo que no es una refraccion queda igual.
+- Placeholders con ejemplo en los campos de texto, eje `1–180` (decia 0–180), prisma sin la base,
+  y `maxLength` segun la columna. El resumen de RX Final ya no muestra "±0.00" por un campo vacio.
+- **Al completar un borrador se valida todo** menos la receta en uso: como el autoguardado ya
+  habia guardado el valor, llegaba "sin cambios", se le quitaba la regla de rango y la consulta
+  se completaba con el.
+
+**Claridad**
+- El mensaje de cada error sale bajo su campo y se quita al corregirlo; los obligatorios llevan
+  `*` desde el principio y el servidor los exige en el paso a completada.
+- Fechas con `DateInput` (`DD/MM/AAAA`) y aviso inmediato de fecha futura.
+- "Cedula / RUC" era el registro del medico: ahora "Registro SENESCYT del medico", y se llena al
+  elegirlo. El medico por defecto es quien abre la consulta solo si es medico.
+- Cada cuadro de texto dice si se imprime en el certificado; la nota de un diagnostico ya no se
+  llama "Recomendaciones". La segunda "Queratometria" pasa a "Queratometria detallada".
+- Las pruebas binoculares heredadas (`cover_test`, `ppc`...) vuelven a verse en su tabla.
+- Tildes en todo el formulario ("Edad: 7 años"), `htmlFor` / `aria-label`, estado con color.
+- Venta: precio y descuento solo numericos, descuento hasta 100.
+
+**Pendiente**: edicion simultanea (gana la ultima escritura), copia local del borrador y
+confirmar con la optica el ejemplo de Base del prisma y si el DP se escribe mono o binocular.
+En produccion, las consultas importadas que ya se abrieron perdieron `luna_espesor` /
+`luna_proteccion`: se pueden recuperar del origen de la importacion por `legacy_id`.
+
+### 2026-10-11 — Errores de llenado del alta de paciente
+
+Revision de lo que podia salir mal al llenar `/pacientes/nuevo` (orden de llenado, cambiar un
+dato despues de otro, salir a destiempo).
+
+- **Tipo de documento explicito**: interruptor "Cedula / RUC" (por defecto) o "Pasaporte u otro
+  documento". Antes cualquier texto con una letra pasaba como pasaporte, asi que una cedula mal
+  tecleada ("17100340q5") se registraba sin digito verificador y sin encontrar al paciente que ya
+  existia. Viaja como `document_type` (no se guarda) y `tipo` en el lookup; regla
+  `App\Rules\ValidPatientDocument`. "Otro" admite 5-15 letras o numeros **sin guion**, para que
+  un codigo `HIST-`/`IMPORT-` siga obligando a poner el documento real.
+- **La barrera de duplicados tambien esta en el servidor**: `Store/UpdatePatientRequest` rechazan
+  la variante de un documento ya registrado (RUC, sin cero inicial) con
+  `PatientService::duplicateDocumentMessage()`. Antes solo lo comprobaba el formulario, y con
+  "No se pudo verificar. Puede continuar" se registraba igual.
+- **Telefono**: se aceptan el fijo local de 7 digitos (asi estan 459 importados) y numeros
+  extranjeros con `+`; `max:20` por el VARCHAR(20) de la columna.
+- **Email repetido ya no bloquea** (242 pacientes lo comparten con un familiar): se quito el
+  `unique` y el formulario avisa con `GET /api/patients/lookup?email=` (`mismo_email`).
+- **Autocompletado**: nombre y apellido se llenan juntos y solo si ambos estan vacios; si ya hay
+  algo escrito se ofrece "Usar estos datos" en vez de mezclar. No toca una fecha con el foco.
+- **Nombres parecidos**: basta con que coincida el nombre mas corto de los dos (el Registro Civil
+  trae cuatro palabras y muchos registros guardan dos o tres).
+- **No se pierde lo escrito**: "Ver ficha" abre en otra pestaña y salir con datos pide
+  confirmacion (`useBlocker` + `beforeunload`). "Es este paciente" lleva lo tecleado a la edicion.
+- **Restaurar un eliminado pide confirmacion** y el foco ya no cae en ese boton (cedula + Enter +
+  Enter lo restauraba).
+- **Verificacion**: sesion vencida o sin permiso ya no dicen "puede continuar"; la consulta tiene
+  limite de 8 s.
+- **Fechas**: edad junto a la fecha de nacimiento, error inmediato si es futura, y una fecha a
+  medio escribir ya no se borra sola al salir del campo (`DateInput`).
+- **Edicion**: el formulario no se habilita hasta cargar al paciente (vacio, "Actualizar" guardaba
+  blancos). Un dato heredado invalido **sigue bloqueando** el guardado (decision de la optica: 905
+  fechas de nacimiento futuras, cedulas sin verificador), pero se lista al abrir, con la
+  correccion de un clic para las fechas que la importacion leyo como 20XX.
+- Tests: `tests/Feature/PatientValidationTest.php`, ampliados `PatientLookupTest` y
+  `ValidEcuadorPhoneTest`.
+- Pendiente: una correccion posterior del paciente no se reenvia a Contifico (`syncPatient` sale
+  si ya hay `contifico_id`).
 
 ### 2026-10-09 — Autocompletado del alta con EcuadorAPI
 

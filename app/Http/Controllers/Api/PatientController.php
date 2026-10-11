@@ -10,6 +10,7 @@ use App\Http\Requests\UpdatePatientRequest;
 use App\Http\Resources\PatientCollection;
 use App\Http\Resources\PatientResource;
 use App\Models\Patient;
+use App\Rules\ValidPatientDocument;
 use App\Services\PatientService;
 use App\Support\AppConfig;
 use Illuminate\Http\JsonResponse;
@@ -60,7 +61,9 @@ class PatientController extends Controller
 
     /**
      * Verificacion previa al alta: la cedula ya registrada y los nombres parecidos.
-     * GET /api/patients/lookup?cedula=&nombre=&apellido=&exclude={pacienteId}
+     * GET /api/patients/lookup?cedula=&tipo=&nombre=&apellido=&email=&exclude={pacienteId}
+     *
+     * `tipo` es el tipo de documento elegido en el formulario (ValidPatientDocument).
      */
     public function lookup(Request $request): JsonResponse
     {
@@ -68,14 +71,19 @@ class PatientController extends Controller
         $cedula = trim((string) $request->input('cedula', ''));
         $nombre = trim((string) $request->input('nombre', ''));
         $apellido = trim((string) $request->input('apellido', ''));
+        $tipo = $request->input('tipo') === ValidPatientDocument::TYPE_OTHER
+            ? ValidPatientDocument::TYPE_OTHER
+            : ValidPatientDocument::TYPE_CEDULA;
 
         $data = $cedula !== ''
-            ? $this->patientService->lookupByDocument($cedula, $exclude)
+            ? $this->patientService->lookupByDocument($cedula, $exclude, $tipo)
             : ['cedula' => '', 'estado' => null, 'mensaje' => null, 'paciente' => null, 'relacionados' => []];
 
         $data['similares'] = $nombre.$apellido !== ''
             ? $this->patientService->findSimilarByName($nombre, $apellido, $exclude)
             : [];
+
+        $data['mismo_email'] = $this->patientService->findByEmail((string) $request->input('email', ''), $exclude);
 
         return response()->json(['data' => $data]);
     }
@@ -116,7 +124,7 @@ class PatientController extends Controller
 
     public function store(StorePatientRequest $request): JsonResponse
     {
-        $patient = $this->patientService->create($request->validated(), $request->user()->id);
+        $patient = $this->patientService->create($request->safe()->except('document_type'), $request->user()->id);
 
         return (new PatientResource($patient))
             ->response()
@@ -132,7 +140,7 @@ class PatientController extends Controller
 
     public function update(UpdatePatientRequest $request, Patient $patient): JsonResponse
     {
-        $patient = $this->patientService->update($patient, $request->validated());
+        $patient = $this->patientService->update($patient, $request->safe()->except('document_type'));
 
         return (new PatientResource($patient))->response();
     }

@@ -29,6 +29,14 @@ class ValidOpticalPrescription implements ValidationRule
     ];
 
     /**
+     * Mayor valor que cabe en las columnas de medidas (`decimal(5,2)`). Es lo
+     * unico que se exige sin rango clinico: un numero mas grande desborda la
+     * columna y MariaDB responde 500 en vez de guardar el borrador (SQLite lo
+     * acepta, asi que en local no se ve).
+     */
+    private const STORAGE_LIMIT = 999.99;
+
+    /**
      * Misma regla sin el chequeo de rango clínico: se usa al guardar un
      * borrador, que nunca debe bloquearse por un valor fuera de rango, pero
      * sigue exigiendo que el valor sea numérico (o "N" si aplica) para no
@@ -56,6 +64,10 @@ class ValidOpticalPrescription implements ValidationRule
         }
 
         if (! $this->enforceRange) {
+            if (abs((float) $value) > self::STORAGE_LIMIT) {
+                $fail('El campo :attribute no puede ser mayor a '.self::STORAGE_LIMIT.'.');
+            }
+
             return;
         }
 

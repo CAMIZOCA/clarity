@@ -66,6 +66,16 @@ class ValidOpticalPrescriptionTest extends TestCase
         $this->assertValidationPasses($relaxed, 999);
     }
 
+    public function test_without_range_still_rejects_a_value_that_overflows_the_column(): void
+    {
+        // decimal(5,2): 1000.00 ya no cabe y MariaDB aborta el guardado.
+        $relaxed = (new ValidOpticalPrescription('sphere'))->withoutRange();
+
+        $this->assertValidationPasses($relaxed, -999.99);
+        $this->assertValidationFails($relaxed, 1000);
+        $this->assertValidationFails($relaxed, '-1234.56');
+    }
+
     private function assertValidationPasses(ValidOpticalPrescription $rule, mixed $value): void
     {
         $failed = false;

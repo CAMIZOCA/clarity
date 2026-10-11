@@ -147,8 +147,9 @@ function EyeChecklist({ eye, ranked, checkedIndex, fields, register, onToggle })
                                     <textarea
                                         key={fields[index]?.id}
                                         id={`diagnoses.${index}.notes`}
+                                        aria-label={`Nota del diagnóstico ${option.label}`}
                                         rows={1}
-                                        placeholder="Recomendaciones (opcional)"
+                                        placeholder="Nota del diagnóstico (opcional, no se imprime en el certificado)"
                                         className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
                                         {...register(`diagnoses.${index}.notes`)}
                                     />

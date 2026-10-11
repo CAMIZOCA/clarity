@@ -1,10 +1,12 @@
 import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
-import { useNavigate } from 'react-router-dom';
+import { useBlocker, useNavigate } from 'react-router-dom';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { Save, FileText, CheckCircle, Clock, Plus, Trash2, Printer, AlertTriangle, ArrowRight } from 'lucide-react';
 import client from '../../api/client';
 import Button from '../../components/ui/Button';
+import DateInput from '../../components/ui/DateInput';
+import ConfirmModal from '../../components/ui/ConfirmModal';
 import EyeFieldGroup from '../../components/forms/EyeFieldGroup';
 import RxHistoryPicker from '../../components/forms/RxHistoryPicker';
 import DiagnosisPicker, { checklistRowIndexes } from '../../components/forms/DiagnosisPicker';
@@ -13,9 +15,11 @@ import { AdvancedToggleButton, useAdvancedToggle } from '../../components/forms/
 import CertificadoPdf from '../../components/pdf/CertificadoPdf';
 import { useToast } from '../../components/ui/Toast';
 import { useSettings } from '../../contexts/SettingsContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { useAdvancedFields } from '../../hooks/useAdvancedFields';
 import { RequiredErrorsCtx } from '../../components/forms/RequiredErrorsContext';
-import { displaySphere, displaySigned, formatOpticalForInput } from '../../utils/opticalFormat';
+import { displaySphere, displaySigned, formatOpticalForInput, normalizeOpticalValue } from '../../utils/opticalFormat';
+import { refractionWarnings } from '../../utils/refractionChecks';
 import { toDisplayDate, toIsoDate, todayIso } from '../../utils/dates';
 import { handleFieldNavigation } from '../../utils/fieldNavigation';
 
@@ -31,14 +35,54 @@ const REQUIRED_FIELD_LABELS = {
     lente_anterior: 'Lente anterior',
     observaciones: 'Observaciones clínicas',
     print_template_key: 'Plantilla de impresión',
-    doctor_license: 'Registro / Licencia del doctor',
+    doctor_license: 'Registro SENESCYT del médico',
 };
 
-const CLINICAL_FIELD_KEYS = [
-    'motivo_consulta', 'lente_anterior', 'observaciones', 'diagnostico_adicional',
-    'av_lectura_od', 'av_lectura_oi', 'avsc_od', 'avsc_oi',
-    'rx_final_esfera_od', 'rx_final_esfera_oi', 'vc_esfera_od', 'vc_esfera_oi',
+const isBlank = (value) => value === null || value === undefined || String(value).trim() === '';
+
+// Campos de cabecera: cambiarlos no basta para crear una consulta nueva. Es la
+// misma lista que ignora `ConsultationController::hasClinicalContent()`.
+const HEADER_FIELD_KEYS = [
+    'patient_id', 'optometrista_id', 'fecha_consulta', 'estado', 'doctor_license', 'print_template_key',
 ];
+
+/**
+ * Contenido real de unos valores del formulario: sin vacios, sin los objetos
+ * y filas que quedan en blanco, con las claves ordenadas y todo como texto.
+ *
+ * react-hook-form crea `{ campo: '' }` al montar un input cuyo valor inicial
+ * no existia (los modulos de una consulta importada llegan en `null`) y
+ * devuelve "4" donde la API mando 4. Nada de eso lo escribio el usuario: una
+ * foto que lo contara como cambio guardaba la consulta con solo abrirla.
+ */
+function meaningfulContent(value) {
+    if (Array.isArray(value)) {
+        const items = value.map(meaningfulContent).filter((item) => item !== undefined);
+
+        return items.length ? items : undefined;
+    }
+
+    if (value !== null && typeof value === 'object') {
+        const entries = Object.keys(value).sort()
+            .map((key) => [key, meaningfulContent(value[key])])
+            .filter(([, item]) => item !== undefined);
+
+        return entries.length ? Object.fromEntries(entries) : undefined;
+    }
+
+    return isBlank(value) ? undefined : String(value);
+}
+
+/** Foto comparable de los valores del formulario. */
+const snapshotOf = (values) => JSON.stringify(meaningfulContent(values) ?? {});
+
+/** La misma foto sin la cabecera: lo que cuenta como contenido clinico. */
+function clinicalSnapshotOf(values) {
+    const clinical = { ...values };
+    for (const key of HEADER_FIELD_KEYS) delete clinical[key];
+
+    return snapshotOf(clinical);
+}
 
 const defaultDiagnosis = (eye = 'general') => ({
     eye,
@@ -81,7 +125,40 @@ const SIGNED_OPTICAL_FIELDS = ['rx_uso', 'subj', 'rx_final', 'vc'].flatMap((pref
     SIGNED_OPTICAL_COLUMNS.flatMap((column) => [`${prefix}_${column}_od`, `${prefix}_${column}_oi`])
 );
 
-const isBlank = (value) => value === null || value === undefined || String(value).trim() === '';
+// Columnas que el formulario normaliza al salir del campo, con su tipo de medida.
+const OPTICAL_COLUMN_TYPES = { esfera: 'sphere', cilindro: 'cylinder', eje: 'axis', add: 'add' };
+
+/**
+ * Deja las medidas del envio como las dejaria el formulario al salir del campo.
+ *
+ * El autoguardado puede caer con un campo todavia enfocado, y un cilindro
+ * "075" sin normalizar se guardaba positivo: el signo por defecto solo lo pone
+ * `normalizeOpticalValue`, el servidor respeta el que recibe.
+ */
+function normalizeOpticalPayload(payload) {
+    const normalizeRow = (row, nameOf) => {
+        for (const [column, type] of Object.entries(OPTICAL_COLUMN_TYPES)) {
+            for (const eye of ['od', 'oi']) {
+                const name = nameOf(column, eye);
+                if (typeof row[name] === 'string' && !isBlank(row[name])) {
+                    row[name] = normalizeOpticalValue(row[name], type);
+                }
+            }
+        }
+
+        return row;
+    };
+
+    const normalized = { ...payload };
+    for (const prefix of ['rx_uso', 'subj', 'rx_final', 'vc']) {
+        normalizeRow(normalized, (column, eye) => `${prefix}_${column}_${eye}`);
+    }
+    normalized.rx_uso_entries = (payload.rx_uso_entries ?? []).map(
+        (entry) => normalizeRow({ ...entry }, (column, eye) => `${column}_${eye}`)
+    );
+
+    return normalized;
+}
 
 /** Repone el signo en esfera, cilindro y ADD de una receta en uso. */
 function signRxUsoEntry(entry) {
@@ -94,8 +171,24 @@ function signRxUsoEntry(entry) {
     return entry;
 }
 
+/** Regla de las fechas de la consulta: hoy o antes (`YYYY-MM-DD` se compara como texto). */
+const notFutureDate = (value) => isBlank(value) || value <= todayIso() || 'La fecha no puede ser futura.';
+
 /** Importe escrito a mano: acepta coma decimal ("25,50"). */
 const parseAmount = (value) => parseFloat(String(value ?? '').replace(',', '.')) || 0;
+
+/**
+ * Deja en un importe solo digitos y separador decimal mientras se escribe.
+ * "$25" daba total 0.00 y despues un 422 que dejaba la consulta sin guardar.
+ * Con `max`, un valor mayor se queda en el tope (un descuento de mas de 100%
+ * daba un total negativo).
+ */
+function keepAmount(event, max = null) {
+    const digits = String(event.target.value).replace(/[^\d.,]/g, '');
+    const cleaned = max !== null && parseAmount(digits) > max ? String(max) : digits;
+
+    if (cleaned !== event.target.value) event.target.value = cleaned;
+}
 
 // Una fila de modulo cuenta como llena si trae cualquiera de estos datos. Es el
 // mismo criterio de `StoreConsultationRequest::dropEmptyModuleRows()`.
@@ -225,7 +318,7 @@ function ophthalmoscopyResultsToLabeled(indexedResults, rows = [], distances = [
     }, {});
 }
 
-function buildDefaultValues(patient, consultation, meta) {
+function buildDefaultValues(patient, consultation, meta, defaultDoctor = null) {
     const diagnosisFallback = consultation?.diagnoses?.length
         ? consultation.diagnoses.map((item) => ({
             eye: item.eye ?? 'general',
@@ -257,7 +350,9 @@ function buildDefaultValues(patient, consultation, meta) {
 
     const values = {
         patient_id: patient.id,
-        optometrista_id: consultation?.optometrista_id ?? '',
+        // El medico por defecto es solo para una consulta nueva: en una ya
+        // guardada sin medico, proponerlo lo asignaria al primer guardado.
+        optometrista_id: consultation ? (consultation.optometrista_id ?? '') : (defaultDoctor?.id ?? ''),
         fecha_consulta: consultation?.fecha_consulta
             ? toIsoDate(consultation.fecha_consulta)
             : todayIso(),
@@ -266,8 +361,25 @@ function buildDefaultValues(patient, consultation, meta) {
         ultimo_control: consultation?.ultimo_control
             ? toIsoDate(consultation.ultimo_control)
             : '',
-        doctor_license: consultation?.doctor_license ?? consultation?.optometrista?.registro_senescyt ?? '',
+        doctor_license: consultation
+            ? (consultation.doctor_license ?? consultation.optometrista?.registro_senescyt ?? '')
+            : (defaultDoctor?.registro_senescyt ?? ''),
         print_template_key: consultation?.print_template_key ?? meta?.templates?.[0]?.key ?? '',
+        near_vision_data: consultation?.near_vision_data ?? {},
+        ...consultation,
+        // Estas van despues del spread: `consultation.diagnoses` /
+        // `.recommendations_list` / `.rx_uso_entries` son el array crudo de la
+        // API (vacio en cuanto el usuario borra el texto y guarda), y
+        // pisarian el fallback con filas en blanco que ya calculamos arriba.
+        // `ophthalmoscopy_module.results` tambien: el spread reintroduce la
+        // version label-keyed cruda de la API y pisa la conversion indexada
+        // de mas arriba (necesaria para que react-hook-form registre bien
+        // los inputs de esa matriz, ver `ophthalmoscopyResultsToIndexed`).
+        //
+        // Los modulos de abajo igual: una consulta importada los trae en
+        // `null`, y antes del spread ese null pisaba el valor por defecto. Asi
+        // se perdian en pantalla `luna_observacion` y las pruebas binoculares
+        // heredadas (`cover_test`, `ppc`...), que solo viven en columnas planas.
         lens_recommendation: {
             material_item_id: consultation?.lens_recommendation?.material_item_id ?? '',
             thickness_item_id: consultation?.lens_recommendation?.thickness_item_id ?? '',
@@ -282,7 +394,6 @@ function buildDefaultValues(patient, consultation, meta) {
             reflejos_pupilares: { od: '', oi: '', observacion: consultation?.reflejos_pupilares ?? '' },
             test_hirschberg: { od: '', oi: '', observacion: consultation?.test_hirschberg ?? '' },
         },
-        near_vision_data: consultation?.near_vision_data ?? {},
         contact_lens_module: consultation?.contact_lens_module ?? {
             diametro_pupilar: '',
             diametro_corneal: '',
@@ -308,15 +419,6 @@ function buildDefaultValues(patient, consultation, meta) {
             metodo_limpieza: '',
             modalidad_uso: '',
         },
-        ...consultation,
-        // Estas van despues del spread: `consultation.diagnoses` /
-        // `.recommendations_list` / `.rx_uso_entries` son el array crudo de la
-        // API (vacio en cuanto el usuario borra el texto y guarda), y
-        // pisarian el fallback con filas en blanco que ya calculamos arriba.
-        // `ophthalmoscopy_module.results` tambien: el spread reintroduce la
-        // version label-keyed cruda de la API y pisa la conversion indexada
-        // de mas arriba (necesaria para que react-hook-form registre bien
-        // los inputs de esa matriz, ver `ophthalmoscopyResultsToIndexed`).
         diagnoses: diagnosisFallback,
         recommendations_list: recommendationFallback,
         rx_uso_entries: buildRxUsoEntries(consultation),
@@ -465,38 +567,75 @@ function fieldErrorClass(hasError) {
         : 'border-slate-300';
 }
 
+/** Campos que la configuracion exige para completar la consulta. */
+function useRequiredFields() {
+    const { settings } = useSettings();
+
+    return Array.isArray(settings?.required_fields) ? settings.required_fields : [];
+}
+
+/**
+ * Etiqueta de un campo. El `*` de obligatorio va desde el principio: antes
+ * solo aparecia despues de intentar completar la consulta sin el dato.
+ */
+function FieldLabel({ name, label, invalid }) {
+    const required = useRequiredFields().includes(name);
+
+    return (
+        <label htmlFor={name} className={`text-sm font-medium ${invalid ? 'text-red-600' : 'text-slate-700'}`}>
+            {label}
+            {required && <span className="ml-0.5 text-red-500" title="Obligatorio para completar la consulta">*</span>}
+        </label>
+    );
+}
+
+/** Bajo el campo: el mensaje de su error o, si no hay, la ayuda fija. */
+function FieldNote({ name, message, hint }) {
+    if (message) return <p id={`${name}-error`} className="text-xs text-red-600">{message}</p>;
+
+    return hint ? <p className="text-xs text-slate-500">{hint}</p> : null;
+}
+
+/** Atributos de accesibilidad de un campo con error. */
+const invalidProps = (name, hasError) => (hasError
+    ? { 'aria-invalid': true, 'aria-describedby': `${name}-error` }
+    : {});
+
 // Enter y las flechas pasan de campo desde el `onKeyDown` del <form>
 // (`handleFieldNavigation`); por eso el teclado movil muestra "siguiente".
-function FormInput({ label, register, name, type = 'text', inputMode, enterKeyHint = 'next', ...props }) {
+function FormInput({ label, register, name, type = 'text', inputMode, enterKeyHint = 'next', hint, ...props }) {
     const errors = useContext(RequiredErrorsCtx);
     const err = errors.has(name);
     const resolvedInputMode = inputMode ?? (type === 'number' ? 'decimal' : undefined);
     return (
         <div className="flex flex-col gap-1">
-            <label className={`text-sm font-medium ${err ? 'text-red-600' : 'text-slate-700'}`}>{label}{err && ' *'}</label>
+            <FieldLabel name={name} label={label} invalid={err} />
             <input
                 id={name}
                 type={type}
                 inputMode={resolvedInputMode}
                 enterKeyHint={enterKeyHint}
                 className={`w-full min-h-11 rounded-xl border px-3 py-2.5 text-sm touch-manipulation focus:outline-none focus:ring-2 focus:ring-slate-900 ${fieldErrorClass(err)}`}
+                {...invalidProps(name, err)}
                 {...register(name)}
                 {...props}
             />
+            <FieldNote name={name} message={errors.get(name)} hint={hint} />
         </div>
     );
 }
 
-function FormSelect({ label, register, name, options = [], placeholder = 'Seleccionar...' }) {
+function FormSelect({ label, register, name, options = [], placeholder = 'Seleccionar...', registerOptions }) {
     const errors = useContext(RequiredErrorsCtx);
     const err = errors.has(name);
     return (
         <div className="flex flex-col gap-1">
-            <label className={`text-sm font-medium ${err ? 'text-red-600' : 'text-slate-700'}`}>{label}{err && ' *'}</label>
+            <FieldLabel name={name} label={label} invalid={err} />
             <select
                 id={name}
                 className={`w-full min-h-11 rounded-xl border px-3 py-2.5 text-sm touch-manipulation focus:outline-none focus:ring-2 focus:ring-slate-900 ${fieldErrorClass(err)}`}
-                {...register(name)}
+                {...invalidProps(name, err)}
+                {...register(name, registerOptions)}
             >
                 <option value="">{placeholder}</option>
                 {options.map((option) => (
@@ -505,31 +644,56 @@ function FormSelect({ label, register, name, options = [], placeholder = 'Selecc
                     </option>
                 ))}
             </select>
+            <FieldNote name={name} message={errors.get(name)} />
         </div>
     );
 }
 
-function TextArea({ label, register, name, rows = 3, placeholder, ...props }) {
+function TextArea({ label, register, name, rows = 3, placeholder, hint, ...props }) {
     const errors = useContext(RequiredErrorsCtx);
     const err = errors.has(name);
     return (
         <div className="flex flex-col gap-1">
-            <label className={`text-sm font-medium ${err ? 'text-red-600' : 'text-slate-700'}`}>{label}{err && ' *'}</label>
+            <FieldLabel name={name} label={label} invalid={err} />
             <textarea
                 id={name}
                 rows={rows}
                 placeholder={placeholder}
                 className={`w-full min-h-11 rounded-xl border px-3 py-2.5 text-sm touch-manipulation focus:outline-none focus:ring-2 focus:ring-slate-900 ${fieldErrorClass(err)}`}
+                {...invalidProps(name, err)}
                 {...register(name)}
                 {...props}
             />
+            <FieldNote name={name} message={errors.get(name)} hint={hint} />
         </div>
     );
 }
 
-function InlineBadge({ label }) {
+/**
+ * Dato del paciente que la cabecera solo muestra. No se registra en el
+ * formulario: como <input disabled> viajaba en cada guardado y contaba como
+ * un cambio aunque nadie hubiera escrito nada.
+ */
+function ReadOnlyField({ label, value, multiline = false }) {
     return (
-        <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
+        <div className="flex flex-col gap-1">
+            <span className="text-sm font-medium text-slate-700">{label}</span>
+            <div className={`w-full min-h-11 rounded-xl border border-slate-200 bg-slate-100 px-3 py-2.5 text-sm text-slate-600 ${multiline ? 'whitespace-pre-line' : ''}`}>
+                {isBlank(value) ? '—' : value}
+            </div>
+        </div>
+    );
+}
+
+const BADGE_TONES = {
+    neutral: 'bg-slate-100 text-slate-700',
+    draft: 'bg-amber-100 text-amber-800',
+    done: 'bg-emerald-100 text-emerald-800',
+};
+
+function InlineBadge({ label, tone = 'neutral' }) {
+    return (
+        <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${BADGE_TONES[tone]}`}>
             {label}
         </span>
     );
@@ -538,13 +702,15 @@ function InlineBadge({ label }) {
 export default function ConsultationForm({ patient, consultation, meta }) {
     const navigate = useNavigate();
     const { addToast } = useToast();
-    const { settings } = useSettings();
+    const requiredFields = useRequiredFields();
+    const { user } = useAuth();
     const [saving, setSaving] = useState(false);
     const [consultationId, setConsultationId] = useState(consultation?.id ?? null);
     const [lastSaved, setLastSaved] = useState(null);
     const [showPdf, setShowPdf] = useState(false);
     const [pdfData, setPdfData] = useState(null);
-    const [requiredErrors, setRequiredErrors] = useState(new Set());
+    // Campo -> mensaje (ver `RequiredErrorsCtx`).
+    const [requiredErrors, setRequiredErrors] = useState(new Map());
     const [showRequiredModal, setShowRequiredModal] = useState(false);
     // Campos obligatorios vacios, como `{ field, label }`.
     const [missingFields, setMissingFields] = useState([]);
@@ -552,12 +718,20 @@ export default function ConsultationForm({ patient, consultation, meta }) {
     const [unsavedError, setUnsavedError] = useState(null);
     // Errores por campo del ultimo 422, como `{ field, message }`.
     const [fieldErrors, setFieldErrors] = useState([]);
+    // Avisos de las medidas (`refractionChecks.js`), como `{ field, message, blocking }`.
+    const [rxWarnings, setRxWarnings] = useState([]);
+    const [showRxReview, setShowRxReview] = useState(false);
     const autosaveTimerRef = useRef(null);
     // El id tambien vive en un ref: un guardado que espera en cola a que termine
     // el anterior debe ver el id que ese acaba de crear, no el de su closure.
     const consultationIdRef = useRef(consultation?.id ?? null);
     const saveQueueRef = useRef(Promise.resolve());
     const pendingSavesRef = useRef(0);
+    // Foto de lo que el servidor ya tiene, y del contenido clinico con el que
+    // nacio el formulario: deciden si hay algo que guardar.
+    const savedSnapshotRef = useRef(null);
+    const initialClinicalSnapshotRef = useRef(null);
+    const [confirmLeave, setConfirmLeave] = useState(false);
     const advancedTogglesRef = useRef({});
 
     const assignConsultationId = useCallback((id) => {
@@ -568,16 +742,30 @@ export default function ConsultationForm({ patient, consultation, meta }) {
     // Solo `patient.id` alimenta los valores iniciales. Depender del objeto
     // entero reiniciaba el formulario cuando ConsultationPage cambiaba la ficha
     // reducida del autocomplete por la completa, borrando lo ya escrito.
-    const defaultValues = useMemo(
-        () => buildDefaultValues(patient, consultation, meta),
-        [patient.id, consultation, meta]
+    // Quien abre una consulta nueva queda como medico solo si es medico. El
+    // servidor asignaba a cualquier usuario, y una consulta abierta por
+    // recepcion quedaba a su nombre con el selector en blanco.
+    const defaultDoctor = useMemo(
+        () => (Array.isArray(meta?.optometrists) ? meta.optometrists : [])
+            .find((item) => String(item.id) === String(user?.id)) ?? null,
+        [meta, user?.id]
     );
 
-    const { register, handleSubmit, getValues, setValue, watch, control, reset } = useForm({ defaultValues });
+    const defaultValues = useMemo(
+        () => buildDefaultValues(patient, consultation, meta, defaultDoctor),
+        [patient.id, consultation, meta, defaultDoctor]
+    );
+
+    // `onBlur`: la unica validacion propia del formulario es la de las fechas,
+    // y debe avisar al salir del campo, no recien al completar.
+    const { register, handleSubmit, getValues, setValue, watch, control, reset } = useForm({ defaultValues, mode: 'onBlur' });
 
     useEffect(() => {
         reset(defaultValues);
         assignConsultationId(consultation?.id ?? null);
+        savedSnapshotRef.current = snapshotOf(defaultValues);
+        initialClinicalSnapshotRef.current = clinicalSnapshotOf(defaultValues);
+        setRxWarnings([]);
     }, [consultation, defaultValues, reset, assignConsultationId]);
 
     const diagnosesFieldArray = useFieldArray({ control, name: 'diagnoses' });
@@ -603,8 +791,39 @@ export default function ConsultationForm({ patient, consultation, meta }) {
         'rx_final_esfera_od', 'rx_final_cilindro_od', 'rx_final_eje_od', 'rx_final_add_od',
         'rx_final_esfera_oi', 'rx_final_cilindro_oi', 'rx_final_eje_oi', 'rx_final_add_oi',
     ]);
-    const rxFinalSummaryLine = (esfera, cilindro, eje, add) =>
-        `${displaySphere(esfera)} ${displaySigned(cilindro)} × ${eje || '—'} ADD ${displaySigned(add)}`;
+    const rxFinalSummaryLine = (esfera, cilindro, eje, add) => {
+        // Un campo vacio no es un plano medido: antes se pintaba "±0.00".
+        if ([esfera, cilindro, eje, add].every(isBlank)) return 'Sin datos';
+
+        return `${displaySphere(esfera, '—')} ${displaySigned(cilindro, '—')} × ${eje || '—'} ADD ${displaySigned(add, '—')}`;
+    };
+
+    /**
+     * Recalcula los avisos de las medidas. Se llama al salir de un campo del
+     * examen visual y al completar; solo mira lo que cambio desde la carga.
+     */
+    const refreshRxWarnings = useCallback(() => {
+        const next = refractionWarnings(getValues(), { baseline: defaultValues, previous: previousConsultation });
+        setRxWarnings((current) => (JSON.stringify(current) === JSON.stringify(next) ? current : next));
+
+        return next;
+    }, [getValues, defaultValues, previousConsultation]);
+
+    // De cada campo se muestra su primer aviso.
+    const rxWarningMap = useMemo(() => {
+        const byField = new Map();
+        for (const { field, message } of rxWarnings) {
+            if (!byField.has(field)) byField.set(field, message);
+        }
+
+        return byField;
+    }, [rxWarnings]);
+    const hasBlockingRxWarning = rxWarnings.some(({ blocking }) => blocking);
+    // En la revision va primero lo que impide completar.
+    const rxReviewItems = useMemo(
+        () => [...rxWarnings].sort((a, b) => Number(Boolean(b.blocking)) - Number(Boolean(a.blocking))),
+        [rxWarnings]
+    );
 
     /**
      * Lleva al campo de un error: abre su seccion si esta colapsada y, si hace
@@ -658,17 +877,24 @@ export default function ConsultationForm({ patient, consultation, meta }) {
     const performSave = useCallback(async (showMsg, forceStatus) => {
         const values = getValues();
         const currentId = consultationIdRef.current;
-        const hasClinicalData = CLINICAL_FIELD_KEYS.some((key) => Boolean(values[key]))
-            || (values.diagnoses ?? []).some((item) => item?.description)
-            || (values.recommendations_list ?? []).some((item) => item?.text);
 
         if (!values.patient_id) return null;
-        if (!currentId && !hasClinicalData && !showMsg) return null;
+
+        const cleanSnapshot = snapshotOf(values);
+        if (!showMsg) {
+            // El autoguardado solo escribe si hay algo nuevo. Antes hacia un
+            // PUT cada 30 s con la consulta abierta: leerla ya la modificaba
+            // (filas hijas recreadas, `updated_by` y una entrada de auditoria).
+            if (currentId && cleanSnapshot === savedSnapshotRef.current) return null;
+            // Una consulta nueva nace cuando hay contenido clinico, no por
+            // cambiar la fecha o el medico de la cabecera.
+            if (!currentId && clinicalSnapshotOf(values) === initialClinicalSnapshotRef.current) return null;
+        }
 
         // Foto de lo enviado: al volver la respuesta permite saber si el
         // usuario siguio escribiendo mientras tanto.
         const sentSnapshot = JSON.stringify(values);
-        const { payload, rowIndexes } = stripEmptyModuleRows({
+        const { payload, rowIndexes } = stripEmptyModuleRows(normalizeOpticalPayload({
             ...values,
             estado: forceStatus ?? values.estado ?? 'borrador',
             ophthalmoscopy_module: {
@@ -679,7 +905,7 @@ export default function ConsultationForm({ patient, consultation, meta }) {
                     ophthalmoscopyDistances
                 ),
             },
-        });
+        }));
 
         try {
             let response;
@@ -693,18 +919,22 @@ export default function ConsultationForm({ patient, consultation, meta }) {
             setLastSaved(new Date());
             setUnsavedError(null);
             setFieldErrors([]);
-            setRequiredErrors(new Set());
+            setRequiredErrors(new Map());
 
             // `reset()` reescribe todos los inputs y vuelve a montar las filas
             // (diagnosticos, RX en uso, venta): borra lo tecleado durante el
             // viaje del guardado y saca el foco del campo activo. Por eso solo
             // se usa en un guardado manual y si nadie toco nada entretanto; el
             // autoguardado nunca recarga el formulario.
-            if (showMsg && JSON.stringify(getValues()) === sentSnapshot) {
+            const untouched = JSON.stringify(getValues()) === sentSnapshot;
+            if (showMsg && untouched) {
                 reset(buildDefaultValues(patient, response.data, meta));
             } else {
                 syncServerAssignedValues(JSON.parse(sentSnapshot), response.data);
             }
+            // Lo tecleado durante el viaje no llego al servidor: en ese caso
+            // la foto guardada es la de lo enviado y el proximo ciclo lo recoge.
+            savedSnapshotRef.current = untouched ? snapshotOf(getValues()) : cleanSnapshot;
 
             if (showMsg) addToast('Consulta guardada correctamente', 'success');
             return response.data;
@@ -714,13 +944,19 @@ export default function ConsultationForm({ patient, consultation, meta }) {
 
             setFieldErrors(errors);
             if (errors.length) {
-                setRequiredErrors(new Set(errors.map(({ field }) => field)));
+                setRequiredErrors(new Map(errors.map(({ field, message: text }) => [field, text])));
             }
 
-            const detail = status === 422
-                ? (message || 'Revise los campos marcados en rojo.')
-                : (error?.response?.data?.message
-                    ?? 'No se pudo guardar. Verifique su conexión; los datos siguen en pantalla.');
+            let detail;
+            if (status === 422) {
+                detail = message || 'Revise los campos marcados en rojo.';
+            } else if (status === 401 || status === 419) {
+                // El servidor responde "Unauthenticated.", que no le dice nada al usuario.
+                detail = 'Su sesión expiró. Inicie sesión en otra pestaña y vuelva a guardar: los datos siguen en pantalla.';
+            } else {
+                detail = error?.response?.data?.message
+                    ?? 'No se pudo guardar. Verifique su conexión; los datos siguen en pantalla.';
+            }
 
             // El aviso persiste aunque el guardado haya sido automatico: antes
             // el autosave fallaba en silencio y el usuario perdia el trabajo.
@@ -750,10 +986,10 @@ export default function ConsultationForm({ patient, consultation, meta }) {
      * veces (un POST del autoguardado en vuelo mas otro del boton) o dejar en
      * el servidor la version mas vieja si las respuestas llegaban cruzadas.
      */
-    const doSave = useCallback((showMsg = false, forceStatus = null) => {
+    const doSave = useCallback((showMsg = false, forceStatus = null, waitTurn = showMsg) => {
         // El autoguardado no hace cola: si hay un guardado en curso, el
         // siguiente ciclo se encarga.
-        if (!showMsg && pendingSavesRef.current > 0) return Promise.resolve(null);
+        if (!waitTurn && pendingSavesRef.current > 0) return Promise.resolve(null);
 
         pendingSavesRef.current += 1;
         const run = saveQueueRef.current
@@ -764,6 +1000,48 @@ export default function ConsultationForm({ patient, consultation, meta }) {
 
         return run;
     }, [performSave]);
+
+    /** Hay algo escrito que el servidor todavia no tiene. */
+    const hasUnsavedChanges = useCallback(() => {
+        const values = getValues();
+
+        return consultationIdRef.current
+            ? snapshotOf(values) !== savedSnapshotRef.current
+            : clinicalSnapshotOf(values) !== initialClinicalSnapshotRef.current;
+    }, [getValues]);
+
+    // El menu, la flecha atras o un enlace sacaban de la consulta sin avisar,
+    // incluso con el aviso de "Cambios sin guardar" en pantalla.
+    const blocker = useBlocker(useCallback(
+        ({ currentLocation, nextLocation }) => currentLocation.pathname !== nextLocation.pathname && hasUnsavedChanges(),
+        [hasUnsavedChanges]
+    ));
+    const blockerRef = useRef(blocker);
+    blockerRef.current = blocker;
+
+    // Al salir con cambios pendientes primero se intenta guardarlos, sin aviso
+    // de exito; solo se pregunta si ese guardado falla.
+    useEffect(() => {
+        if (blocker.state !== 'blocked') return undefined;
+
+        let cancelled = false;
+        doSave(false, null, true)
+            .then(() => { if (!cancelled) blockerRef.current.proceed?.(); })
+            .catch(() => { if (!cancelled) setConfirmLeave(true); });
+
+        return () => { cancelled = true; };
+    }, [blocker.state, doSave]);
+
+    useEffect(() => {
+        const warn = (event) => {
+            if (!hasUnsavedChanges()) return;
+            event.preventDefault();
+            event.returnValue = '';
+        };
+
+        window.addEventListener('beforeunload', warn);
+        return () => window.removeEventListener('beforeunload', warn);
+    }, [hasUnsavedChanges]);
 
     useEffect(() => {
         autosaveTimerRef.current = setInterval(() => {
@@ -776,7 +1054,7 @@ export default function ConsultationForm({ patient, consultation, meta }) {
     }, [doSave]);
 
     const validateRequired = () => {
-        const required = Array.isArray(settings?.required_fields) ? settings.required_fields : [];
+        const required = requiredFields;
         if (required.length === 0) return true;
         const values = getValues();
         const missing = [];
@@ -791,7 +1069,10 @@ export default function ConsultationForm({ patient, consultation, meta }) {
                 missing.push({ field: key, label: REQUIRED_FIELD_LABELS[key] ?? key });
             }
         }
-        setRequiredErrors(new Set(missing.map(({ field }) => field)));
+        setRequiredErrors(new Map(missing.map(({ field, label }) => [
+            field,
+            `${label}: dato obligatorio para completar la consulta.`,
+        ])));
         if (missing.length > 0) {
             setMissingFields(missing);
             setShowRequiredModal(true);
@@ -806,8 +1087,7 @@ export default function ConsultationForm({ patient, consultation, meta }) {
         goToField(fieldName);
     };
 
-    const onSubmit = async () => {
-        if (!validateRequired()) return;
+    const completeConsultation = async () => {
         setSaving(true);
         try {
             const saved = await doSave(true, 'completada');
@@ -819,6 +1099,28 @@ export default function ConsultationForm({ patient, consultation, meta }) {
         } finally {
             setSaving(false);
         }
+    };
+
+    /**
+     * "Completar consulta": primero los obligatorios y despues los avisos de
+     * las medidas, que se pueden pasar por alto salvo un cilindro sin eje en
+     * la RX Final.
+     */
+    const onSubmit = async () => {
+        if (!validateRequired()) return;
+
+        if (refreshRxWarnings().length > 0) {
+            setShowRxReview(true);
+            return;
+        }
+
+        await completeConsultation();
+    };
+
+    /** Cierra la revision de medidas y lleva al campo elegido. */
+    const goToWarningField = (fieldName) => {
+        setShowRxReview(false);
+        goToField(fieldName);
     };
 
     /**
@@ -854,7 +1156,7 @@ export default function ConsultationForm({ patient, consultation, meta }) {
             setPdfData(response.data);
             setShowPdf(true);
         } catch {
-            addToast('Error al cargar la vista previa de impresion', 'error');
+            addToast('Error al cargar la vista previa de impresión', 'error');
         }
     };
 
@@ -904,6 +1206,49 @@ export default function ConsultationForm({ patient, consultation, meta }) {
         .map((field, index) => ({ field, index }))
         .filter(({ index }) => !checklistIndexes.has(index));
 
+    /**
+     * Al elegir medico se trae su registro SENESCYT, que ya viene con la lista.
+     * Solo pisa un valor que el formulario pudo haber puesto solo (vacio o el
+     * registro de otro medico), nunca uno escrito a mano.
+     */
+    const handleDoctorChange = (event) => {
+        const selected = optometrists.find((item) => String(item.id) === String(event.target.value));
+        const current = String(getValues('doctor_license') ?? '').trim();
+        const knownRegistries = optometrists.map((item) => String(item.registro_senescyt ?? '').trim()).filter(Boolean);
+
+        if (current === '' || knownRegistries.includes(current)) {
+            setValue('doctor_license', selected?.registro_senescyt ?? '', { shouldDirty: true });
+        }
+    };
+
+    /** Al corregir un campo se le quita el rojo, sin esperar al siguiente guardado. */
+    const clearFieldError = useCallback((event) => {
+        const name = event.target?.name;
+        if (!name) return;
+
+        setRequiredErrors((current) => {
+            if (!current.has(name)) return current;
+
+            const next = new Map(current);
+            next.delete(name);
+            return next;
+        });
+    }, []);
+
+    /** La validacion propia (fechas) freno el envio: el campo ya quedo marcado y enfocado. */
+    const onInvalidSubmit = () => {
+        addToast('Hay un dato no válido. Revise el campo marcado en rojo.', 'error');
+    };
+
+    // En las consultas importadas `luna_*` trae texto del sistema anterior
+    // (a veces notas clinicas) sin item de catalogo: se muestra tal cual.
+    const legacyLensNotes = [
+        ['Material', 'luna_material', 'material_item_id'],
+        ['Espesor', 'luna_espesor', 'thickness_item_id'],
+        ['Protección', 'luna_proteccion', 'protection_item_id'],
+    ].filter(([, column, itemKey]) => !isBlank(consultation?.[column]) && isBlank(consultation?.lens_recommendation?.[itemKey]))
+        .map(([label, column]) => [label, consultation[column]]);
+
     const handleDiagnosisCatalogChange = (index, itemId) => {
         const selected = diagnosisOptions.find((item) => String(item.id) === String(itemId));
         setValue(`diagnoses.${index}.catalog_item_id`, itemId);
@@ -913,7 +1258,7 @@ export default function ConsultationForm({ patient, consultation, meta }) {
 
     const recomputeSaleItemTotal = (index) => {
         const precio = getValues(`sale_items.${index}.precio`);
-        const pct = parseAmount(getValues(`sale_items.${index}.descuento_pct`));
+        const pct = Math.min(Math.max(parseAmount(getValues(`sale_items.${index}.descuento_pct`)), 0), 100);
         // Sin precio no hay total: un "0.00" haria pasar por llena una fila vacia.
         const total = isBlank(precio) ? '' : (parseAmount(precio) * (1 - pct / 100)).toFixed(2);
         setValue(`sale_items.${index}.total`, total, { shouldDirty: true });
@@ -983,6 +1328,11 @@ export default function ConsultationForm({ patient, consultation, meta }) {
     const diagnosticoHasAdvanced = isAdvanced('consulta:diagnostico_adicional');
     const observacionesHasAdvanced = ['consulta:queratometria', 'consulta:examen_externo', 'consulta:vision_colores'].some((k) => isAdvanced(k));
 
+    // "Guardar borrador" sobre una consulta completada hacia pensar que la
+    // devolvia a borrador; ese boton nunca cambia el estado.
+    const isCompleted = watch('estado') === 'completada';
+    const saveLabel = isCompleted ? 'Guardar cambios' : 'Guardar borrador';
+
     // Estilo/estado inicial de las secciones-módulo según estén marcadas avanzadas.
     const moduleSectionProps = (advKey) => ({
         variant: isAdvanced(advKey) ? 'advanced' : 'default',
@@ -991,15 +1341,20 @@ export default function ConsultationForm({ patient, consultation, meta }) {
 
     return (
       <RequiredErrorsCtx.Provider value={requiredErrors}>
-        <form onSubmit={handleSubmit(onSubmit)} onKeyDown={handleFieldNavigation} className="pb-24 lg:pb-8">
+        <form
+            onSubmit={handleSubmit(onSubmit, onInvalidSubmit)}
+            onKeyDown={handleFieldNavigation}
+            onChange={clearFieldError}
+            className="pb-24 lg:pb-8"
+        >
             <div className="sticky top-0 z-20 mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-3 shadow-sm">
                 <div className="flex flex-wrap items-center gap-2">
                     <InlineBadge label={`Paciente ${patient.codigo_interno || patient.id}`} />
-                    <InlineBadge label={`Estado: ${watch('estado') || 'borrador'}`} />
+                    <InlineBadge label={isCompleted ? 'Completada' : 'Borrador'} tone={isCompleted ? 'done' : 'draft'} />
                     {lastSaved && (
                         <span className="flex items-center gap-1.5 text-sm text-emerald-600">
                             <CheckCircle size={16} />
-                            Guardado {lastSaved.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
+                            Guardado {lastSaved.toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit' })}
                         </span>
                     )}
                 </div>
@@ -1035,7 +1390,7 @@ export default function ConsultationForm({ patient, consultation, meta }) {
                 )}
                 <div className="hidden flex-wrap items-center gap-3 lg:flex">
                     <Button type="button" variant="secondary" onClick={handleSaveDraft} loading={saving}>
-                        <Clock size={18} /> Guardar borrador
+                        <Clock size={18} /> {saveLabel}
                     </Button>
                     <Button type="button" variant="secondary" onClick={handleGeneratePdf}>
                         <Printer size={18} /> Imprimir
@@ -1046,25 +1401,49 @@ export default function ConsultationForm({ patient, consultation, meta }) {
                 </div>
             </div>
 
-            <CollapsibleSection title="Cabecera clinica" subtitle="Resumen operativo del paciente y la consulta actual." sectionKey="cabecera">
+            <CollapsibleSection title="Cabecera clínica" subtitle="Resumen operativo del paciente y la consulta actual." sectionKey="cabecera">
                 <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
-                    <FormInput label="Fecha de consulta" name="fecha_consulta" register={register} type="date" />
-                    <FormSelect label="Medico / Optometra" name="optometrista_id" register={register} options={optometrists} />
-                    <FormInput label="Cedula / RUC" name="doctor_license" register={register} placeholder="Registro o licencia" />
-                    <FormSelect label="Plantilla impresion" name="print_template_key" register={register} options={templateOptions.map((item) => ({ value: item.key, label: item.name }))} />
-                    <FormInput label="Codigo interno" name="patient_codigo" register={register} value={patient.codigo_interno ?? ''} disabled />
-                    <FormInput label="Paciente" name="patient_nombre" register={register} value={patient.nombre_completo || patient.nombre || ''} disabled />
-                    <FormInput label="Edad" name="patient_edad" register={register} value={patient.edad ? `${patient.edad} anos` : ''} disabled />
-                    <FormInput label="Ocupacion" name="patient_ocupacion" register={register} value={patient.ocupacion ?? ''} disabled />
+                    <DateInput
+                        control={control}
+                        name="fecha_consulta"
+                        label="Fecha de consulta"
+                        required={requiredFields.includes('fecha_consulta')}
+                        rules={{ validate: notFutureDate }}
+                        error={requiredErrors.get('fecha_consulta')}
+                    />
+                    <FormSelect
+                        label="Médico / Optometrista"
+                        name="optometrista_id"
+                        register={register}
+                        options={optometrists}
+                        registerOptions={{ onChange: handleDoctorChange }}
+                    />
+                    <FormInput
+                        label="Registro SENESCYT del médico"
+                        name="doctor_license"
+                        register={register}
+                        placeholder="Se llena al elegir el médico"
+                    />
+                    <FormSelect label="Plantilla de impresión" name="print_template_key" register={register} options={templateOptions.map((item) => ({ value: item.key, label: item.name }))} />
+                    <ReadOnlyField label="Código interno" value={patient.codigo_interno} />
+                    <ReadOnlyField label="Paciente" value={patient.nombre_completo || patient.nombre} />
+                    <ReadOnlyField label="Edad" value={patient.edad != null ? `${patient.edad} años` : ''} />
+                    <ReadOnlyField label="Ocupación" value={patient.ocupacion} />
                     <div className="lg:col-span-2">
-                        <TextArea label="Motivo de consulta" name="motivo_consulta" register={register} rows={3} placeholder="Motivo principal, sintomas, seguimiento o reclamo..." />
+                        <TextArea label="Motivo de consulta" name="motivo_consulta" register={register} rows={3} placeholder="Motivo principal, síntomas, seguimiento o reclamo..." />
                     </div>
                     {advVisible('consulta:ultimo_control', cabeceraAdv) && (
-                        <FormInput label="Ultimo control" name="ultimo_control" register={register} type="date" />
+                        <DateInput
+                            control={control}
+                            name="ultimo_control"
+                            label="Último control"
+                            rules={{ validate: notFutureDate }}
+                            error={requiredErrors.get('ultimo_control')}
+                        />
                     )}
-                    <FormInput label="Direccion" name="patient_direccion" register={register} value={patient.direccion ?? ''} disabled />
+                    <ReadOnlyField label="Dirección" value={patient.direccion} />
                     <div className="lg:col-span-4">
-                        <TextArea label="Antecedentes" name="patient_antecedentes" register={register} rows={2} value={patient.antecedentes ?? ''} disabled />
+                        <ReadOnlyField label="Antecedentes" value={patient.antecedentes} multiline />
                     </div>
                 </div>
                 {cabeceraHasAdvanced && (
@@ -1076,105 +1455,126 @@ export default function ConsultationForm({ patient, consultation, meta }) {
                     <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4">
                         <div className="flex flex-wrap items-center gap-2 text-sm text-amber-900">
                             <InlineBadge label={`Consulta previa #${previousConsultation.numero_consulta}`} />
-                            <span>{previousConsultation.fecha_consulta}</span>
+                            <span>{toDisplayDate(previousConsultation.fecha_consulta)}</span>
                             {previousConsultation.diagnostico_descripcion && (
-                                <span>{previousConsultation.diagnostico_cie10} - {previousConsultation.diagnostico_descripcion}</span>
+                                <span>
+                                    {[previousConsultation.diagnostico_cie10, previousConsultation.diagnostico_descripcion].filter(Boolean).join(' - ')}
+                                </span>
                             )}
                         </div>
                     </div>
                 )}
             </CollapsibleSection>
 
-            <CollapsibleSection title="Examen visual y refraccion" subtitle="Captura central de lectura, refraccion y receta final." sectionKey="refraccion">
-                <EyeFieldGroup
-                    fields={topFields}
-                    register={register}
-                    setValue={setValue}
-                    labelOverrides={topLabels}
-                    nameFor={(field, eye) => `${field}_${eye}`}
-                />
-                <div className="mb-6">
-                    <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-[#1a2a4a]/20 pb-1">
-                        <h3 className="text-sm font-semibold uppercase tracking-wider text-[#1a2a4a]">RX en uso</h3>
-                        <Button type="button" variant="secondary" onClick={() => rxUsoFieldArray.append(emptyRxUsoEntry())}>
-                            <Plus size={16} /> Agregar RX en uso
-                        </Button>
-                    </div>
-                    <RxHistoryPicker patientId={patient.id} excludeId={consultationId} onUse={copyRxFromHistory} />
-                    <div className="space-y-4">
-                        {rxUsoFieldArray.fields.map((field, index) => (
-                            <div key={field.id} className="rounded-2xl border border-slate-200 p-4">
-                                <div className="mb-2 flex items-center justify-between">
-                                    <span className="text-sm font-medium text-slate-700">RX en uso {index + 1}</span>
-                                    {rxUsoFieldArray.fields.length > 1 && (
-                                        <button type="button" className="text-sm text-rose-600" onClick={() => rxUsoFieldArray.remove(index)}>
-                                            <Trash2 size={16} className="inline-block" /> Quitar
-                                        </button>
-                                    )}
-                                </div>
-                                <EyeFieldGroup
-                                    fields={rxUsoFields}
-                                    register={register}
-                                    setValue={setValue}
-                                    nameFor={(column, eye) => `rx_uso_entries.${index}.${column}_${eye}`}
-                                />
-                                <TextArea
-                                    label="Observación"
-                                    name={`rx_uso_entries.${index}.observacion`}
-                                    register={register}
-                                    rows={2}
-                                    placeholder="Notas sobre esta receta en uso."
-                                />
-                            </div>
-                        ))}
-                    </div>
-                </div>
-
-                {advVisible('consulta:lente_anterior', refractionAdv) && (
-                    <div className="mb-6">
-                        <TextArea label="Lente anterior" name="lente_anterior" register={register} rows={3} placeholder="Lente previo, marca, material y comparacion con receta anterior." />
-                    </div>
-                )}
-
-                <EyeFieldGroup prefix="subj" fields={subjFields} register={register} setValue={setValue} label="Subjetivo" />
-
-                <EyeFieldGroup
-                    prefix="rx_final"
-                    fields={rxFinalFields}
-                    register={register}
-                    setValue={setValue}
-                    label="RX FINAL"
-                    labelOverrides={{ dnp: 'DP' }}
-                    footer={(
-                        <div className="mt-3">
-                            <TextArea
-                                label="Observaciones"
-                                name="rx_final_observaciones"
-                                register={register}
-                                rows={3}
-                                placeholder="Observaciones de la receta final (aplican a ambos ojos)."
-                            />
-                        </div>
-                    )}
-                />
-
-                {advVisible('consulta:grp_vision_cerca', refractionAdv) && (
+            <CollapsibleSection title="Examen visual y refracción" subtitle="Captura central de lectura, refracción y receta final." sectionKey="refraccion">
+                <div onBlur={refreshRxWarnings}>
                     <EyeFieldGroup
-                        prefix="vc"
-                        fields={['esfera', 'cilindro', 'eje', 'avcc', 'dnp']}
+                        fields={topFields}
                         register={register}
                         setValue={setValue}
-                        label="RX - Visión de Cerca"
+                        warnings={rxWarningMap}
+                        requiredFields={requiredFields}
+                        labelOverrides={topLabels}
+                        nameFor={(field, eye) => `${field}_${eye}`}
                     />
-                )}
-                {hasRefractionAdvanced && (
-                    <div className="mt-2">
-                        <AdvancedToggleButton open={refractionAdv.open} onToggle={refractionAdv.toggle} />
+                    <div className="mb-6">
+                        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-[#1a2a4a]/20 pb-1">
+                            <h3 className="text-sm font-semibold uppercase tracking-wider text-[#1a2a4a]">RX en uso</h3>
+                            <Button type="button" variant="secondary" onClick={() => rxUsoFieldArray.append(emptyRxUsoEntry())}>
+                                <Plus size={16} /> Agregar RX en uso
+                            </Button>
+                        </div>
+                        <RxHistoryPicker patientId={patient.id} excludeId={consultationId} onUse={copyRxFromHistory} />
+                        <div className="space-y-4">
+                            {rxUsoFieldArray.fields.map((field, index) => (
+                                <div key={field.id} className="rounded-2xl border border-slate-200 p-4">
+                                    <div className="mb-2 flex items-center justify-between">
+                                        <span className="text-sm font-medium text-slate-700">RX en uso {index + 1}</span>
+                                        {rxUsoFieldArray.fields.length > 1 && (
+                                            <button type="button" className="text-sm text-rose-600" onClick={() => rxUsoFieldArray.remove(index)}>
+                                                <Trash2 size={16} className="inline-block" /> Quitar
+                                            </button>
+                                        )}
+                                    </div>
+                                    <EyeFieldGroup
+                                        fields={rxUsoFields}
+                                        register={register}
+                                        setValue={setValue}
+                                        warnings={rxWarningMap}
+                                        requiredFields={requiredFields}
+                                        nameFor={(column, eye) => `rx_uso_entries.${index}.${column}_${eye}`}
+                                    />
+                                    <TextArea
+                                        label="Observación"
+                                        name={`rx_uso_entries.${index}.observacion`}
+                                        register={register}
+                                        rows={2}
+                                        placeholder="Notas sobre esta receta en uso."
+                                    />
+                                </div>
+                            ))}
+                        </div>
                     </div>
-                )}
+
+                    {advVisible('consulta:lente_anterior', refractionAdv) && (
+                        <div className="mb-6">
+                            <TextArea label="Lente anterior" name="lente_anterior" register={register} rows={3} placeholder="Lente previo, marca, material y comparación con receta anterior." />
+                        </div>
+                    )}
+
+                    <EyeFieldGroup
+                        prefix="subj"
+                        fields={subjFields}
+                        register={register}
+                        setValue={setValue}
+                        warnings={rxWarningMap}
+                        requiredFields={requiredFields}
+                        label="Subjetivo"
+                    />
+
+                    <EyeFieldGroup
+                        prefix="rx_final"
+                        fields={rxFinalFields}
+                        register={register}
+                        setValue={setValue}
+                        warnings={rxWarningMap}
+                        requiredFields={requiredFields}
+                        label="RX FINAL"
+                        labelOverrides={{ dnp: 'DP' }}
+                        footer={(
+                            <div className="mt-3">
+                                <TextArea
+                                    label="Observaciones"
+                                    name="rx_final_observaciones"
+                                    register={register}
+                                    rows={3}
+                                    placeholder="Observaciones de la receta final (aplican a ambos ojos)."
+                                hint="No se imprime en el certificado."
+                                />
+                            </div>
+                        )}
+                    />
+
+                    {advVisible('consulta:grp_vision_cerca', refractionAdv) && (
+                        <EyeFieldGroup
+                            prefix="vc"
+                            fields={['esfera', 'cilindro', 'eje', 'avcc', 'dnp']}
+                            register={register}
+                            setValue={setValue}
+                            warnings={rxWarningMap}
+                            requiredFields={requiredFields}
+                            label="RX - Visión de Cerca"
+                        />
+                    )}
+                    {hasRefractionAdvanced && (
+                        <div className="mt-2">
+                            <AdvancedToggleButton open={refractionAdv.open} onToggle={refractionAdv.toggle} />
+                        </div>
+                    )}
+                </div>
             </CollapsibleSection>
 
-            <CollapsibleSection title="Diagnostico clinico" subtitle="Catalogo configurable con soporte para multiples diagnosticos por ojo." sectionKey="diagnostico">
+            <CollapsibleSection title="Diagnóstico clínico" subtitle="Catálogo configurable con soporte para múltiples diagnósticos por ojo." sectionKey="diagnostico">
                 <div className="mb-4 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm">
                     <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-slate-500">RX Final</div>
                     <div className="grid grid-cols-1 gap-1 font-mono text-slate-700 sm:grid-cols-2">
@@ -1182,6 +1582,11 @@ export default function ConsultationForm({ patient, consultation, meta }) {
                         <div><span className="font-semibold">OI:</span> {rxFinalSummaryLine(rxFinalEsferaOi, rxFinalCilindroOi, rxFinalEjeOi, rxFinalAddOi)}</div>
                     </div>
                 </div>
+                {requiredFields.includes('diagnostico_descripcion') && (
+                    <p className={`mb-3 text-xs ${requiredErrors.has('diagnostico_descripcion') ? 'font-medium text-red-600' : 'text-slate-500'}`}>
+                        <span className="text-red-500">*</span> Se necesita al menos un diagnóstico para completar la consulta.
+                    </p>
+                )}
                 <DiagnosisPicker
                     control={control}
                     register={register}
@@ -1204,9 +1609,9 @@ export default function ConsultationForm({ patient, consultation, meta }) {
                             <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
                                 <FormSelect label="Ojo" name={`diagnoses.${index}.eye`} register={register} options={[{ value: 'od', label: 'OD' }, { value: 'oi', label: 'OI' }, { value: 'general', label: 'General' }]} />
                                 <div className="flex flex-col gap-1 lg:col-span-2">
-                                    <label className="text-sm font-medium text-slate-700">Catalogo</label>
+                                    <label className="text-sm font-medium text-slate-700">Catálogo</label>
                                     <select className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900" value={watch(`diagnoses.${index}.catalog_item_id`) || ''} onChange={(event) => handleDiagnosisCatalogChange(index, event.target.value)}>
-                                        <option value="">Seleccionar diagnostico...</option>
+                                        <option value="">Seleccionar diagnóstico...</option>
                                         {diagnosisOptions.map((option) => (
                                             <option key={option.id} value={option.id}>
                                                 {option.code ? `${option.code} - ${option.label}` : option.label}
@@ -1214,12 +1619,12 @@ export default function ConsultationForm({ patient, consultation, meta }) {
                                         ))}
                                     </select>
                                 </div>
-                                <FormInput label="Codigo" name={`diagnoses.${index}.code`} register={register} />
+                                <FormInput label="Código" name={`diagnoses.${index}.code`} register={register} />
                                 <div className="lg:col-span-3">
-                                    <FormInput label="Descripcion" name={`diagnoses.${index}.description`} register={register} />
+                                    <FormInput label="Descripción" name={`diagnoses.${index}.description`} register={register} />
                                 </div>
                                 <div className="lg:col-span-4">
-                                    <TextArea label="Recomendaciones" name={`diagnoses.${index}.notes`} register={register} rows={2} />
+                                    <TextArea label="Nota del diagnóstico" name={`diagnoses.${index}.notes`} register={register} rows={2} hint="No se imprime en el certificado." />
                                 </div>
                             </div>
                         </div>
@@ -1228,7 +1633,7 @@ export default function ConsultationForm({ patient, consultation, meta }) {
                         <Plus size={16} /> Agregar diagnóstico manual (texto libre / general)
                     </Button>
                     {advVisible('consulta:diagnostico_adicional', diagnosticoAdv) && (
-                        <TextArea label="Diagnostico adicional" name="diagnostico_adicional" register={register} rows={3} placeholder="Hallazgos, patologia asociada o aclaraciones diagnosticas." />
+                        <TextArea label="Diagnóstico adicional" name="diagnostico_adicional" register={register} rows={3} placeholder="Hallazgos, patología asociada o aclaraciones diagnósticas." hint="No se imprime en el certificado." />
                     )}
                     {diagnosticoHasAdvanced && (
                         <AdvancedToggleButton open={diagnosticoAdv.open} onToggle={diagnosticoAdv.toggle} />
@@ -1236,23 +1641,31 @@ export default function ConsultationForm({ patient, consultation, meta }) {
                 </div>
             </CollapsibleSection>
 
-            <CollapsibleSection title="Recomendacion de lunas y recomendaciones medicas" subtitle="Seleccion rapida por catalogos y texto editable antes de guardar." sectionKey="recomendaciones">
+            <CollapsibleSection title="Recomendación de lunas y recomendaciones médicas" subtitle="Selección rápida por catálogos y texto editable antes de guardar." sectionKey="recomendaciones">
                 <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
                     <div className="rounded-2xl border border-slate-200 p-4">
                         <div className="mb-4 flex items-center gap-2">
                             <InlineBadge label="M" />
-                            <h3 className="font-semibold text-slate-800">Recomendacion lunas</h3>
+                            <h3 className="font-semibold text-slate-800">Recomendación de lunas</h3>
                         </div>
+                        {legacyLensNotes.length > 0 && (
+                            <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
+                                <div className="mb-1 font-semibold text-slate-700">Registro del sistema anterior</div>
+                                {legacyLensNotes.map(([label, text]) => (
+                                    <div key={label}><span className="font-medium">{label}:</span> {text}</div>
+                                ))}
+                            </div>
+                        )}
                         <div className="space-y-4">
                             <FormSelect label="Material" name="lens_recommendation.material_item_id" register={register} options={materialOptions} />
                             <FormSelect label="Espesor" name="lens_recommendation.thickness_item_id" register={register} options={thicknessOptions} />
-                            <FormSelect label="Proteccion" name="lens_recommendation.protection_item_id" register={register} options={protectionOptions} />
-                            <TextArea label="Observacion" name="lens_recommendation.observation" register={register} rows={4} />
+                            <FormSelect label="Protección" name="lens_recommendation.protection_item_id" register={register} options={protectionOptions} />
+                            <TextArea label="Observación" name="lens_recommendation.observation" register={register} rows={4} hint="No se imprime en el certificado." />
                         </div>
                     </div>
                     <div className="lg:col-span-2 rounded-2xl border border-slate-200 p-4">
                         <div className="mb-4 flex items-center justify-between">
-                            <h3 className="font-semibold text-slate-800">Recomendaciones medicas</h3>
+                            <h3 className="font-semibold text-slate-800">Recomendaciones médicas</h3>
                             <Button type="button" variant="secondary" onClick={() => recommendationsFieldArray.append(defaultRecommendation())}>
                                 <Plus size={16} /> Agregar
                             </Button>
@@ -1261,7 +1674,7 @@ export default function ConsultationForm({ patient, consultation, meta }) {
                             {recommendationsFieldArray.fields.map((field, index) => (
                                 <div key={field.id} className="rounded-2xl border border-slate-200 p-4">
                                     <div className="mb-3 flex items-center justify-between">
-                                        <span className="text-sm font-medium text-slate-700">Recomendacion {index + 1}</span>
+                                        <span className="text-sm font-medium text-slate-700">Recomendación {index + 1}</span>
                                         {recommendationsFieldArray.fields.length > 1 && (
                                             <button type="button" className="text-sm text-rose-600" onClick={() => recommendationsFieldArray.remove(index)}>
                                                 <Trash2 size={16} className="inline-block" /> Quitar
@@ -1270,7 +1683,7 @@ export default function ConsultationForm({ patient, consultation, meta }) {
                                     </div>
                                     <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
                                         <div className="lg:col-span-1">
-                                            <label className="text-sm font-medium text-slate-700">Catalogo</label>
+                                            <label className="text-sm font-medium text-slate-700">Catálogo</label>
                                             <select className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900" value={watch(`recommendations_list.${index}.catalog_item_id`) || ''} onChange={(event) => handleRecommendationCatalogChange(index, event.target.value)}>
                                                 <option value="">Seleccionar sugerencia...</option>
                                                 {recommendationOptions.map((option) => (
@@ -1279,7 +1692,7 @@ export default function ConsultationForm({ patient, consultation, meta }) {
                                             </select>
                                         </div>
                                         <div className="lg:col-span-2">
-                                            <TextArea label="Texto editable" name={`recommendations_list.${index}.text`} register={register} rows={3} />
+                                            <TextArea label="Texto editable" name={`recommendations_list.${index}.text`} register={register} rows={3} hint="Se imprime en el certificado, bajo RECOMENDACIONES." />
                                         </div>
                                     </div>
                                 </div>
@@ -1327,7 +1740,7 @@ export default function ConsultationForm({ patient, consultation, meta }) {
                                             inputMode="decimal"
                                             className={`w-full min-h-11 rounded-xl border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 ${fieldErrorClass(requiredErrors.has(precioReg.name))}`}
                                             {...precioReg}
-                                            onChange={(event) => { precioReg.onChange(event); recomputeSaleItemTotal(index); }}
+                                            onChange={(event) => { keepAmount(event); precioReg.onChange(event); recomputeSaleItemTotal(index); }}
                                         />
                                     </div>
                                     <div className="flex flex-col gap-1">
@@ -1338,7 +1751,7 @@ export default function ConsultationForm({ patient, consultation, meta }) {
                                             inputMode="decimal"
                                             className={`w-full min-h-11 rounded-xl border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 ${fieldErrorClass(requiredErrors.has(pctReg.name))}`}
                                             {...pctReg}
-                                            onChange={(event) => { pctReg.onChange(event); recomputeSaleItemTotal(index); }}
+                                            onChange={(event) => { keepAmount(event, 100); pctReg.onChange(event); recomputeSaleItemTotal(index); }}
                                         />
                                     </div>
                                     <FormInput label="Total" name={`sale_items.${index}.total`} register={register} readOnly />
@@ -1360,16 +1773,16 @@ export default function ConsultationForm({ patient, consultation, meta }) {
                 </div>
             </CollapsibleSection>
 
-            <CollapsibleSection title="Observaciones clinicas, queratometria y examen externo" subtitle="Texto libre y hallazgos auxiliares del examen." sectionKey="observaciones">
+            <CollapsibleSection title="Observaciones clínicas, queratometría y examen externo" subtitle="Texto libre y hallazgos auxiliares del examen." sectionKey="observaciones">
                 <div className="mb-4">
-                    <TextArea label="Observaciones clinicas" name="observaciones" register={register} rows={6} placeholder="Comentarios del caso, comparacion con recetas previas, seguimiento y observaciones libres..." />
+                    <TextArea label="Observaciones clínicas" name="observaciones" register={register} rows={6} placeholder="Comentarios del caso, comparación con recetas previas, seguimiento y observaciones libres..." hint="No se imprimen en el certificado." />
                 </div>
                 <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                     {advVisible('consulta:queratometria', observacionesAdv) && (
-                        <FormInput label="Queratometria OD" name="queratometria_od" register={register} placeholder="K1 / K2 @ eje" />
+                        <FormInput label="Queratometría detallada OD" name="queratometria_od" register={register} placeholder="K1 / K2 @ eje" hint="Complementa la columna Queratometría del examen visual." />
                     )}
                     {advVisible('consulta:queratometria', observacionesAdv) && (
-                        <FormInput label="Queratometria OI" name="queratometria_oi" register={register} placeholder="K1 / K2 @ eje" />
+                        <FormInput label="Queratometría detallada OI" name="queratometria_oi" register={register} placeholder="K1 / K2 @ eje" hint="Complementa la columna Queratometría del examen visual." />
                     )}
                     {advVisible('consulta:examen_externo', observacionesAdv) && (
                         <TextArea label="Examen externo OD" name="examen_externo_od" register={register} rows={3} />
@@ -1378,7 +1791,7 @@ export default function ConsultationForm({ patient, consultation, meta }) {
                         <TextArea label="Examen externo OI" name="examen_externo_oi" register={register} rows={3} />
                     )}
                     {advVisible('consulta:vision_colores', observacionesAdv) && (
-                        <FormInput label="Vision de colores" name="vision_colores" register={register} placeholder="14/14 Test Ishihara" />
+                        <FormInput label="Visión de colores" name="vision_colores" register={register} placeholder="14/14 Test Ishihara" hint="Se imprime en el certificado." />
                     )}
                 </div>
                 {observacionesHasAdvanced && (
@@ -1388,7 +1801,7 @@ export default function ConsultationForm({ patient, consultation, meta }) {
                 )}
             </CollapsibleSection>
 
-            <CollapsibleSection title="Motor, binocular y reflejos" subtitle="Registro por ojo con observacion general por prueba." sectionKey="motor_binocular" {...moduleSectionProps('consulta:sec_motor_binocular')}>
+            <CollapsibleSection title="Motor, binocular y reflejos" subtitle="Registro por ojo con observación general por prueba." sectionKey="motor_binocular" {...moduleSectionProps('consulta:sec_motor_binocular')}>
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                         <thead>
@@ -1396,7 +1809,7 @@ export default function ConsultationForm({ patient, consultation, meta }) {
                                 <th className="px-3 py-2 text-left text-xs font-semibold uppercase text-slate-500">Prueba</th>
                                 <th className="px-3 py-2 text-center text-xs font-semibold uppercase text-slate-500">OD</th>
                                 <th className="px-3 py-2 text-center text-xs font-semibold uppercase text-slate-500">OI</th>
-                                <th className="px-3 py-2 text-center text-xs font-semibold uppercase text-slate-500">Observacion</th>
+                                <th className="px-3 py-2 text-center text-xs font-semibold uppercase text-slate-500">Observación</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -1420,15 +1833,15 @@ export default function ConsultationForm({ patient, consultation, meta }) {
                 </div>
             </CollapsibleSection>
 
-            <CollapsibleSection title="Modulo de lentes de contacto" subtitle="Adaptacion, lente de prueba y lente definitivo." sectionKey="lentes_contacto" {...moduleSectionProps('consulta:sec_lentes_contacto')}>
+            <CollapsibleSection title="Módulo de lentes de contacto" subtitle="Adaptación, lente de prueba y lente definitivo." sectionKey="lentes_contacto" {...moduleSectionProps('consulta:sec_lentes_contacto')}>
                 <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-4">
-                    <FormInput label="Diametro pupilar" name="contact_lens_module.diametro_pupilar" register={register} />
-                    <FormInput label="Diametro corneal" name="contact_lens_module.diametro_corneal" register={register} />
+                    <FormInput label="Diámetro pupilar" name="contact_lens_module.diametro_pupilar" register={register} />
+                    <FormInput label="Diámetro corneal" name="contact_lens_module.diametro_corneal" register={register} />
                     <FormInput label="Apertura palpebral" name="contact_lens_module.apertura_palpebral" register={register} />
-                    <FormInput label="Tension palpebral" name="contact_lens_module.tension_palpebral" register={register} />
+                    <FormInput label="Tensión palpebral" name="contact_lens_module.tension_palpebral" register={register} />
                     <FormSelect label="Ojo dominante" name="contact_lens_module.ojo_dominante" register={register} options={[{ value: 'OD', label: 'OD' }, { value: 'OI', label: 'OI' }]} />
                     <FormInput label="BUT" name="contact_lens_module.but_value" register={register} />
-                    <FormInput label="Shirmer test" name="contact_lens_module.shirmer_test" register={register} />
+                    <FormInput label="Test de Schirmer" name="contact_lens_module.shirmer_test" register={register} />
                     <FormInput label="Frecuencia de parpadeo" name="contact_lens_module.frecuencia_parpadeo" register={register} />
                     <div className="lg:col-span-4">
                         <TextArea label="Observaciones" name="contact_lens_module.observaciones" register={register} rows={3} />
@@ -1439,7 +1852,7 @@ export default function ConsultationForm({ patient, consultation, meta }) {
                         <thead>
                             <tr className="bg-slate-100">
                                 <th className="px-3 py-2 text-left text-xs font-semibold uppercase text-slate-500">Lente de prueba</th>
-                                {['Curva base', 'Poder', '%H2O', 'Material', 'Diametro', 'Sobre-refraccion', 'Agudeza visual'].map((column) => (
+                                {['Curva base', 'Poder', '%H2O', 'Material', 'Diámetro', 'Sobre-refracción', 'Agudeza visual'].map((column) => (
                                     <th key={column} className="px-3 py-2 text-center text-xs font-semibold uppercase text-slate-500">{column}</th>
                                 ))}
                             </tr>
@@ -1463,7 +1876,7 @@ export default function ConsultationForm({ patient, consultation, meta }) {
                         <thead>
                             <tr className="bg-slate-100">
                                 <th className="px-3 py-2 text-left text-xs font-semibold uppercase text-slate-500">Lente definitivo</th>
-                                {['Curva base', 'Poder', 'Diametro', '%H2O', 'Material'].map((column) => (
+                                {['Curva base', 'Poder', 'Diámetro', '%H2O', 'Material'].map((column) => (
                                     <th key={column} className="px-3 py-2 text-center text-xs font-semibold uppercase text-slate-500">{column}</th>
                                 ))}
                             </tr>
@@ -1484,11 +1897,11 @@ export default function ConsultationForm({ patient, consultation, meta }) {
                 </div>
             </CollapsibleSection>
 
-            <CollapsibleSection title="Oftalmoscopia" subtitle="Parametros generales y tabla editable por distancias." sectionKey="oftalmoscopia" {...moduleSectionProps('consulta:sec_oftalmoscopia')}>
+            <CollapsibleSection title="Oftalmoscopia" subtitle="Parámetros generales y tabla editable por distancias." sectionKey="oftalmoscopia" {...moduleSectionProps('consulta:sec_oftalmoscopia')}>
                 <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
-                    <FormInput label="Fijacion OD" name="ophthalmoscopy_module.fijacion_od" register={register} />
-                    <FormInput label="Fijacion OI" name="ophthalmoscopy_module.fijacion_oi" register={register} />
-                    <FormInput label="Valoracion motora / test" name="ophthalmoscopy_module.valoracion_motora" register={register} />
+                    <FormInput label="Fijación OD" name="ophthalmoscopy_module.fijacion_od" register={register} />
+                    <FormInput label="Fijación OI" name="ophthalmoscopy_module.fijacion_oi" register={register} />
+                    <FormInput label="Valoración motora / test" name="ophthalmoscopy_module.valoracion_motora" register={register} />
                     <FormInput label="PPC OBJ" name="ophthalmoscopy_module.ppc_obj" register={register} />
                     <FormInput label="Luz" name="ophthalmoscopy_module.luz" register={register} />
                     <FormInput label="FR" name="ophthalmoscopy_module.fr" register={register} />
@@ -1519,12 +1932,12 @@ export default function ConsultationForm({ patient, consultation, meta }) {
                 </div>
             </CollapsibleSection>
 
-            <CollapsibleSection title="Tratamiento" subtitle="Plan terapeutico y modalidad de uso." sectionKey="tratamiento" {...moduleSectionProps('consulta:sec_tratamiento')}>
+            <CollapsibleSection title="Tratamiento" subtitle="Plan terapéutico y modalidad de uso." sectionKey="tratamiento" {...moduleSectionProps('consulta:sec_tratamiento')}>
                 <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                     <TextArea label="Plan de tratamiento" name="treatment_module.plan" register={register} rows={4} />
                     <div className="grid grid-cols-1 gap-4">
                         <FormInput label="Horas de uso" name="treatment_module.horas_uso" register={register} />
-                        <FormInput label="Metodo de limpieza" name="treatment_module.metodo_limpieza" register={register} />
+                        <FormInput label="Método de limpieza" name="treatment_module.metodo_limpieza" register={register} />
                         <FormInput label="Modalidad de uso" name="treatment_module.modalidad_uso" register={register} />
                     </div>
                 </div>
@@ -1546,7 +1959,7 @@ export default function ConsultationForm({ patient, consultation, meta }) {
 
             <div className="hidden flex-wrap justify-end gap-3 pb-8 lg:flex">
                 <Button type="button" variant="secondary" onClick={handleSaveDraft}>
-                    <Clock size={20} /> Guardar borrador
+                    <Clock size={20} /> {saveLabel}
                 </Button>
                 <Button type="button" variant="secondary" onClick={handleGeneratePdf}>
                     <FileText size={20} /> Vista previa
@@ -1560,6 +1973,63 @@ export default function ConsultationForm({ patient, consultation, meta }) {
         {/* Fuera del <form>: Enter en el correo del certificado completaba la consulta. */}
         {showPdf && pdfData && (
             <CertificadoPdf data={pdfData} onClose={() => setShowPdf(false)} consultationDoctor={currentDoctor()} />
+        )}
+
+        <ConfirmModal
+            open={confirmLeave}
+            title="¿Salir sin guardar?"
+            message="No se pudieron guardar los últimos cambios de la consulta. Si sale ahora se perderán."
+            confirmLabel="Salir sin guardar"
+            onConfirm={() => { setConfirmLeave(false); blocker.proceed?.(); }}
+            onCancel={() => { setConfirmLeave(false); blocker.reset?.(); }}
+        />
+
+        {showRxReview && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="rx-review-title">
+                <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto overflow-x-hidden rounded-2xl bg-white p-6 shadow-xl">
+                    <div className="mb-4 flex items-center gap-3">
+                        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-amber-100">
+                            <AlertTriangle size={20} className="text-amber-600" />
+                        </div>
+                        <div>
+                            <h3 id="rx-review-title" className="font-semibold text-gray-900">Revise las medidas antes de completar</h3>
+                            <p className="text-sm text-gray-500">
+                                {hasBlockingRxWarning
+                                    ? 'Hay un dato que impide completar la consulta. Haga clic en un aviso para ir al campo:'
+                                    : 'Estos valores son poco habituales. Haga clic en uno para corregirlo, o complete la consulta si son correctos:'}
+                            </p>
+                        </div>
+                    </div>
+                    <ul className="mb-5 space-y-1">
+                        {rxReviewItems.map(({ field, message, blocking }) => (
+                            <li key={`${field}:${message}`}>
+                                <button
+                                    type="button"
+                                    onClick={() => goToWarningField(field)}
+                                    className={`flex min-h-11 w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm transition-colors ${blocking ? 'text-red-700 hover:bg-red-50' : 'text-amber-900 hover:bg-amber-50'}`}
+                                >
+                                    <span className={`h-2 w-2 flex-shrink-0 rounded-full ${blocking ? 'bg-red-500' : 'bg-amber-500'}`} />
+                                    <span className="flex-1">
+                                        {message}
+                                        {blocking && <span className="ml-1 font-semibold">Hay que corregirlo.</span>}
+                                    </span>
+                                    <ArrowRight size={16} className="shrink-0 opacity-60" />
+                                </button>
+                            </li>
+                        ))}
+                    </ul>
+                    <div className="flex flex-wrap justify-end gap-3">
+                        <Button type="button" variant="secondary" onClick={() => goToWarningField(rxReviewItems[0]?.field)}>
+                            Volver a revisar
+                        </Button>
+                        {!hasBlockingRxWarning && (
+                            <Button type="button" onClick={() => { setShowRxReview(false); completeConsultation(); }}>
+                                Completar de todos modos
+                            </Button>
+                        )}
+                    </div>
+                </div>
+            </div>
         )}
 
         {showRequiredModal && (

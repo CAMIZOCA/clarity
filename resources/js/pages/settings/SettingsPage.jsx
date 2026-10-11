@@ -21,7 +21,7 @@ const REQUIRED_FIELD_OPTIONS = [
     { key: 'lente_anterior', label: 'Lente anterior' },
     { key: 'observaciones', label: 'Observaciones clínicas' },
     { key: 'print_template_key', label: 'Plantilla de impresión' },
-    { key: 'doctor_license', label: 'Registro / Licencia del doctor' },
+    { key: 'doctor_license', label: 'Registro SENESCYT del médico' },
 ];
 
 function Tab({ active, onClick, icon: Icon, label }) {

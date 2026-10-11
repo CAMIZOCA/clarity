@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Setting;
 use App\Rules\ValidOpticalPrescription;
 use App\Support\OpticalValueNormalizer;
 use Illuminate\Foundation\Http\FormRequest;
@@ -285,6 +286,8 @@ class StoreConsultationRequest extends FormRequest
         ];
 
         $rules = $this->applyDynamicDiagnosisDescriptionRules($rules);
+        $rules = $this->requireAxisWithFinalCylinder($rules);
+        $rules = $this->applyRequiredFieldsOnCompletion($rules);
 
         return $this->relaxOpticalRangesForDraft($rules);
     }
@@ -302,6 +305,10 @@ class StoreConsultationRequest extends FormRequest
             'fecha_entrega.after_or_equal' => 'La fecha de entrega debe ser hoy o posterior.',
             'costo_total.min' => 'El costo total no puede ser negativo.',
             'abono.min' => 'El abono no puede ser negativo.',
+            'required' => 'El campo :attribute es obligatorio para completar la consulta.',
+            'diagnoses.required' => 'Agregue al menos un diagnóstico para completar la consulta.',
+            'rx_final_eje_od.required' => 'RX Final: el cilindro del ojo derecho necesita un eje.',
+            'rx_final_eje_oi.required' => 'RX Final: el cilindro del ojo izquierdo necesita un eje.',
             'diagnoses.*.description.required' => 'Cada diagnóstico debe incluir una descripción o un ítem de catálogo.',
             'recommendations_list.*.text.required_with' => 'Cada recomendación debe incluir un texto.',
             'subj_dp.min' => 'La distancia pupilar debe ser de al menos 40 mm.',
@@ -320,6 +327,13 @@ class StoreConsultationRequest extends FormRequest
             'patient_id' => 'Paciente',
             'fecha_consulta' => 'Fecha de consulta',
             'optometrista_id' => 'Médico / Optometrista',
+            'motivo_consulta' => 'Motivo de consulta',
+            'doctor_license' => 'Registro SENESCYT del médico',
+            'print_template_key' => 'Plantilla de impresión',
+            'avsc_od' => 'AV SC (ojo derecho)',
+            'avsc_oi' => 'AV SC (ojo izquierdo)',
+            'lente_anterior' => 'Lente anterior',
+            'observaciones' => 'Observaciones clínicas',
             'rx_uso_esfera_od' => 'RX en uso · Esfera OD',
             'rx_uso_cilindro_od' => 'RX en uso · Cilindro OD',
             'rx_uso_eje_od' => 'RX en uso · Eje OD',
@@ -378,6 +392,8 @@ class StoreConsultationRequest extends FormRequest
         // sin afectar el locale del resto de la app.
         app()->setLocale('es');
 
+        $this->assignDefaultOptometrist();
+
         $normalized = [];
         foreach (self::OPTICAL_FIELD_TYPES as $field => $type) {
             $val = $this->input($field);
@@ -413,6 +429,99 @@ class StoreConsultationRequest extends FormRequest
     protected function isDraft(): bool
     {
         return $this->input('estado') === 'borrador';
+    }
+
+    /**
+     * La consulta pasa a "completada" con este guardado. Al crearla basta con
+     * que llegue con ese estado; la edicion lo redefine para no volver a
+     * exigir nada a una consulta que ya estaba completada.
+     */
+    protected function isCompleting(): bool
+    {
+        return $this->input('estado') === 'completada';
+    }
+
+    /**
+     * Un campo que no viaja en la peticion pero ya esta guardado. Solo tiene
+     * sentido al editar; una consulta nueva no tiene nada guardado.
+     */
+    protected function hasStoredValue(string $field): bool
+    {
+        return false;
+    }
+
+    /**
+     * Una consulta nueva sin medico queda a nombre de quien la crea, pero solo
+     * si es medico. Antes se asignaba a cualquier usuario, y una consulta
+     * abierta por recepcion quedaba a su nombre.
+     */
+    private function assignDefaultOptometrist(): void
+    {
+        if (! $this->isMethod('POST') || filled($this->input('optometrista_id'))) {
+            return;
+        }
+
+        if ($this->user()?->isClinician()) {
+            $this->merge(['optometrista_id' => $this->user()->id]);
+        }
+    }
+
+    /**
+     * Un cilindro sin eje es una receta incompleta: la consulta no se puede
+     * completar asi. El borrador no lo exige.
+     */
+    private function requireAxisWithFinalCylinder(array $rules): array
+    {
+        if ($this->isDraft()) {
+            return $rules;
+        }
+
+        foreach (['od', 'oi'] as $eye) {
+            $cylinder = $this->input("rx_final_cilindro_{$eye}");
+
+            if (is_numeric($cylinder) && (float) $cylinder !== 0.0 && ! $this->hasStoredValue("rx_final_eje_{$eye}")) {
+                $rules["rx_final_eje_{$eye}"] = ['required', 'numeric', new ValidOpticalPrescription('axis')];
+            }
+        }
+
+        return $rules;
+    }
+
+    /**
+     * Exige los campos de `settings.required_fields` en el paso a "completada".
+     *
+     * El formulario ya los pedia, pero solo ahi: la API aceptaba completar una
+     * consulta sin ellos.
+     */
+    private function applyRequiredFieldsOnCompletion(array $rules): array
+    {
+        if (! $this->isCompleting()) {
+            return $rules;
+        }
+
+        $required = json_decode((string) Setting::get('required_fields'), true);
+
+        foreach (is_array($required) ? $required : [] as $field) {
+            // El formulario llama asi a "tener al menos un diagnostico".
+            if ($field === 'diagnostico_descripcion') {
+                if (! $this->hasStoredValue('diagnoses')) {
+                    $rules['diagnoses'] = ['required', 'array'];
+                }
+
+                continue;
+            }
+
+            if (! is_string($field) || ! is_array($rules[$field] ?? null) || $this->hasStoredValue($field)) {
+                continue;
+            }
+
+            $rules[$field] = ['required', ...array_values(array_filter(
+                $rules[$field],
+                fn ($rule) => ! in_array($rule, ['nullable', 'sometimes', 'required'], true)
+            ))];
+        }
+
+        return $rules;
     }
 
     /**

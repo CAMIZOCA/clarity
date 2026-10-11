@@ -44,6 +44,7 @@ export default function DateInput({
     nextFieldId,
     disabled,
     rules,
+    error,
     ...props
 }) {
     const { field, fieldState } = useController({ control, name, rules });
@@ -51,9 +52,17 @@ export default function DateInput({
     const [touched, setTouched] = useState(false);
 
     // Resincronizar cuando el valor cambia desde fuera (reset, carga de datos).
+    // Lo escrito solo cuenta si es una fecha completa: `toIsoDate` cae en
+    // `new Date(texto)`, que interpreta "12/05/199" como 5 de diciembre del
+    // anio 199, y con eso una fecha a medio corregir se borraba al salir del
+    // campo en vez de quedar marcada como invalida.
     useEffect(() => {
         const next = toDisplayDate(field.value);
-        setDisplay((current) => (toIsoDate(current) === toIsoDate(field.value) ? current : next));
+        setDisplay((current) => {
+            const typed = isRealDate(current) ? toIsoDate(current) : '';
+
+            return typed === toIsoDate(field.value) ? current : next;
+        });
     }, [field.value]);
 
     const handleChange = (event) => {
@@ -86,10 +95,14 @@ export default function DateInput({
         }
     };
 
-    const invalid = Boolean(fieldState.error)
-        || (touched && display !== '' && !isRealDate(display));
-    const errorText = fieldState.error?.message
-        ?? (touched && display !== '' && !isRealDate(display) ? 'Fecha invalida' : null);
+    const unfinished = touched && display !== '' && !isRealDate(display);
+    // `error` es un mensaje que viene de fuera del formulario (p. ej. un 422 de la API).
+    const invalid = Boolean(fieldState.error) || unfinished || Boolean(error);
+    // Lo escrito manda sobre el error del formulario: con el campo a medias el
+    // valor esta vacio y el "Requerido" taparia el motivo real.
+    const errorText = unfinished
+        ? (/^\d{2}\/\d{2}\/\d{1,3}$/.test(display) ? 'Escriba el año con 4 dígitos' : 'Fecha invalida')
+        : (fieldState.error?.message ?? error ?? null);
 
     return (
         <div className={`flex flex-col gap-1 ${className}`}>

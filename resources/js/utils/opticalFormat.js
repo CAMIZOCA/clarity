@@ -88,14 +88,72 @@ export function formatOpticalForInput(value) {
     return num > 0 ? `+${num.toFixed(2)}` : num.toFixed(2);
 }
 
+// Refraccion completa escrita de corrido en un campo de texto:
+// esfera, cilindro (con su signo, que es lo que lo separa de la esfera) y eje.
+const REFRACTION_TEXT = new RegExp(
+    '^(NEUTRO|PLANO|PL|N|[+-]?\\d+(?:[.,]\\d+)?)'
+    + '(?:\\s*([+-]\\s?\\d+(?:[.,]\\d+)?))?'
+    + '(?:\\s*[x×*@]\\s*(\\d{1,3})\\s*°?)?'
+    + '(?=$|\\s)(.*)$',
+    'i'
+);
+
+// Eje escrito sin la "x", separado solo por un espacio: "-125 -225 180".
+const TRAILING_AXIS = /^\s+(\d{1,3})\s*°?(?=$|\s)(.*)$/;
+
+/**
+ * Uniforma una refraccion escrita en un solo campo ("Lectura computador",
+ * "Retinoscopia"): "-125-225x2" y "+050 -025 X 100" quedan "-1.25 -2.25 x 2" y
+ * "+0.50 -0.25 x 100". Cada parte pasa por `normalizeOpticalValue`, asi que
+ * sigue la misma regla de digitos que los campos de esfera y cilindro, y el
+ * texto que venga despues ("cc 20/20") se conserva.
+ *
+ * Devuelve lo escrito tal cual cuando no es una refraccion (una agudeza
+ * "20/20", una queratometria "43.50/44.25", un "ORTHO" heredado), cuando es un
+ * numero sin signo ni cilindro —puede ser cualquier cosa— o cuando el
+ * resultado no cabe en la columna (`maxLength`).
+ *
+ * @param {string|null|undefined} raw
+ * @param {number} [maxLength]
+ * @returns {string|null|undefined}
+ */
+export function normalizeRefractionText(raw, maxLength = Infinity) {
+    if (raw === null || raw === undefined) return raw;
+
+    const text = String(raw).trim();
+    const match = REFRACTION_TEXT.exec(text);
+    if (!match) return raw;
+
+    const [, sphereText, cylinderText] = match;
+    let [, , , axisText, rest] = match;
+
+    if (cylinderText && !axisText) {
+        const trailing = TRAILING_AXIS.exec(rest);
+        if (trailing) [, axisText, rest] = trailing;
+    }
+
+    // Sin cilindro, solo una esfera con signo (o "N") es claramente una
+    // refraccion: "43.50 x 90" puede ser una queratometria.
+    const hasSign = /^[+-]/.test(sphereText) || /^[a-z]/i.test(sphereText);
+    if (!cylinderText && !hasSign) return raw;
+
+    const parts = [normalizeOpticalValue(sphereText, 'sphere')];
+    if (cylinderText) parts.push(normalizeOpticalValue(cylinderText, 'cylinder'));
+    if (axisText) parts.push(`x ${Number(axisText)}`);
+    if (rest.trim()) parts.push(rest.trim());
+
+    const formatted = parts.join(' ');
+    return formatted.length > maxLength ? raw : formatted;
+}
+
 export const normalizeSphere = (raw) => normalizeOpticalValue(raw, 'sphere');
 export const normalizeCylinder = (raw) => normalizeOpticalValue(raw, 'cylinder');
 export const normalizeAxisValue = (raw) => normalizeOpticalValue(raw, 'axis');
 export const normalizeAdd = (raw) => normalizeOpticalValue(raw, 'add');
 
 /** Formatea una esfera ya normalizada para el resumen de solo lectura ("N", "+0.25", "±0.00" si está vacía). */
-export function displaySphere(value) {
-    if (value === null || value === undefined || value === '') return '±0.00';
+export function displaySphere(value, emptyPlaceholder = '±0.00') {
+    if (value === null || value === undefined || value === '') return emptyPlaceholder;
     if (String(value).toUpperCase() === 'N') return 'N';
     const num = Number(value);
     if (Number.isNaN(num)) return String(value);

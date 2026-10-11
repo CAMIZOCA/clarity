@@ -277,6 +277,84 @@ class PatientLookupTest extends TestCase
         $this->lookup(['nombre' => '%%%', 'apellido' => '___'])->assertJsonPath('data.similares', []);
     }
 
+    /**
+     * El Registro Civil trae los cuatro nombres y muchos registros guardan dos
+     * o tres: exigir todas las palabras dejaba sin aviso justo al autocompletar.
+     */
+    public function test_similar_names_match_a_record_with_fewer_names(): void
+    {
+        $this->actingWith();
+        $short = $this->makePatient('HIST-00123', 'LOPEZ MARIA', null);
+        $three = $this->makePatient(self::CEDULA, 'LOPEZ GARCIA MARIA', null);
+        // Mismos nombres de pila, otra familia: no es parecido.
+        $this->makePatient(self::CEDULA_CON_CERO, 'PEREZ RUIZ MARIA FERNANDA', null);
+
+        $ids = collect($this->lookup(['nombre' => 'MARIA FERNANDA', 'apellido' => 'LOPEZ GARCIA'])->json('data.similares'))
+            ->pluck('id');
+
+        $this->assertEqualsCanonicalizing([$short->id, $three->id], $ids->all());
+        // Primero el que mas coincide.
+        $this->assertSame($three->id, $ids->first());
+    }
+
+    public function test_similar_names_tolerate_one_different_word_in_long_names(): void
+    {
+        $this->actingWith();
+        $patient = $this->makePatient(self::CEDULA, 'GONZALES LOOR MARIA FERNANDA', null);
+
+        $this->lookup(['nombre' => 'MARIA FERNANDA', 'apellido' => 'GONZALEZ LOOR'])
+            ->assertJsonCount(1, 'data.similares')
+            ->assertJsonPath('data.similares.0.id', $patient->id);
+    }
+
+    /** Una letra en la cedula no la convierte en pasaporte: hay que elegirlo. */
+    public function test_a_document_with_a_letter_is_invalid_unless_declared_as_other(): void
+    {
+        $this->actingWith();
+
+        $this->lookup(['cedula' => '17100340Q5'])
+            ->assertJsonPath('data.estado', 'invalida')
+            ->assertJsonPath('data.mensaje', 'La cédula o RUC solo lleva números. Si es un pasaporte, elija «Pasaporte u otro documento».');
+
+        $this->lookup(['cedula' => 'AB123456', 'tipo' => 'otro'])->assertJsonPath('data.estado', 'nuevo');
+        // Documento extranjero numerico: sin digito verificador ecuatoriano.
+        $this->lookup(['cedula' => '1012345678', 'tipo' => 'otro'])->assertJsonPath('data.estado', 'nuevo');
+        // Un codigo provisional no pasa por documento valido.
+        $this->lookup(['cedula' => 'HIST-99999', 'tipo' => 'otro'])->assertJsonPath('data.estado', 'invalida');
+    }
+
+    public function test_a_document_with_letters_lists_the_cedulas_it_resembles(): void
+    {
+        $this->actingWith();
+        $real = $this->makePatient(self::CEDULA);
+
+        // Una letra donde iba un digito.
+        $this->lookup(['cedula' => substr(self::CEDULA, 0, 8).'Q'.substr(self::CEDULA, 9), 'tipo' => 'otro'])
+            ->assertJsonPath('data.estado', 'nuevo')
+            ->assertJsonPath('data.relacionados.0.id', $real->id);
+
+        // El sufijo con que el sistema anterior anotaba a los familiares.
+        $this->lookup(['cedula' => self::CEDULA.'B', 'tipo' => 'otro'])
+            ->assertJsonPath('data.relacionados.0.id', $real->id);
+    }
+
+    public function test_patients_sharing_an_email_are_listed_without_blocking(): void
+    {
+        $this->actingWith(Permission::PATIENTS_CREATE->value);
+        $mother = $this->makePatient(self::CEDULA);
+        $mother->update(['email' => 'Familia@Example.com']);
+
+        $this->lookup(['email' => 'familia@example.com'])
+            ->assertJsonCount(1, 'data.mismo_email')
+            ->assertJsonPath('data.mismo_email.0.id', $mother->id);
+        $this->lookup(['email' => 'familia@example.com', 'exclude' => $mother->id])
+            ->assertJsonPath('data.mismo_email', []);
+
+        $this->postJson('/api/patients', [
+            'nombre' => 'Hijo', 'cedula' => self::CEDULA_CON_CERO, 'fecha_nacimiento' => '2015-01-01', 'email' => 'familia@example.com',
+        ])->assertCreated();
+    }
+
     public function test_registering_without_document_or_birth_date_is_a_validation_error(): void
     {
         $this->actingWith(Permission::PATIENTS_CREATE->value);

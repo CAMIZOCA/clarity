@@ -4,11 +4,14 @@ namespace App\Services;
 
 use App\Jobs\SyncPatientToContifico;
 use App\Models\Patient;
-use App\Rules\ValidEcuadorCedula;
+use App\Rules\ValidPatientDocument;
 use App\Support\AppConfig;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Support\Collection as SupportCollection;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 
 class PatientService extends BaseService
 {
@@ -81,18 +84,26 @@ class PatientService extends BaseService
      */
     public function create(array $data, int $createdBy): Patient
     {
-        $patient = $this->transaction(function () use ($data, $createdBy) {
-            $patient = Patient::create(array_merge($data, [
-                'created_by' => $createdBy,
-            ]));
+        try {
+            $patient = $this->transaction(function () use ($data, $createdBy) {
+                $patient = Patient::create(array_merge($data, [
+                    'created_by' => $createdBy,
+                ]));
 
-            $this->logActivity('patient_created', $patient, [
-                'nombre' => $patient->nombre,
-                'cedula' => $patient->cedula,
+                $this->logActivity('patient_created', $patient, [
+                    'nombre' => $patient->nombre,
+                    'cedula' => $patient->cedula,
+                ]);
+
+                return $patient;
+            });
+        } catch (UniqueConstraintViolationException) {
+            // Dos altas de la misma cedula a la vez: ambas pasan el `unique` de
+            // la validacion y la segunda choca con el indice. No es un 500.
+            throw ValidationException::withMessages([
+                'cedula' => 'Ya existe un paciente registrado con esta cédula.',
             ]);
-
-            return $patient;
-        });
+        }
 
         $this->queueContificoSync($patient, $createdBy);
 
@@ -192,25 +203,16 @@ class PatientService extends BaseService
      *  - hay cedulas con una letra o digitos de mas al final ("1712345678A"),
      *    que no bloquean el alta y se devuelven como `relacionados`.
      *
+     * `$type` es el tipo de documento que eligio quien registra (ver
+     * ValidPatientDocument): decide con que regla se da por invalido.
+     *
      * @return array{cedula: string, estado: string, mensaje: ?string, paciente: ?array<string, mixed>, relacionados: list<array<string, mixed>>}
      */
-    public function lookupByDocument(string $document, ?int $excludeId = null): array
+    public function lookupByDocument(string $document, ?int $excludeId = null, string $type = ValidPatientDocument::TYPE_CEDULA): array
     {
-        $document = strtoupper(trim($document));
-        $variants = self::documentVariants($document);
-
-        $matches = Patient::withTrashed()
-            ->whereIn('cedula', $variants)
-            ->when($excludeId, fn ($query) => $query->where('id', '!=', $excludeId))
-            ->withCount('consultations')
-            ->withMax('consultations', 'fecha_consulta')
-            ->get();
-
-        // Un paciente activo pesa mas que uno eliminado, y la escritura exacta
-        // mas que una variante.
-        $match = $matches
-            ->sortBy(fn (Patient $patient) => [$patient->trashed() ? 1 : 0, $patient->cedula === $document ? 0 : 1])
-            ->first();
+        $document = ValidPatientDocument::normalize($document, $type);
+        $matches = $this->documentMatches($document, $excludeId);
+        $match = $matches->first();
 
         $result = [
             'cedula' => $document,
@@ -226,12 +228,76 @@ class PatientService extends BaseService
             return $result;
         }
 
-        if ($error = self::documentFormatError($document)) {
+        if ($error = self::documentFormatError($document, $type)) {
             $result['estado'] = self::DOCUMENT_INVALID;
             $result['mensaje'] = $error;
         }
 
         return $result;
+    }
+
+    /**
+     * Motivo por el que un documento no se puede registrar porque ya es de otro
+     * paciente (tambien escrito de otra forma), o null si esta libre. Es la
+     * misma comparacion de lookupByDocument(), para las reglas de validacion.
+     */
+    public function duplicateDocumentMessage(string $document, ?int $excludeId = null): ?string
+    {
+        $match = $this->documentMatches(strtoupper(trim($document)), $excludeId)->first();
+
+        if (! $match) {
+            return null;
+        }
+
+        return $match->trashed()
+            ? "Este documento pertenece a un paciente eliminado ({$match->cedula}). Restáurelo en lugar de registrarlo de nuevo."
+            : "Ya existe un paciente con este documento, registrado como {$match->cedula}.";
+    }
+
+    /**
+     * Pacientes (tambien eliminados) que tienen el documento en alguna de sus
+     * variantes. Primero el mejor: un paciente activo pesa mas que uno
+     * eliminado, y la escritura exacta mas que una variante.
+     *
+     * @return Collection<int, Patient>
+     */
+    private function documentMatches(string $document, ?int $excludeId): Collection
+    {
+        return Patient::withTrashed()
+            ->whereIn('cedula', self::documentVariants($document))
+            ->when($excludeId, fn ($query) => $query->where('id', '!=', $excludeId))
+            ->withCount('consultations')
+            ->withMax('consultations', 'fecha_consulta')
+            ->get()
+            ->sortBy(fn (Patient $patient) => [$patient->trashed() ? 1 : 0, $patient->cedula === $document ? 0 : 1])
+            ->values();
+    }
+
+    /**
+     * Otros pacientes con el mismo email. Solo es un aviso: en una familia es
+     * normal compartirlo, pero tambien delata a la misma persona registrada dos
+     * veces.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function findByEmail(string $email, ?int $excludeId = null): array
+    {
+        $email = mb_strtolower(trim($email));
+
+        if ($email === '') {
+            return [];
+        }
+
+        return Patient::query()
+            ->whereRaw('LOWER(email) = ?', [$email])
+            ->when($excludeId, fn ($query) => $query->where('id', '!=', $excludeId))
+            ->withCount('consultations')
+            ->withMax('consultations', 'fecha_consulta')
+            ->orderBy('nombre')
+            ->limit(self::LOOKUP_LIMIT)
+            ->get()
+            ->map(fn (Patient $patient) => $this->lookupSummary($patient))
+            ->all();
     }
 
     /**
@@ -258,42 +324,75 @@ class PatientService extends BaseService
             : null;
     }
 
+    /** Candidatos que se traen de la BD antes de decidir cuales se parecen. */
+    private const SIMILAR_CANDIDATES = 50;
+
     /**
-     * Pacientes cuyo nombre contiene todas las palabras dadas, en cualquier
-     * orden. Es la segunda red contra duplicados: los importados sin cedula
-     * llevan un codigo provisional ("HIST-00123") que ninguna cedula encuentra,
-     * y guardan "APELLIDOS NOMBRES" completo en `nombre`.
+     * Pacientes cuyo nombre se parece al dado, en cualquier orden. Es la
+     * segunda red contra duplicados: los importados sin cedula llevan un codigo
+     * provisional ("HIST-00123") que ninguna cedula encuentra, y guardan
+     * "APELLIDOS NOMBRES" completo en `nombre`.
+     *
+     * No se exigen todas las palabras: el Registro Civil trae los cuatro
+     * nombres y muchos registros guardan dos o tres ("LOPEZ MARIA"), asi que
+     * con el autocompletado la red dejaba de avisar. Basta con que coincida el
+     * nombre mas corto de los dos; solo cuando ambos tienen cuatro palabras o
+     * mas se tolera una distinta (un apellido escrito de otra forma).
      *
      * @return list<array<string, mixed>>
      */
     public function findSimilarByName(string $nombre, ?string $apellido = null, ?int $excludeId = null): array
     {
-        $words = collect(preg_split('/\s+/u', trim($nombre.' '.$apellido)))
-            // % y _ son comodines de LIKE.
-            ->map(fn (string $word) => str_replace(['%', '_'], '', $word))
-            ->filter(fn (string $word) => mb_strlen($word) >= 3)
-            ->unique()
-            ->take(6);
+        $words = self::nameWords($nombre.' '.$apellido)->take(6);
 
         // Una sola palabra ("MARIA") traeria media base.
         if ($words->count() < 2) {
             return [];
         }
 
-        $query = Patient::query()
+        $score = $words
+            ->map(fn () => "(CASE WHEN nombre LIKE ? OR COALESCE(apellido, '') LIKE ? THEN 1 ELSE 0 END)")
+            ->implode(' + ');
+        $bindings = $words->flatMap(fn (string $word) => ["%{$word}%", "%{$word}%"])->all();
+
+        return Patient::query()
+            ->select('patients.*')
+            ->selectRaw("({$score}) AS coincidencias", $bindings)
+            ->whereRaw("({$score}) >= 2", $bindings)
             ->when($excludeId, fn ($query) => $query->where('id', '!=', $excludeId))
             ->withCount('consultations')
-            ->withMax('consultations', 'fecha_consulta');
-
-        foreach ($words as $word) {
-            $query->where(fn ($q) => $q->where('nombre', 'LIKE', "%{$word}%")->orWhere('apellido', 'LIKE', "%{$word}%"));
-        }
-
-        return $query->orderBy('nombre')
-            ->limit(self::LOOKUP_LIMIT)
+            ->withMax('consultations', 'fecha_consulta')
+            ->orderByDesc('coincidencias')
+            // A igual coincidencia, primero el nombre mas corto: es el que tiene
+            // menos palabras sin emparejar.
+            ->orderByRaw("LENGTH(nombre) + LENGTH(COALESCE(apellido, ''))")
+            ->orderBy('nombre')
+            ->limit(self::SIMILAR_CANDIDATES)
             ->get()
+            ->filter(function (Patient $patient) use ($words) {
+                $shortest = min($words->count(), self::nameWords($patient->nombre_completo)->count());
+
+                return $patient->coincidencias >= max(2, $shortest >= 4 ? $shortest - 1 : $shortest);
+            })
+            ->take(self::LOOKUP_LIMIT)
             ->map(fn (Patient $patient) => $this->lookupSummary($patient))
+            ->values()
             ->all();
+    }
+
+    /**
+     * Palabras de un nombre que sirven para comparar: sin las de una o dos
+     * letras ("DE", "LA") ni los comodines de LIKE.
+     *
+     * @return SupportCollection<int, string>
+     */
+    private static function nameWords(string $name): SupportCollection
+    {
+        return collect(preg_split('/\s+/u', trim($name)))
+            ->map(fn (string $word) => str_replace(['%', '_'], '', $word))
+            ->filter(fn (string $word) => mb_strlen($word) >= 3)
+            ->unique()
+            ->values();
     }
 
     /**
@@ -356,15 +455,24 @@ class PatientService extends BaseService
     private function relatedDocuments(string $document, array $skipIds, ?int $excludeId): array
     {
         $base = self::documentBase($document);
+        $patterns = $base !== null ? [$base.'%'] : self::lookalikePatterns($document);
 
-        if ($base === null) {
+        if ($patterns === []) {
             return [];
         }
 
         return Patient::query()
-            // Tambien las que se quedaron en 9 digitos por perder el ultimo
-            // (el verificador): no hay otra cedula valida con ese comienzo.
-            ->where(fn ($query) => $query->where('cedula', 'LIKE', $base.'%')->orWhere('cedula', substr($base, 0, 9)))
+            ->where(function ($query) use ($patterns, $base) {
+                foreach ($patterns as $pattern) {
+                    $query->orWhere('cedula', 'LIKE', $pattern);
+                }
+
+                // Tambien las que se quedaron en 9 digitos por perder el ultimo
+                // (el verificador): no hay otra cedula valida con ese comienzo.
+                if ($base !== null) {
+                    $query->orWhere('cedula', substr($base, 0, 9));
+                }
+            })
             ->whereNotIn('id', array_filter([...$skipIds, $excludeId]))
             ->withCount('consultations')
             ->withMax('consultations', 'fecha_consulta')
@@ -375,12 +483,33 @@ class PatientService extends BaseService
             ->all();
     }
 
-    /** Mensaje de ValidEcuadorCedula para el documento, o null si es valido. */
-    private static function documentFormatError(string $document): ?string
+    /**
+     * Patrones LIKE para un documento con letras que parece una cedula: la que
+     * lleva un sufijo ("1710034065A", como anotaba a los familiares el sistema
+     * anterior) y la que tiene una letra donde iba un digito ("17100340Q5").
+     *
+     * @return list<string>
+     */
+    private static function lookalikePatterns(string $document): array
+    {
+        $compact = self::compactDocument($document);
+
+        if (! preg_match('/^[A-Z0-9]+$/', $compact) || preg_match_all('/\d/', $compact) < 8) {
+            return [];
+        }
+
+        return array_values(array_unique([
+            rtrim($compact, 'A..Z').'%',
+            preg_replace('/[A-Z]/', '_', $compact).'%',
+        ]));
+    }
+
+    /** Mensaje de ValidPatientDocument para el documento, o null si es valido. */
+    private static function documentFormatError(string $document, string $type): ?string
     {
         $error = null;
 
-        (new ValidEcuadorCedula)->validate('cedula', $document, function (string $message) use (&$error) {
+        (new ValidPatientDocument($type))->validate('cedula', $document, function (string $message) use (&$error) {
             $error = str_replace(':attribute', 'documento', $message);
         });
 

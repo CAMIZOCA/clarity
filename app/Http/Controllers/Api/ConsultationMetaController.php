@@ -42,7 +42,7 @@ class ConsultationMetaController extends Controller
             // `label` y `code` son las claves que consume FormSelect en el
             // formulario de consulta; sin ellas cada <option> salia vacia.
             $optometrists = User::query()
-                ->whereIn('role', ['admin', 'optometra'])
+                ->whereIn('role', User::CLINICIAN_ROLES)
                 ->orderBy('name')
                 ->get(['id', 'name', 'codigo', 'registro_senescyt'])
                 ->map(fn ($user) => [

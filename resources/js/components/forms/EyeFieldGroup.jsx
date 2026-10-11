@@ -1,6 +1,6 @@
 import React from 'react';
 import { useRequiredErrors } from './RequiredErrorsContext';
-import { normalizeSphere, normalizeCylinder, normalizeAxisValue, normalizeAdd } from '../../utils/opticalFormat';
+import { normalizeSphere, normalizeCylinder, normalizeAxisValue, normalizeAdd, normalizeRefractionText } from '../../utils/opticalFormat';
 import { focusField, navigationIntent } from '../../utils/fieldNavigation';
 
 /**
@@ -22,30 +22,49 @@ import { focusField, navigationIntent } from '../../utils/fieldNavigation';
  *   tabla dentro de un `useFieldArray` (ej. `rx_uso_entries.0.esfera_od`)
  * @param {React.ReactNode} footer - contenido bajo la tabla (ej. observaciones)
  * @param {object[]} extra - columnas adicionales no derivadas de `prefix`
+ * @param {Map<string, string>} warnings - avisos por campo (`refractionChecks.js`):
+ *   pintan el campo en ambar y se listan bajo la tabla, sin bloquear nada
+ * @param {string[]} requiredFields - campos obligatorios; marcan su columna con `*`
  */
 
+// `maxLength` es el largo de la columna en la BD (VARCHAR(20) en casi todas):
+// lo que no cabe respondia 422 al guardar, y solo en MariaDB.
 const FIELD_META = {
-    esfera:    { label: 'Esfera',     placeholder: '±0.00', inputMode: 'decimal' },
-    cilindro:  { label: 'Cilindro',   placeholder: '-0.00', inputMode: 'decimal' },
-    eje:       { label: 'Eje (°)',    placeholder: '0–180', inputMode: 'numeric' },
-    add:       { label: 'ADD',        placeholder: '+0.00', inputMode: 'decimal' },
-    distancia: { label: 'Distancia',  placeholder: 'a 50cm', inputMode: 'text' },
-    avcc:      { label: 'AV.CC',      placeholder: '20/20', inputMode: 'text' },
-    avl:       { label: 'AVL',        placeholder: '20/20', inputMode: 'text' },
-    av:        { label: 'AV',         placeholder: '20/20', inputMode: 'text' },
-    prisma:    { label: 'Prisma',     placeholder: '3 BE',  inputMode: 'text' },
-    base:      { label: 'Base',       placeholder: '—',     inputMode: 'text' },
-    dnp:       { label: 'DNP/DP',     placeholder: 'mm',    inputMode: 'text' },
+    esfera:       { label: 'Esfera',     placeholder: '±0.00', inputMode: 'decimal' },
+    cilindro:     { label: 'Cilindro',   placeholder: '-0.00', inputMode: 'decimal' },
+    // El eje va de 1 a 180: el placeholder decia "0–180" y un 0 fallaba al completar.
+    eje:          { label: 'Eje (°)',    placeholder: '1–180', inputMode: 'numeric' },
+    add:          { label: 'ADD',        placeholder: '+0.00', inputMode: 'decimal' },
+    distancia:    { label: 'Distancia',  placeholder: 'a 50cm', inputMode: 'text', maxLength: 50 },
+    avcc:         { label: 'AV.CC',      placeholder: '20/20', inputMode: 'text', maxLength: 20 },
+    avl:          { label: 'AVL',        placeholder: '20/20', inputMode: 'text', maxLength: 20 },
+    av:           { label: 'AV',         placeholder: '20/20', inputMode: 'text', maxLength: 20 },
+    avsc:         { label: 'AV.SC',      placeholder: '20/20', inputMode: 'text', maxLength: 20 },
+    // La base tiene su propia columna: "3 BE" invitaba a escribirla aqui.
+    prisma:       { label: 'Prisma',     placeholder: '3.00',  inputMode: 'text', maxLength: 20 },
+    base:         { label: 'Base',       placeholder: '—',     inputMode: 'text', maxLength: 20 },
+    dnp:          { label: 'DNP/DP',     placeholder: 'mm',    inputMode: 'text', maxLength: 20 },
+    av_lectura:   { label: 'Lectura',    placeholder: '-1.25 -0.50 x 180', inputMode: 'text', maxLength: 20 },
+    retinoscopia: { label: 'Retinoscopia', placeholder: '-1.25 -0.50 x 180', inputMode: 'text', maxLength: 100 },
+    ark:          { label: 'Queratometría', placeholder: '43.50/44.25 x 10', inputMode: 'text', maxLength: 100 },
 };
 
-// Solo las medidas opticas se normalizan al perder el foco (esfera acepta
-// ademas "N"/"neutro"/"plano"/"pl"); AV, prisma, base, etc. son texto libre.
+// Las medidas opticas se normalizan al perder el foco (esfera acepta ademas
+// "N"/"neutro"/"plano"/"pl"), y los dos campos que llevan una refraccion
+// completa se uniforman ("-125-225x2" -> "-1.25 -2.25 x 2"). AV, prisma, base
+// y queratometria son texto libre.
+const refractionText = (field) => (raw) => normalizeRefractionText(raw, FIELD_META[field].maxLength);
+
 const FIELD_NORMALIZERS = {
     esfera: normalizeSphere,
     cilindro: normalizeCylinder,
     eje: normalizeAxisValue,
     add: normalizeAdd,
+    av_lectura: refractionText('av_lectura'),
+    retinoscopia: refractionText('retinoscopia'),
 };
+
+const NO_WARNINGS = new Map();
 
 const EYES = ['od', 'oi'];
 
@@ -110,6 +129,8 @@ export default function EyeFieldGroup({
     footer = null,
     extra = [],
     nameFor = null,
+    warnings = NO_WARNINGS,
+    requiredFields = [],
 }) {
     const requiredErrors = useRequiredErrors();
 
@@ -139,10 +160,22 @@ export default function EyeFieldGroup({
     };
 
     const headerLabel = (field) => labelOverrides[field] ?? FIELD_META[field]?.label ?? field;
+    const isRequiredColumn = (field) => EYES.some((eye) => requiredFields.includes(resolve(field, eye)));
+
+    // Un error (rojo) manda sobre un aviso (ambar) del mismo campo.
+    const stateCls = (name) => {
+        if (requiredErrors.has(name)) return 'border-red-400 bg-red-50';
+        if (warnings.has(name)) return 'border-amber-400 bg-amber-50';
+        return 'border-gray-300 bg-white';
+    };
 
     const inputCls = (name) =>
         `w-full min-h-11 px-2 py-2 text-sm rounded-lg border placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] focus:bg-[#fef08a]/20 touch-manipulation
-        ${requiredErrors.has(name) ? 'border-red-400 bg-red-50' : 'border-gray-300 bg-white'}`;
+        ${stateCls(name)}`;
+
+    // En la celda no cabe un mensaje: los de esta tabla se listan debajo.
+    const errorNotes = orderedNames.filter((name) => requiredErrors.get(name));
+    const warningNotes = orderedNames.filter((name) => warnings.has(name) && !requiredErrors.has(name));
 
     /** Normaliza esfera/cilindro/eje/ADD al perder el foco, para que el campo muestre "+0.25"/"N" tal como quedará guardado. */
     const handleBlur = (event, field, rhfOnBlur) => {
@@ -175,6 +208,7 @@ export default function EyeFieldGroup({
                             {fields.map(f => (
                                 <th key={f} className="px-2 py-2 text-center text-xs font-medium text-gray-500">
                                     {headerLabel(f)}
+                                    {isRequiredColumn(f) && <span className="ml-0.5 text-red-500" title="Obligatorio para completar la consulta">*</span>}
                                 </th>
                             ))}
                             {extra.map(e => (
@@ -202,6 +236,9 @@ export default function EyeFieldGroup({
                                                 inputMode={meta.inputMode}
                                                 enterKeyHint="next"
                                                 placeholder={meta.placeholder}
+                                                maxLength={meta.maxLength}
+                                                aria-label={`${headerLabel(f)} ${eye.toUpperCase()}`}
+                                                aria-invalid={requiredErrors.has(name) || undefined}
                                                 className={inputCls(name)}
                                                 onKeyDown={(event) => handleKeyDown(event, name)}
                                                 onBlur={(event) => handleBlur(event, f, rhfOnBlur)}
@@ -217,6 +254,7 @@ export default function EyeFieldGroup({
                                             {e.type === 'select' ? (
                                                 <select
                                                     id={name}
+                                                    aria-label={`${e.label} ${eye.toUpperCase()}`}
                                                     className={inputCls(name)}
                                                     enterKeyHint="next"
                                                     onKeyDown={(event) => handleKeyDown(event, name)}
@@ -229,6 +267,7 @@ export default function EyeFieldGroup({
                                                 <input
                                                     id={name}
                                                     type="text"
+                                                    aria-label={`${e.label} ${eye.toUpperCase()}`}
                                                     inputMode={e.inputMode ?? 'text'}
                                                     enterKeyHint="next"
                                                     placeholder={e.placeholder ?? '—'}
@@ -245,6 +284,18 @@ export default function EyeFieldGroup({
                     </tbody>
                 </table>
             </div>
+            {(errorNotes.length > 0 || warningNotes.length > 0) && (
+                <ul className="mt-2 space-y-1 text-xs">
+                    {errorNotes.map((name) => (
+                        <li key={name} className="text-red-600">{requiredErrors.get(name)}</li>
+                    ))}
+                    {warningNotes.map((name) => (
+                        <li key={name} className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-amber-800">
+                            {warnings.get(name)}
+                        </li>
+                    ))}
+                </ul>
+            )}
             {footer}
         </div>
     );
