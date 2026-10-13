@@ -1,6 +1,6 @@
 import React from 'react';
 import { useRequiredErrors } from './RequiredErrorsContext';
-import { normalizeSphere, normalizeCylinder, normalizeAxisValue, normalizeAdd, normalizeRefractionText } from '../../utils/opticalFormat';
+import { normalizeMeasureWithNote, normalizeAdd, normalizeRefractionText } from '../../utils/opticalFormat';
 import { focusField, navigationIntent } from '../../utils/fieldNavigation';
 
 /**
@@ -52,13 +52,14 @@ const FIELD_META = {
 // Las medidas opticas se normalizan al perder el foco (esfera acepta ademas
 // "N"/"neutro"/"plano"/"pl"), y los dos campos que llevan una refraccion
 // completa se uniforman ("-125-225x2" -> "-1.25 -2.25 x 2"). AV, prisma, base
-// y queratometria son texto libre.
+// y queratometria son texto libre. Esfera, cilindro y eje admiten letras
+// despues del numero ("20cc" -> "20 CC"); la ADD no.
 const refractionText = (field) => (raw) => normalizeRefractionText(raw, FIELD_META[field].maxLength);
 
 const FIELD_NORMALIZERS = {
-    esfera: normalizeSphere,
-    cilindro: normalizeCylinder,
-    eje: normalizeAxisValue,
+    esfera: (raw) => normalizeMeasureWithNote(raw, 'sphere'),
+    cilindro: (raw) => normalizeMeasureWithNote(raw, 'cylinder'),
+    eje: (raw) => normalizeMeasureWithNote(raw, 'axis'),
     add: normalizeAdd,
     av_lectura: refractionText('av_lectura'),
     retinoscopia: refractionText('retinoscopia'),

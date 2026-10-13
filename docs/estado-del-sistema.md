@@ -191,12 +191,12 @@ Solo viajan nombre, identificacion, telefono, email y direccion; nunca datos cli
 Ordenados por impacto.
 
 1. **Datos legacy fuera de rango** — 4.209 de 4.592 consultas tienen valores que violan los
-   rangos clinicos. Hoy se toleran si no se editan (ver gotcha 5 en CLAUDE.md). La limpieza ya
-   existe (`php artisan consultations:repair-legacy-import`, ver gotcha 14) y esta probada sobre
-   una copia de la BD, pero **todavia no se ha aplicado**: falta que la optica valide el informe
-   de `--dry-run`. Quedan fuera 4 valores imposibles y la regla `subj` (sin confirmar).
-   Sin el respaldo original del sistema anterior no se pueden recuperar ~205 RX en uso que
-   perdieron los decimales, ni importar "Quien le recomienda" y el diagnostico de la ficha.
+   rangos clinicos. Hoy se toleran si no se editan (ver gotcha 5 en CLAUDE.md). Desde el
+   2026-10-13 el punto decimal se corrige solo al desplegar (migracion `2026_10_13_000001`, ver
+   gotcha 14). Falta, en staging y produccion, subir el `.sqlite` del Access en Mantenimiento
+   para recuperar el subjetivo y la RX en uso completos (en local ya esta hecho), y que la optica
+   valide la regla `ark`. Quedan para revision manual ~150 textos del Access que no se leen como
+   una refraccion.
 2. **IA por voz** — diseñado y con la configuracion lista; falta captura, transcripcion y
    autocompletado. Especificacion completa en [ai-consulta-por-voz.md](ai-consulta-por-voz.md).
 3. **`mail_password` en texto plano** en `settings`. `openai_api_key` ya usa `Crypt::encryptString`
@@ -212,6 +212,35 @@ Ordenados por impacto.
 ---
 
 ## Historial de cambios relevantes
+
+### 2026-10-13 — Letras despues del numero en las medidas ("20 CC")
+
+- Pedido de la optica: anotar "CC" junto al numero que se comprobo con una prueba. Escribir
+  `20cc` en el eje respondia "debe ser un valor numerico".
+- Esfera, cilindro y eje de Subjetivo, RX final, RX en uso y Vision de cerca aceptan letras tras
+  el numero. El numero sigue en su columna (PDF, avisos, historial y sugerencias no cambian) y
+  las letras van a `consultations.medidas_notas` / `consultation_rx_uso_entries.notas`
+  (migracion `2026_10_13_000002`). No se imprimen.
+- Aviso ambar cuando la nota es una sola letra ("2O"): suele ser un digito mal tecleado.
+- La importacion del Access deja de descartar el "CC" de la RX en uso: queda en la observacion.
+- Tests: `ConsultationMeasureNotesTest`, `OpticalValueNormalizerTest`.
+
+### 2026-10-13 — Medidas de las historias importadas: punto decimal y refraccion completa
+
+- La optica seguia viendo `+50.00` y `-125.00` en subjetivo y RX final de historias anteriores:
+  la reparacion existia desde el 07/10 pero nunca se habia corrido en ninguna instancia. Ahora la
+  aplica la migracion `2026_10_13_000001` (reglas `decimales` y `rx_uso`).
+- En el Access, el subjetivo y la RX en uso son un solo texto por ojo ("+050-100x 80 20/40-") y
+  la importacion guardaba solo el primer numero, en la columna equivocada.
+  `LegacyOpticalParser::refraction()` lo reparte en esfera, cilindro, eje y AV; el importador lo
+  usa en las historias nuevas (mas el flag de esfera "N" y la primera entrada de RX en uso con
+  la nota que acompanaba a la receta).
+- `LegacyConsultationRepairService::repairFromSource()` (reglas `subj_origen` y `rx_uso_origen`)
+  completa las historias ya importadas con el respaldo a la vista, solo donde nadie edito. Corre
+  al importar sin `--replace` o con `consultations:repair-legacy-import --source=`.
+- En la BD local: 3.970 consultas con el subjetivo recuperado y 4.563 con la RX en uso; 149
+  textos que no son una refraccion quedaron intactos.
+- Tests: `LegacyOpticalParserTest`, `LegacyConsultationRepairTest`, `ImportOpticaAndinaMeasuresTest`.
 
 ### 2026-10-11 — Auditoria del formulario de consulta
 
@@ -350,8 +379,8 @@ dato despues de otro, salir a destiempo).
 - **Service worker**: dejo de cachear `/api/*` y `/me` (servia datos viejos en produccion; ver
   gotcha 15 en CLAUDE.md). `CACHE_NAME` pasa a `clarity-shell-v2`.
 - **Reparacion de la importacion** (`consultations:repair-legacy-import`, bitacora en
-  `consultation_legacy_repairs`) e importadores corregidos (`LegacyOpticalParser`). Pendiente de
-  aplicar en cada instancia.
+  `consultation_legacy_repairs`) e importadores corregidos (`LegacyOpticalParser`). Se aplico
+  por migracion el 2026-10-13.
 
 ### 2026-10-04 — Navegacion con Enter/flechas y campo activo visible
 

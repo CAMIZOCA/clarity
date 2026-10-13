@@ -66,6 +66,30 @@ class OpticalValueNormalizerTest extends TestCase
         ];
     }
 
+    #[DataProvider('noteCases')]
+    public function test_splits_the_letters_written_after_a_measure(string $input, string $value, ?string $note): void
+    {
+        $this->assertSame([$value, $note], OpticalValueNormalizer::splitNote($input));
+    }
+
+    public static function noteCases(): array
+    {
+        return [
+            'eje pegado' => ['20cc', '20', 'CC'],
+            'eje con espacio' => ['20 CC', '20', 'CC'],
+            'cilindro' => ['-1.25 cc', '-1.25', 'CC'],
+            'sin punto' => ['-125cc', '-125', 'CC'],
+            'con grados' => ['145° cc', '145°', 'CC'],
+            'varias palabras' => ['+0.75  cc  ok', '+0.75', 'CC OK'],
+            'esfera neutra con nota' => ['N cc', 'N', 'CC'],
+            'sin nota' => ['-1.25', '-1.25', null],
+            'esfera neutra' => ['N', 'N', null],
+            'plano no es una nota' => ['PL', 'PL', null],
+            'neutro no es una nota' => ['neutro', 'neutro', null],
+            'texto sin numero' => ['abc', 'abc', null],
+        ];
+    }
+
     public function test_null_and_empty_pass_through_unchanged(): void
     {
         $this->assertNull(OpticalValueNormalizer::normalize(null, 'sphere'));

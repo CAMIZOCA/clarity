@@ -19,6 +19,33 @@ class OpticalValueNormalizer
 {
     private const NEUTRAL_ALIASES = ['N', 'NEUTRO', 'PLANO', 'PL'];
 
+    /** Largo maximo de la nota que acompana a una medida. */
+    public const NOTE_MAX_LENGTH = 20;
+
+    /**
+     * Separa una medida de las letras escritas despues ("20cc" -> ["20", "CC"]).
+     *
+     * La optica anota "CC" junto al numero que comprobo con una prueba. La nota
+     * empieza en la primera letra que sigue a un numero, o a una esfera neutra
+     * seguida de un espacio ("N CC"); "N", "PL" o "NEUTRO" solos son la esfera,
+     * no una nota, y un texto sin numero se devuelve intacto para que falle la
+     * validacion. Mismo criterio que `splitMeasureNote` en `opticalFormat.js`.
+     *
+     * @return array{0: string, 1: ?string}
+     */
+    public static function splitNote(string $raw): array
+    {
+        $pattern = '/^\s*([-+]{0,2}\s*\d[\d.,]*\s*°?|(?:'.implode('|', self::NEUTRAL_ALIASES).')(?=\s))\s*(\p{L}.*)$/iu';
+
+        if (! preg_match($pattern, $raw, $matches)) {
+            return [$raw, null];
+        }
+
+        $note = mb_strtoupper(trim(preg_replace('/\s+/u', ' ', $matches[2])));
+
+        return [trim($matches[1]), $note === '' ? null : $note];
+    }
+
     public static function normalize(?string $raw, string $type): ?string
     {
         if ($raw === null || $raw === '') {

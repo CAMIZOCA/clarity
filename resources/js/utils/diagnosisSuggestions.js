@@ -12,7 +12,7 @@
 //     diferencia entre ojos (AAO, Preferred Practice Pattern).
 //   - Deficiencia visual: categorias OMS / CIE-11 sobre la AV.
 
-import { normalizeOpticalValue } from './opticalFormat';
+import { normalizeOpticalValue, splitMeasureNote } from './opticalFormat';
 
 export const DIAGNOSIS_CRITERIA = [
     { label: 'Miopía', rule: 'EE ≤ −0.50 D · leve hasta −3.00, moderada hasta −6.00, alta ≤ −6.00 D (OMS / IMI)' },
@@ -72,7 +72,8 @@ const isBlank = (value) => value === null || value === undefined || String(value
 
 function toNumber(raw, type) {
     if (isBlank(raw)) return null;
-    const normalized = normalizeOpticalValue(raw, type);
+    // "20 CC": las letras son una nota, el numero es la medida.
+    const normalized = normalizeOpticalValue(splitMeasureNote(raw).value, type);
     if (String(normalized).toUpperCase() === 'N') return 0;
     const number = Number(normalized);
     return Number.isFinite(number) ? number : null;

@@ -99,6 +99,12 @@ class StoreConsultationRequest extends FormRequest
             'rx_uso_entries.*.add_oi' => ['nullable', 'numeric', new ValidOpticalPrescription('add')],
             'rx_uso_entries.*.avcc_oi' => ['nullable', 'string', 'max:20'],
             'rx_uso_entries.*.observacion' => ['nullable', 'string', 'max:2000'],
+            'rx_uso_entries.*.notas' => ['nullable', 'array'],
+            'rx_uso_entries.*.notas.*' => ['string', 'max:'.OpticalValueNormalizer::NOTE_MAX_LENGTH],
+
+            // Letras junto a una medida ("20 CC"); las arma prepareForValidation().
+            'medidas_notas' => ['nullable', 'array'],
+            'medidas_notas.*' => ['string', 'max:'.OpticalValueNormalizer::NOTE_MAX_LENGTH],
 
             // Subjetivo
             'subj_esfera_od' => ['nullable', new ValidOpticalPrescription('sphere', allowNeutral: true)],
@@ -295,6 +301,8 @@ class StoreConsultationRequest extends FormRequest
     public function messages(): array
     {
         return [
+            'medidas_notas.*.max' => 'Las letras después del número no pueden pasar de :max caracteres.',
+            'rx_uso_entries.*.notas.*.max' => 'Las letras después del número no pueden pasar de :max caracteres.',
             'patient_id.required' => 'Debe seleccionar un paciente para la consulta.',
             'patient_id.exists' => 'El paciente seleccionado no existe en el sistema.',
             'optometrista_id.exists' => 'El optómetra seleccionado no existe.',
@@ -395,11 +403,31 @@ class StoreConsultationRequest extends FormRequest
         $this->assignDefaultOptometrist();
 
         $normalized = [];
+        $notes = [];
+        $sendsNotedFields = false;
         foreach (self::OPTICAL_FIELD_TYPES as $field => $type) {
+            $sendsNotedFields = $sendsNotedFields || ($this->acceptsNote($field, $type) && $this->has($field));
             $val = $this->input($field);
             if ($val !== null && $val !== '') {
+                if ($this->acceptsNote($field, $type)) {
+                    [$val, $note] = OpticalValueNormalizer::splitNote((string) $val);
+                    if ($note !== null) {
+                        $notes[$field] = $note;
+                    }
+                }
+
                 $normalized[$field] = OpticalValueNormalizer::normalize((string) $val, $type);
             }
+        }
+
+        // Las notas salen siempre de los campos: el formulario reenvia en
+        // `medidas_notas` las que cargo, que pueden estar ya borradas. Un
+        // envio que no trae ninguna de esas medidas no las toca.
+        if ($sendsNotedFields) {
+            $normalized['medidas_notas'] = $notes === [] ? null : $notes;
+        } else {
+            $this->request->remove('medidas_notas');
+            $this->json()->remove('medidas_notas');
         }
 
         // Campos numericos que no son medidas opticas: solo necesitan coma -> punto.
@@ -624,6 +652,16 @@ class StoreConsultationRequest extends FormRequest
         }
     }
 
+    /**
+     * Esfera, cilindro y eje de subjetivo, RX final y vision de cerca admiten
+     * letras despues del numero. La receta en uso las lleva en cada entrada
+     * (`rx_uso_entries.*.notas`), no en sus columnas planas.
+     */
+    private function acceptsNote(string $field, string $type): bool
+    {
+        return $type !== 'add' && preg_match('/^(subj|rx_final|vc)_/', $field) === 1;
+    }
+
     /** Misma normalizacion de medidas opticas para las recetas en uso anidadas. */
     private function normalizeRxUsoEntries(): void
     {
@@ -637,12 +675,22 @@ class StoreConsultationRequest extends FormRequest
                 continue;
             }
 
+            $notes = [];
             foreach (self::RX_USO_ENTRY_FIELD_TYPES as $field => $type) {
                 $value = $entry[$field] ?? null;
                 if ($value !== null && $value !== '') {
+                    if ($type !== 'add') {
+                        [$value, $note] = OpticalValueNormalizer::splitNote((string) $value);
+                        if ($note !== null) {
+                            $notes[$field] = $note;
+                        }
+                    }
+
                     $entries[$index][$field] = OpticalValueNormalizer::normalize((string) $value, $type);
                 }
             }
+
+            $entries[$index]['notas'] = $notes === [] ? null : $notes;
         }
 
         $this->merge(['rx_uso_entries' => $entries]);

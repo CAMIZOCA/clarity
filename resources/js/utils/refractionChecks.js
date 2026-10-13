@@ -14,7 +14,7 @@
 // heredado de la importacion no avisa por el solo hecho de abrir la consulta,
 // igual que `UpdateConsultationRequest::relaxRangesForUnchangedValues()`.
 
-import { normalizeOpticalValue } from './opticalFormat';
+import { normalizeOpticalValue, splitMeasureNote } from './opticalFormat';
 import { parseVisualAcuity } from './diagnosisSuggestions';
 
 const EYES = ['od', 'oi'];
@@ -28,11 +28,14 @@ const isBlank = (value) => value === null || value === undefined || String(value
 
 const sameValue = (a, b) => String(a ?? '').trim() === String(b ?? '').trim();
 
-/** Numero tal como lo dejaria el formulario al salir del campo ("N" es 0). */
+/**
+ * Numero tal como lo dejaria el formulario al salir del campo ("N" es 0). Las
+ * letras que siguen al numero ("20 CC") son una nota y no cuentan.
+ */
 function toNumber(raw, type) {
     if (isBlank(raw)) return null;
 
-    const normalized = normalizeOpticalValue(raw, type);
+    const normalized = normalizeOpticalValue(splitMeasureNote(raw).value, type);
     if (String(normalized).toUpperCase() === 'N') return 0;
 
     const number = Number(normalized);
@@ -111,6 +114,16 @@ function checkEye(group, eye, warnings) {
     const hasCylinder = cylinder !== null && cylinder !== 0;
 
     // El orden importa: de un campo se muestra el primer aviso.
+    //
+    // Una sola letra tras el numero casi nunca es una nota: "2O" o "1I" son un
+    // cero o un uno mal tecleados, y el servidor ya no los rechaza.
+    for (const [column, label] of [['esfera', 'la esfera'], ['cilindro', 'el cilindro'], ['eje', 'el eje']]) {
+        const { note } = splitMeasureNote(group.read(column, eye));
+        if (note.length === 1) {
+            warnings.push({ field: field(column), message: `${where}: ${label} lleva la letra "${note}" después del número. Si era un dígito, corríjalo.` });
+        }
+    }
+
     if (hasCylinder && axis === null) {
         warnings.push({ field: field('eje'), message: `${where}: hay cilindro sin eje.`, blocking: Boolean(group.isFinal) });
     }

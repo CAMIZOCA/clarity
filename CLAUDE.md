@@ -220,20 +220,36 @@ varios campos para otra cosa. La importacion lo copio literal, asi que en las co
 `legacy_id`:
 
 - esfera, cilindro y ADD de `rx_final_*`, `subj_*` y `vc_*` estan multiplicados por 100;
-- en RX en uso la esfera esta en `eje`, y `esfera` trae un 20 residual (de una AV "20/20");
+- el subjetivo y la RX en uso son **un solo texto por ojo** en el Access
+  (`RXPARCIAL_CILINDRO_*` y `RX_EN USO_EJE_*`: "+050-100x 80 20/40-", a veces con una nota:
+  "prog ev gold", "No trajo"). La importacion guardo solo el primer numero: la esfera del
+  subjetivo quedo en `subj_cilindro`, la de RX en uso en `rx_uso_eje`, y cilindro, eje y AV
+  nunca entraron. `RX_EN USO_ESFERA_*` trae una agudeza ("20/40", "CD 3m"), de ahi el 20
+  residual en `rx_uso_esfera`;
 - `ark_*` (rotulado "Queratometria") trae la refraccion, que aqui es la Retinoscopia, y
   `retinoscopia_*` trae el cover test ("ORTHO", "X").
 
-`php artisan consultations:repair-legacy-import` lo corrige (`LegacyConsultationRepairService`).
-Correr siempre primero con `--dry-run`: imprime ejemplos antes/despues para validar con la
-optica. Cada cambio queda en `consultation_legacy_repairs` con el valor anterior; eso permite
-`--revert` y evita que una segunda pasada divida dos veces (2500 -> 25.00 -> 0.25). La regla
-`subj` (esfera del subjetivo en la columna cilindro) no esta confirmada y solo corre con
-`--only=subj`. **No esta aplicado en ninguna instancia todavia**: hasta entonces la BD local
-sigue mostrando esferas de -500.
+Lo corrige `LegacyConsultationRepairService` en dos pasos. Cada cambio queda en
+`consultation_legacy_repairs` con el valor anterior: eso permite `--revert` y evita que una
+segunda pasada divida dos veces (2500 -> 25.00 -> 0.25).
+
+- **Sin el Access** (`decimales` y `rx_uso`): se aplican solas con la migracion
+  `2026_10_13_000001`. No hay que correr nada a mano.
+- **Con el Access** (`subj_origen` y `rx_uso_origen`): reparten la refraccion completa. Corren
+  al importar el respaldo sin `--replace` (`import:optica-andina-sqlite`, o Mantenimiento con
+  "Reescribir datos legacy" desmarcado) o con
+  `consultations:repair-legacy-import --source=ruta.sqlite` (primero con `--dry-run`). Solo tocan
+  un ojo que sigue como lo dejo la importacion; lo corregido a mano se respeta. Aplicado en la BD
+  local el 2026-10-13; en staging y produccion falta subir el `.sqlite`.
+
+La regla `ark` **no esta aplicada en ninguna instancia** (falta que la optica vea el
+`--dry-run`), y `subj` (mover el numero a esfera a ciegas) quedo superada por `subj_origen`.
 
 Los importadores leen esas columnas con `App\Support\LegacyOpticalParser`; una importacion
-nueva no debe volver a usar `decimal()` sobre una medida optica.
+nueva no debe volver a usar `decimal()` ni `diopter()` sobre un campo que trae la refraccion
+entera: para eso estan `refraction()`, `subjective()` y `rxUso()`. `refraction()` devuelve null
+ante lo que no es una medida (fuera de pasos de 0.25/0.12, cilindro > 10) en vez de adivinar:
+"-050-0580x 15" o un radio de lente de contacto se informan y se dejan para revision manual.
 
 ### 15. El service worker no puede cachear datos
 
@@ -306,6 +322,16 @@ consultas importadas (a veces notas clinicas) y cada guardado lo dejaba en `null
   input o en un PDF usar `formatOpticalForInput` (`resources/js/utils/opticalFormat.js`). Un
   cilindro tecleado sin signo se vuelve negativo solo en el formulario; `OpticalValueNormalizer`
   (PHP) respeta el signo recibido a proposito, para no invertir un valor ya guardado.
+- **Letras despues del numero ("20 CC")**: esfera, cilindro y eje de Subjetivo, RX final, RX en
+  uso y Vision de cerca admiten una nota tras el numero (la optica anota "CC" junto al valor que
+  comprobo con una prueba). El formulario muestra y envia `20 CC`; el servidor lo separa
+  (`OpticalValueNormalizer::splitNote`, en `StoreConsultationRequest::prepareForValidation`): el
+  numero va a su columna de siempre y la nota a `consultations.medidas_notas`
+  (`{"subj_eje_od": "CC"}`) o a `consultation_rx_uso_entries.notas`. Al cargar,
+  `applyMeasureNotes` las vuelve a unir. Las notas no se imprimen ni se copian con "Usar", y la
+  ADD sigue siendo solo numero. Quien lea una medida del formulario como numero debe pasar antes
+  por `splitMeasureNote` (lo hacen los `toNumber` de `refractionChecks.js` y
+  `diagnosisSuggestions.js`). `splitNote` (PHP) y `splitMeasureNote` (JS) deben coincidir.
 - **La consulta se abre desde el paciente**: no hay item "Consulta" en el menu. Las rutas
   `/consulta?paciente=ID` y `/consulta/:id` siguen existiendo y son las que usa la ficha.
 - **El alta de paciente empieza por la cedula**: `PatientFormPage` no habilita el resto del

@@ -71,6 +71,9 @@ class Consultation extends Model
         'subj_esfera_od_neutral', 'subj_esfera_oi_neutral',
         'rx_final_esfera_od_neutral', 'rx_final_esfera_oi_neutral',
         'vc_esfera_od_neutral', 'vc_esfera_oi_neutral',
+        // Letras junto a una medida ("20 CC"), como mapa campo => texto; el
+        // numero sigue en su columna.
+        'medidas_notas',
     ];
 
     protected function casts(): array
@@ -82,6 +85,7 @@ class Consultation extends Model
             'estado_cancelado' => 'boolean',
             'motor_binocular_data' => 'array',
             'near_vision_data' => 'array',
+            'medidas_notas' => 'array',
             'rx_uso_esfera_od_neutral' => 'boolean',
             'rx_uso_esfera_oi_neutral' => 'boolean',
             'subj_esfera_od_neutral' => 'boolean',

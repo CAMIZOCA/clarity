@@ -18,7 +18,7 @@ import { useSettings } from '../../contexts/SettingsContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAdvancedFields } from '../../hooks/useAdvancedFields';
 import { RequiredErrorsCtx } from '../../components/forms/RequiredErrorsContext';
-import { displaySphere, displaySigned, formatOpticalForInput, normalizeOpticalValue } from '../../utils/opticalFormat';
+import { displaySphere, displaySigned, formatOpticalForInput, normalizeMeasureWithNote, normalizeOpticalValue, withMeasureNote } from '../../utils/opticalFormat';
 import { refractionWarnings } from '../../utils/refractionChecks';
 import { toDisplayDate, toIsoDate, todayIso } from '../../utils/dates';
 import { handleFieldNavigation } from '../../utils/fieldNavigation';
@@ -141,7 +141,10 @@ function normalizeOpticalPayload(payload) {
             for (const eye of ['od', 'oi']) {
                 const name = nameOf(column, eye);
                 if (typeof row[name] === 'string' && !isBlank(row[name])) {
-                    row[name] = normalizeOpticalValue(row[name], type);
+                    // La ADD es solo un numero; el resto admite una nota ("20 CC").
+                    row[name] = type === 'add'
+                        ? normalizeOpticalValue(row[name], type)
+                        : normalizeMeasureWithNote(row[name], type);
                 }
             }
         }
@@ -239,6 +242,19 @@ const emptyRxUsoEntry = () => RX_USO_COLUMNS.reduce(
  * las columnas planas `rx_uso_*`; se convierten en la primera entrada para que
  * el historico se siga viendo completo.
  */
+/**
+ * Repone junto a cada medida las letras guardadas aparte ("20" + "CC" -> "20 CC").
+ * Va despues del signo y de la "N": la nota acompana al valor ya formateado.
+ */
+function applyMeasureNotes(values, notes) {
+    for (const [field, note] of Object.entries(notes ?? {})) {
+        if (!isBlank(note) && !isBlank(values[field])) {
+            values[field] = withMeasureNote(values[field], note);
+        }
+    }
+    return values;
+}
+
 /** Si el flag `esfera_<ojo>_neutral` esta activo, el campo se muestra como "N". */
 function applyNeutralSphereFlag(entry, eye) {
     if (entry[`esfera_${eye}_neutral`]) {
@@ -260,6 +276,7 @@ function buildRxUsoEntries(consultation) {
             signRxUsoEntry(row);
             applyNeutralSphereFlag(row, 'od');
             applyNeutralSphereFlag(row, 'oi');
+            applyMeasureNotes(row, entry.notas);
             return row;
         });
     }
@@ -460,6 +477,8 @@ function buildDefaultValues(patient, consultation, meta, defaultDoctor = null) {
         }
     }
 
+    applyMeasureNotes(values, consultation?.medidas_notas);
+
     return values;
 }
 
@@ -524,8 +543,13 @@ function scrollToSection(sectionKey) {
     );
 }
 
-/** Traduce el indice de fila de un error de la API al que ocupa en el formulario. */
-function toFormFieldName(apiField, rowIndexes) {
+/**
+ * Traduce el indice de fila de un error de la API al que ocupa en el formulario.
+ * Un error en la nota de una medida (`medidas_notas.subj_eje_od`) es del campo
+ * donde se escribio.
+ */
+function toFormFieldName(rawApiField, rowIndexes) {
+    const apiField = rawApiField.replace(/^medidas_notas\./, '').replace(/\.notas\./, '.');
     const match = /^([a-z_]+)\.(\d+)\.(.+)$/.exec(apiField);
     const formIndex = match ? rowIndexes?.[match[1]]?.[Number(match[2])] : undefined;
 

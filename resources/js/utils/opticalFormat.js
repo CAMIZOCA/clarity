@@ -70,6 +70,44 @@ export function normalizeOpticalValue(raw, type) {
     return normalizeDecimal(value, raw, type);
 }
 
+// Letras escritas despues de una medida ("20cc"): la optica anota "CC" junto al
+// numero que comprobo con una prueba. La nota empieza en la primera letra que
+// sigue a un numero, o a una esfera neutra seguida de un espacio ("N CC"); "N",
+// "PL" o "NEUTRO" solos son la esfera, no una nota. Mismo criterio que
+// `OpticalValueNormalizer::splitNote` (PHP), que es quien las separa al guardar.
+const MEASURE_NOTE = /^\s*([-+]{0,2}\s*\d[\d.,]*\s*°?|(?:N|NEUTRO|PLANO|PL)(?=\s))\s*(\p{L}.*)$/iu;
+
+/**
+ * @param {string|number|null|undefined} raw
+ * @returns {{ value: string|number|null|undefined, note: string }}
+ */
+export function splitMeasureNote(raw) {
+    const match = typeof raw === 'string' ? raw.match(MEASURE_NOTE) : null;
+    if (!match) return { value: raw, note: '' };
+
+    return { value: match[1].trim(), note: match[2].trim().replace(/\s+/g, ' ').toUpperCase() };
+}
+
+/** Une una medida ya formateada con su nota: ("20", "CC") -> "20 CC". */
+export function withMeasureNote(value, note) {
+    return note ? `${value} ${note}` : value;
+}
+
+/**
+ * `normalizeOpticalValue` para esfera, cilindro y eje, que admiten letras
+ * despues del numero: "20cc" -> "20 CC", "-125cc" -> "-1.25 CC".
+ *
+ * @param {string|null|undefined} raw
+ * @param {'sphere'|'cylinder'|'axis'} type
+ */
+export function normalizeMeasureWithNote(raw, type) {
+    if (raw === null || raw === undefined || raw === '') return raw;
+
+    const { value, note } = splitMeasureNote(String(raw));
+
+    return withMeasureNote(normalizeOpticalValue(value, type), note);
+}
+
 /**
  * Valor guardado (numero o texto decimal) tal como debe verse en un input:
  * dos decimales y signo explicito. A diferencia de `normalizeOpticalValue` no

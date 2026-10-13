@@ -107,6 +107,7 @@ class ConsultationController extends Controller
             'ducciones_od', 'ducciones_oi', 'versiones', 'ppc', 'cover_test', 'reflejos_pupilares', 'test_hirschberg',
             'luna_material', 'luna_espesor', 'luna_proteccion', 'luna_observacion',
             'diagnostico_cie10', 'diagnostico_descripcion',
+            'medidas_notas',
         ];
     }
 

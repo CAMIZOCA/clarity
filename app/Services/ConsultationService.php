@@ -298,6 +298,7 @@ class ConsultationService extends BaseService
                 }
 
                 $payload['observacion'] = $entry['observacion'] ?? null;
+                $payload['notas'] = filled($entry['notas'] ?? null) ? $entry['notas'] : null;
 
                 foreach (['esfera_od', 'esfera_oi'] as $sphereKey) {
                     $isNeutral = is_string($payload[$sphereKey]) && strtoupper(trim($payload[$sphereKey])) === 'N';
