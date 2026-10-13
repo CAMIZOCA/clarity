@@ -128,6 +128,33 @@ class ConsultationMeasureNotesTest extends TestCase
         $this->assertSame(['subj_eje_od' => 'CC'], Consultation::findOrFail($id)->medidas_notas);
     }
 
+    /** Produccion: la 9097 traia "N" en la queratometria horizontal y no se podia guardar. */
+    public function test_legacy_text_in_keratometry_does_not_block_editing_but_new_text_does(): void
+    {
+        $consultation = Consultation::create($this->payload([
+            'estado' => 'completada',
+            'subj_eje_od' => '70',
+            'subj_cilindro_od' => '-0.25',
+        ]) + ['queratometria_horizontal_od' => 'N', 'queratometria_horizontal_oi' => 'NORMAL']);
+
+        // El formulario reenvia lo heredado tal cual: solo cambia el eje.
+        $this->putJson("/api/consultations/{$consultation->id}", $this->payload([
+            'estado' => 'completada',
+            'subj_eje_od' => '20cc',
+            'subj_cilindro_od' => '-0.25',
+            'queratometria_horizontal_od' => 'N',
+            'queratometria_horizontal_oi' => 'NORMAL',
+        ]))->assertOk();
+
+        $this->assertSame(20, $consultation->fresh()->subj_eje_od);
+        $this->assertSame('N', $consultation->fresh()->queratometria_horizontal_od);
+
+        // Lo que se escribe de nuevo sigue debiendo ser un numero.
+        $this->putJson("/api/consultations/{$consultation->id}", $this->payload([
+            'estado' => 'completada', 'queratometria_horizontal_od' => 'abc',
+        ]))->assertStatus(422)->assertJsonValidationErrors('queratometria_horizontal_od');
+    }
+
     public function test_a_note_does_not_excuse_an_invalid_measure(): void
     {
         // Letras sin numero siguen sin ser una medida.

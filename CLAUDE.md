@@ -107,6 +107,11 @@ El 92% de las consultas importadas tiene valores que violan `App\Rules\ValidOpti
 fallaba con 422. `UpdateConsultationRequest::relaxRangesForUnchangedValues()` retira la regla de
 rango **solo** si el valor enviado es identico al almacenado.
 
+`UpdateConsultationRequest::relaxNumericForUnchangedKeratometry()` hace lo mismo con la
+queratometria horizontal/vertical/eje: la importacion dejo texto ("N", "NORMAL") en miles de
+consultas y la regla `numeric` impedia guardar cualquier edicion. Solo se perdona un valor
+identico al guardado.
+
 **No relajar los rangos de `ValidOpticalPrescription`**: hay un test que fija esa intencion
 clinica a proposito (`tests/Unit/ValidOpticalPrescriptionTest.php`).
 

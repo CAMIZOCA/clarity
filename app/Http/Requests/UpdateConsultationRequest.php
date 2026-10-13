@@ -20,7 +20,7 @@ class UpdateConsultationRequest extends StoreConsultationRequest
         $rules['patient_id'] = ['sometimes', 'integer', 'exists:patients,id'];
         $rules['fecha_consulta'] = ['sometimes', 'date', 'before_or_equal:today'];
 
-        return $this->relaxRangesForUnchangedValues($rules);
+        return $this->relaxNumericForUnchangedKeratometry($this->relaxRangesForUnchangedValues($rules));
     }
 
     /** Una consulta que ya estaba completada no vuelve a pasar por sus obligatorios. */
@@ -101,6 +101,38 @@ class UpdateConsultationRequest extends StoreConsultationRequest
         $rules = $this->relaxAxisRequirementForUnchangedCylinder($rules, $consultation);
 
         return $this->relaxRxUsoEntryRanges($rules, $consultation);
+    }
+
+    /**
+     * La importacion dejo texto en la queratometria ("N", "NORMAL", "42,50X180/...")
+     * en miles de consultas, y el formulario lo reenvia en cada guardado: la regla
+     * `numeric` rechazaba la consulta entera aunque nadie hubiera tocado ese campo.
+     * Solo se perdona el valor identico al guardado; lo que se escribe sigue
+     * debiendo ser numerico. Al completar un borrador se valida todo (gotcha 5).
+     */
+    private function relaxNumericForUnchangedKeratometry(array $rules): array
+    {
+        $consultation = $this->route('consultation');
+
+        if (! $consultation instanceof Consultation || $this->isCompleting()) {
+            return $rules;
+        }
+
+        foreach (['horizontal', 'vertical', 'eje'] as $measure) {
+            foreach (['od', 'oi'] as $eye) {
+                $field = "queratometria_{$measure}_{$eye}";
+
+                if (! $this->has($field) || ! isset($rules[$field])) {
+                    continue;
+                }
+
+                if ($this->isUnchanged($this->input($field), $consultation->getAttribute($field))) {
+                    $rules[$field] = ['nullable'];
+                }
+            }
+        }
+
+        return $rules;
     }
 
     /**
