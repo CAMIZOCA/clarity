@@ -1196,7 +1196,15 @@ class ImportOpticaAndinaSqlite extends Command
         return $date?->toDateString();
     }
 
+    /** Una fecha con ano anterior a 1900 ("0003-04-18") es un error de tecleo y MariaDB la rechaza. */
     private function parseDate(?string $value): ?Carbon
+    {
+        $date = $this->parseDateLoosely($value);
+
+        return $date && $date->year >= 1900 ? $date : null;
+    }
+
+    private function parseDateLoosely(?string $value): ?Carbon
     {
         if ($value === null) {
             return null;

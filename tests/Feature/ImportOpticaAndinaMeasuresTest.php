@@ -75,6 +75,20 @@ class ImportOpticaAndinaMeasuresTest extends TestCase
         $this->assertSame('OD: 20/20 prog ev gold / OI: No trajo', $entry->observacion);
     }
 
+    /** Produccion (MariaDB) rechazo '0003-04-18' y toda la importacion quedo como fallida. */
+    public function test_an_impossible_last_control_date_is_dropped_instead_of_failing(): void
+    {
+        $pdo = new PDO('sqlite:'.$this->source);
+        $pdo->exec('alter table CLIENTES add column "CLIE_ULTIMO CONTROL" text');
+        $pdo->exec("update CLIENTES set \"CLIE_ULTIMO CONTROL\" = '0003-04-18 13:06:06'");
+
+        $this->artisan('import:optica-andina-sqlite', ['database' => $this->source])->assertSuccessful();
+
+        $patient = Patient::where('legacy_id', '40001')->firstOrFail();
+        // Despues el CRM lo recalcula desde las consultas: lo que no puede quedar es el ano 3.
+        $this->assertTrue($patient->last_purchase_at === null || $patient->last_purchase_at->year >= 1900);
+    }
+
     public function test_an_update_completes_the_measures_of_consultations_already_imported(): void
     {
         $patient = Patient::create(['nombre' => 'Ana', 'apellido' => 'Perez', 'cedula' => '1710000301', 'fecha_nacimiento' => '1970-01-01']);
