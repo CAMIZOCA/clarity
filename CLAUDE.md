@@ -337,6 +337,19 @@ consultas importadas (a veces notas clinicas) y cada guardado lo dejaba en `null
   ADD sigue siendo solo numero. Quien lea una medida del formulario como numero debe pasar antes
   por `splitMeasureNote` (lo hacen los `toNumber` de `refractionChecks.js` y
   `diagnosisSuggestions.js`). `splitNote` (PHP) y `splitMeasureNote` (JS) deben coincidir.
+- **Dashboard = pantalla de recepcion**: cuando el optometra completa una consulta, el vendedor la
+  ve en `/dashboard` sin abrir la historia. `GET /api/reception/consultations`
+  (`ReceptionFeedService`, sin cache a proposito) devuelve las completadas de hoy (`?days=N` para
+  mas) con el resumen (RX final, lente recomendado, recomendaciones, diagnostico, productos
+  anotados); el dashboard lo pide al abrirse y al pulsar "Actualizar consultas recientes" (**sin
+  polling**: el refresco cada 10 s saturaba), y destaca 30 min (`HIGHLIGHT_MINUTES`) la recien
+  terminada. Requiere el permiso `consultations.handoff` (migracion
+  `2026_10_14_000002`: los seeders no corren en bases existentes). Todo depende de
+  `consultations.completed_at` (TEXT, hora local), que **solo** fija `ConsultationService` al pasar
+  a `completada`: guardar cambios o autoguardar no la mueve, reabrir la anula, y no esta en
+  `$fillable`/`extraFields()` para que el formulario no pueda enviarla. Las completadas sin ella
+  (importadas) cuentan por `fecha_consulta` y no se destacan. "Iniciar venta" abre
+  `/pos?paciente=ID&consulta=ID` y la venta queda con `consultation_id`.
 - **La consulta se abre desde el paciente**: no hay item "Consulta" en el menu. Las rutas
   `/consulta?paciente=ID` y `/consulta/:id` siguen existiendo y son las que usa la ficha.
 - **El alta de paciente empieza por la cedula**: `PatientFormPage` no habilita el resto del

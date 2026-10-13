@@ -82,6 +82,7 @@ class Consultation extends Model
             'fecha_consulta' => 'date:Y-m-d',
             'ultimo_control' => 'date:Y-m-d',
             'fecha_entrega' => 'date:Y-m-d',
+            'completed_at' => 'datetime',
             'estado_cancelado' => 'boolean',
             'motor_binocular_data' => 'array',
             'near_vision_data' => 'array',

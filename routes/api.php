@@ -22,6 +22,7 @@ use App\Http\Controllers\Api\LabOrderController;
 use App\Http\Controllers\Api\OphthalmologyReferenceController;
 use App\Http\Controllers\Api\PatientController;
 use App\Http\Controllers\Api\ProductController;
+use App\Http\Controllers\Api\ReceptionFeedController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\SaleController;
 use App\Http\Controllers\Api\SettingController;
@@ -48,6 +49,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/consultations-meta', ConsultationMetaController::class);
     Route::get('/consultations/{consultation}/pdf-data', [ConsultationController::class, 'pdfData']);
     Route::apiResource('consultations', ConsultationController::class);
+
+    // Recepcion: resumen de las consultas recien terminadas
+    Route::get('/reception/consultations', [ReceptionFeedController::class, 'index']);
 
     // Appointments
     Route::apiResource('appointments', AppointmentController::class);

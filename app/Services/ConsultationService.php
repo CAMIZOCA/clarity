@@ -10,6 +10,8 @@ use Illuminate\Support\Arr;
 
 class ConsultationService extends BaseService
 {
+    public const COMPLETED = 'completada';
+
     /** Campos de esfera que aceptan el literal "N" (neutro) ademas de un numero. */
     private const NEUTRAL_SPHERE_FIELDS = [
         'rx_uso_esfera_od', 'rx_uso_esfera_oi',
@@ -31,13 +33,25 @@ class ConsultationService extends BaseService
             $attributes['created_by'] = $userId;
             $attributes['updated_by'] = $userId;
 
-            $consultation = Consultation::create($attributes);
+            // `completed_at` no es asignable en masa: solo lo fija este servicio.
+            $consultation = new Consultation($attributes);
+            if (($attributes['estado'] ?? null) === self::COMPLETED) {
+                $consultation->completed_at = now();
+            }
+            $consultation->save();
             $this->syncModules($consultation, $data);
 
             $this->logActivity('consultation_created', $consultation, [
                 'patient_id' => $consultation->patient_id,
                 'numero_consulta' => $consultation->numero_consulta,
             ]);
+
+            if ($consultation->completed_at) {
+                $this->logActivity('consultation_completed', $consultation, [
+                    'patient_id' => $consultation->patient_id,
+                    'numero_consulta' => $consultation->numero_consulta,
+                ]);
+            }
 
             return $consultation;
         });
@@ -53,6 +67,21 @@ class ConsultationService extends BaseService
             $attributes = $this->extractConsultationAttributes($data);
             $attributes['updated_by'] = $userId;
 
+            // Solo el paso a `completada` marca la hora; guardar cambios en una
+            // ya completada (o el autoguardado) no la mueve, y reabrirla la anula.
+            $becameCompleted = false;
+            if (isset($attributes['estado'])) {
+                $wasCompleted = $consultation->estado === self::COMPLETED;
+                $isCompleted = $attributes['estado'] === self::COMPLETED;
+
+                if ($isCompleted && ! $wasCompleted) {
+                    $consultation->completed_at = now();
+                    $becameCompleted = true;
+                } elseif (! $isCompleted) {
+                    $consultation->completed_at = null;
+                }
+            }
+
             $consultation->update($attributes);
             $this->syncModules($consultation, $data);
 
@@ -60,6 +89,13 @@ class ConsultationService extends BaseService
                 'patient_id' => $consultation->patient_id,
                 'numero_consulta' => $consultation->numero_consulta,
             ]);
+
+            if ($becameCompleted) {
+                $this->logActivity('consultation_completed', $consultation, [
+                    'patient_id' => $consultation->patient_id,
+                    'numero_consulta' => $consultation->numero_consulta,
+                ]);
+            }
 
             return $consultation;
         });

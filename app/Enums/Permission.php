@@ -18,6 +18,7 @@ enum Permission: string
     case CONSULTATIONS_EDIT   = 'consultations.edit';
     case CONSULTATIONS_DELETE = 'consultations.delete';
     case CONSULTATIONS_PDF    = 'consultations.generate_pdf';
+    case CONSULTATIONS_HANDOFF = 'consultations.handoff';   // Resumen de consultas recien terminadas (dashboard)
 
     // ─── AGENDA / CITAS ───────────────────────────────────
     case APPOINTMENTS_VIEW   = 'appointments.view';
@@ -121,6 +122,7 @@ enum Permission: string
                 self::CONSULTATIONS_CREATE->value,
                 self::CONSULTATIONS_EDIT->value,
                 self::CONSULTATIONS_PDF->value,
+                self::CONSULTATIONS_HANDOFF->value,
                 self::APPOINTMENTS_VIEW->value,
                 self::APPOINTMENTS_CREATE->value,
                 self::APPOINTMENTS_EDIT->value,
@@ -139,6 +141,7 @@ enum Permission: string
                 self::PATIENTS_VIEW->value,
                 self::PATIENTS_CREATE->value,
                 self::PATIENTS_EDIT->value,
+                self::CONSULTATIONS_HANDOFF->value,
                 self::APPOINTMENTS_VIEW->value,
                 self::APPOINTMENTS_CREATE->value,
                 self::APPOINTMENTS_EDIT->value,
@@ -155,6 +158,7 @@ enum Permission: string
                 self::PATIENTS_CREATE->value,
                 self::PATIENTS_EDIT->value,
                 self::CONSULTATIONS_VIEW->value,           // Ver recetas para vender
+                self::CONSULTATIONS_HANDOFF->value,
                 self::APPOINTMENTS_VIEW->value,
                 self::APPOINTMENTS_CREATE->value,
                 self::SALES_VIEW->value,
@@ -185,6 +189,7 @@ enum Permission: string
             Role::ENCARGADO_LAB => [
                 self::PATIENTS_VIEW->value,
                 self::CONSULTATIONS_VIEW->value,
+                self::CONSULTATIONS_HANDOFF->value,
                 self::LAB_ORDERS_VIEW->value,
                 self::LAB_ORDERS_CREATE->value,
                 self::LAB_ORDERS_EDIT->value,

@@ -24,45 +24,45 @@ use Illuminate\Support\Facades\DB;
 
 class ReportController extends Controller
 {
+    /**
+     * Contadores del dashboard. Las listas de consultas ya no salen de aqui:
+     * viven en `GET /reception/consultations`, que es lectura en vivo.
+     *
+     * Solo lo que cambia despacio se cachea (pacientes, citas); "consultas
+     * hoy" se cuenta siempre, o el numero iria un minuto por detras de la lista.
+     */
     public function dashboard(): JsonResponse
     {
         $cacheKey = 'dashboard_stats_'.now()->format('Y-m-d-H-i');
         $cacheHit = Cache::has($cacheKey);
 
         $data = Cache::remember($cacheKey, AppConfig::CACHE_DASHBOARD, function () {
-            $today = now()->toDateString();
-
-            $totalPacientes = Patient::count();
-
-            $consultasHoy = Consultation::whereDate('fecha_consulta', $today)->count();
-
             $citasPendientes = Appointment::where('estado', 'pendiente')
                 ->where('fecha_hora_inicio', '>=', now()->startOfDay())
                 ->where('fecha_hora_inicio', '<=', now()->addDays(7)->endOfDay())
                 ->count();
 
-            $ultimasConsultas = Consultation::with(['patient:id,nombre,apellido', 'optometrista:id,name'])
-                ->orderByDesc('fecha_consulta')
-                ->limit(5)
-                ->get(['id', 'numero_consulta', 'patient_id', 'optometrista_id', 'fecha_consulta', 'estado', 'diagnostico_cie10', 'diagnostico_descripcion']);
-
-            $proximasCitas = Appointment::with(['patient:id,nombre,apellido'])
-                ->where('estado', 'pendiente')
-                ->where('fecha_hora_inicio', '>=', now()->startOfDay())
-                ->orderBy('fecha_hora_inicio')
-                ->limit(5)
-                ->get(['id', 'patient_id', 'titulo', 'fecha_hora_inicio', 'estado']);
-
             return [
-                'totalPacientes' => $totalPacientes,
-                'consultasHoy' => $consultasHoy,
+                'totalPacientes' => Patient::count(),
                 'citasPendientes' => $citasPendientes,
-                'ultimasConsultas' => $ultimasConsultas->values()->toArray(),
-                'proximasCitas' => $proximasCitas->values()->toArray(),
             ];
         });
 
+        $today = now()->toDateString();
+
+        // Una completada cuenta por el dia en que se cerro; las importadas
+        // (sin `completed_at`) por su `fecha_consulta`.
+        $consultasHoy = Consultation::where('estado', 'completada')
+            ->where(function ($q) use ($today) {
+                $q->whereBetween('completed_at', ["{$today} 00:00:00", "{$today} 23:59:59"])
+                    ->orWhere(function ($q) use ($today) {
+                        $q->whereNull('completed_at')->whereDate('fecha_consulta', $today);
+                    });
+            })
+            ->count();
+
         return response()->json(array_merge($data, [
+            'consultasHoy' => $consultasHoy,
             'cache_hit' => $cacheHit,
             'generated_at' => now()->toISOString(),
         ]));

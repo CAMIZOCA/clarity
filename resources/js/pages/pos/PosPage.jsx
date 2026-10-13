@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
     ShoppingCart, CreditCard, Banknote, Building2, Plus, Trash2,
     RotateCcw, FlaskConical, AlertCircle, Search, ChevronDown,
@@ -71,6 +72,11 @@ function getSellableStock(product, warehouseId = null) {
 export default function PosPage() {
     const { user } = useAuth();
 
+    // Llegada desde el dashboard ("Iniciar venta"): paciente y consulta ya elegidos.
+    const [searchParams] = useSearchParams();
+    const linkedPatientId = Number(searchParams.get('paciente')) || null;
+    const linkedConsultationId = Number(searchParams.get('consulta')) || null;
+
     // POS state machine: idle | draft | paying | completed
     const [status, setStatus] = useState('idle');
     const [sale, setSale] = useState(null); // sale object from API
@@ -135,6 +141,16 @@ export default function PosPage() {
             }
         } catch (_) { /* ignore */ }
     }, []);
+
+    // Preselecciona al paciente que viene del dashboard. Si hay una venta en
+    // curso (borrador guardado) no se toca: es trabajo del vendedor sin terminar.
+    useEffect(() => {
+        if (!linkedPatientId || localStorage.getItem(LS_KEY)) return;
+        client.get(`/patients/${linkedPatientId}`)
+            .then((res) => handleSelectPatient(getPayload(res)))
+            .catch(() => {});
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [linkedPatientId]);
 
     // Save draft on change
     useEffect(() => {
@@ -213,7 +229,11 @@ export default function PosPage() {
     const handleStartSale = async () => {
         setError('');
         try {
-            const res = await createSale({ patient_id: patient?.id });
+            // La consulta solo se liga si la venta es del mismo paciente que se abrio.
+            const consultationId = linkedConsultationId && patient?.id === linkedPatientId
+                ? linkedConsultationId
+                : undefined;
+            const res = await createSale({ patient_id: patient?.id, consultation_id: consultationId });
             setSale(getPayload(res));
             setCartItems([]);
             setStatus('draft');

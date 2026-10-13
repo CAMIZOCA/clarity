@@ -21,6 +21,58 @@ function debugLog(label, payload) {
  * Pasar `skipErrorToast: true` en la config de la peticion lo desactiva para
  * los casos en que el 5xx es esperado.
  */
+// Nombre legible de lo que se pedia, para que el aviso diga que fallo.
+const RESOURCE_NAMES = [
+    ['/reception', 'las consultas recientes'],
+    ['/reports', 'los reportes'],
+    ['/consultations', 'la consulta'],
+    ['/patients', 'los pacientes'],
+    ['/sales', 'las ventas'],
+    ['/lab-orders', 'las órdenes de laboratorio'],
+    ['/appointments', 'las citas'],
+    ['/products', 'los productos'],
+    ['/settings', 'la configuración'],
+    ['/branches', 'las sucursales'],
+    ['/me', 'su sesión'],
+    ['/sanctum', 'el inicio de sesión'],
+    ['/login', 'el inicio de sesión'],
+    ['/logout', 'el cierre de sesión'],
+];
+
+function describeRequest(config = {}) {
+    const url = config.url || '';
+    const what = RESOURCE_NAMES.find(([prefix]) => url.startsWith(prefix))?.[1] ?? 'los datos';
+    const isRead = (config.method || 'get').toLowerCase() === 'get';
+
+    return { what, isRead };
+}
+
+/**
+ * Aviso cuando la peticion no recibio respuesta alguna (servidor apagado o
+ * reiniciando, red local caida, equipo que acaba de salir de suspension).
+ *
+ * Una lectura que falla no deja rastro; una escritura si puede haber llegado,
+ * asi que el texto avisa de revisar antes de repetirla. Si caen varias
+ * peticiones a la vez solo se muestra un aviso: apilar cinco iguales tapaba la
+ * pantalla sin aportar nada.
+ */
+const NETWORK_TOAST_COOLDOWN_MS = 20_000;
+let lastNetworkToastAt = 0;
+
+function noResponseMessage(config, code) {
+    const { what, isRead } = describeRequest(config);
+    const timedOut = code === 'ECONNABORTED' || code === 'ETIMEDOUT';
+    const reason = timedOut
+        ? 'El servidor tardó demasiado en responder.'
+        : 'El servidor no respondió.';
+
+    if (isRead) {
+        return `No se pudieron cargar ${what}. ${reason} Revise la conexión de red y que el servidor esté encendido; luego vuelva a intentar.`;
+    }
+
+    return `No se recibió confirmación al guardar ${what}. ${reason} Revise la conexión y confirme si el cambio quedó guardado antes de repetirlo.`;
+}
+
 function notifyServerError(error) {
     const status = error.response?.status;
 
@@ -30,12 +82,22 @@ function notifyServerError(error) {
     // Sin red ya avisa ConnectionBanner; no dupliquemos la senal.
     if (!status && navigator.onLine === false) return;
 
-    notifyToast(
-        status
-            ? `Error del servidor (${status}). Los datos mostrados pueden estar incompletos.`
-            : 'No se pudo contactar al servidor. Intente nuevamente.',
-        'error'
-    );
+    if (status) {
+        const { what, isRead } = describeRequest(error.config);
+        notifyToast(
+            isRead
+                ? `Error del servidor (${status}) al cargar ${what}. Los datos mostrados pueden estar incompletos.`
+                : `Error del servidor (${status}) al guardar ${what}. Es posible que el cambio no se haya guardado.`,
+            'error'
+        );
+        return;
+    }
+
+    const now = Date.now();
+    if (now - lastNetworkToastAt < NETWORK_TOAST_COOLDOWN_MS) return;
+    lastNetworkToastAt = now;
+
+    notifyToast(noResponseMessage(error.config, error.code), 'error');
 }
 
 const client = axios.create({
