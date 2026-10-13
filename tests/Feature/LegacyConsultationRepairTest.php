@@ -6,6 +6,7 @@ use App\Models\Patient;
 use App\Services\LegacyConsultationRepairService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use PDO;
 use Tests\TestCase;
 
 /**
@@ -261,6 +262,181 @@ class LegacyConsultationRepairTest extends TestCase
         $row = $this->consultation($id);
         $this->assertEqualsWithDelta(3.75, $row->subj_esfera_od, 0.001);
         $this->assertNull($row->subj_cilindro_od);
+    }
+
+    /**
+     * Respaldo del Access con una historia: el subjetivo y la RX en uso vienen
+     * como un solo texto por ojo (legacy 71348 = la consulta de `insertConsultation`).
+     */
+    private function source(array $row): PDO
+    {
+        $columns = [
+            'RXPARCIAL_ESFERA_OD', 'RXPARCIAL_CILINDRO_OD', 'RXPARCIAL_EJE_OD', 'RXPARCIAL_AVL_OD',
+            'RXPARCIAL_ESFERA_OI', 'RXPARCIAL_CILINDRO_OI', 'RXPARCIAL_EJE_OI', 'RXPARCIAL_AVL_OI',
+            'RX_EN USO_ESFERA_OD', 'RX_EN USO_CILINDRO_OD', 'RX_EN USO_EJE_OD', 'RX_EN USO_AVCC_OD',
+            'RX_EN USO_ESFERA_OI', 'RX_EN USO_CILINDRO_OI', 'RX_EN USO_EJE_OI', 'RX_EN USO_AVCC_OI',
+        ];
+
+        $pdo = new PDO('sqlite::memory:');
+        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        $pdo->exec('create table "HISTORIAL OPTAMOLOGIA" (Id text, '.implode(', ', array_map(fn ($column) => "\"{$column}\" text", $columns)).')');
+
+        $row = ['Id' => '71348', ...$row];
+        $pdo->prepare(
+            'insert into "HISTORIAL OPTAMOLOGIA" ('.implode(', ', array_map(fn ($column) => "\"{$column}\"", array_keys($row))).') values ('
+            .implode(', ', array_fill(0, count($row), '?')).')'
+        )->execute(array_values($row));
+
+        return $pdo;
+    }
+
+    public function test_the_subjective_is_recovered_whole_from_the_backup(): void
+    {
+        // OD como lo dejo la primera importacion; OI ya pasado por `decimales`.
+        $id = $this->insertConsultation(['subj_cilindro_od' => 50, 'subj_cilindro_oi' => -1.25]);
+        $source = $this->source([
+            'RXPARCIAL_CILINDRO_OD' => '+050-100x 80 20/40-',
+            'RXPARCIAL_CILINDRO_OI' => '-125 Esf.',
+        ]);
+
+        $this->service()->repairFromSource($source);
+
+        $row = $this->consultation($id);
+        $this->assertEqualsWithDelta(0.50, $row->subj_esfera_od, 0.001);
+        $this->assertEqualsWithDelta(-1.00, $row->subj_cilindro_od, 0.001);
+        $this->assertEquals(80, $row->subj_eje_od);
+        $this->assertSame('20/40-', $row->subj_avl_od);
+        // Un numero solo es la esfera.
+        $this->assertEqualsWithDelta(-1.25, $row->subj_esfera_oi, 0.001);
+        $this->assertNull($row->subj_cilindro_oi);
+    }
+
+    public function test_a_neutral_sphere_in_the_backup_turns_on_the_flag(): void
+    {
+        $id = $this->insertConsultation(['subj_cilindro_od' => -25]);
+
+        $this->service()->repairFromSource($this->source(['RXPARCIAL_CILINDRO_OD' => 'N -025 X 15 20/20']));
+
+        $row = $this->consultation($id);
+        $this->assertNull($row->subj_esfera_od);
+        $this->assertEquals(1, $row->subj_esfera_od_neutral);
+        $this->assertEqualsWithDelta(-0.25, $row->subj_cilindro_od, 0.001);
+        $this->assertEquals(15, $row->subj_eje_od);
+    }
+
+    public function test_a_subjective_edited_by_hand_is_not_recovered(): void
+    {
+        // El OD se corrigio en este sistema; el OI trae otro numero que el respaldo.
+        $id = $this->insertConsultation([
+            'subj_esfera_od' => 0.75, 'subj_cilindro_od' => 0.5, 'subj_eje_od' => 90, 'subj_cilindro_oi' => -2.00,
+        ]);
+        $source = $this->source([
+            'RXPARCIAL_CILINDRO_OD' => '+050-100x 80', 'RXPARCIAL_CILINDRO_OI' => '+050-100x 80',
+        ]);
+
+        $report = $this->service()->repairFromSource($source);
+
+        $row = $this->consultation($id);
+        $this->assertEqualsWithDelta(0.75, $row->subj_esfera_od, 0.001);
+        $this->assertEquals(90, $row->subj_eje_od);
+        $this->assertEqualsWithDelta(-2.00, $row->subj_cilindro_oi, 0.001);
+        $this->assertSame(0, $report['rules'][LegacyConsultationRepairService::RULE_SUBJ_SOURCE]['changes']);
+    }
+
+    public function test_a_subjective_that_is_not_a_refraction_is_reported_and_left_alone(): void
+    {
+        $id = $this->insertConsultation(['subj_cilindro_od' => 225]);
+
+        $report = $this->service()->repairFromSource($this->source(['RXPARCIAL_CILINDRO_OD' => '+225-100x c65']));
+
+        $this->assertEqualsWithDelta(225, $this->consultation($id)->subj_cilindro_od, 0.001);
+        $this->assertCount(1, $report['anomalies']);
+    }
+
+    public function test_rx_en_uso_is_recovered_whole_from_the_backup(): void
+    {
+        // OD como lo dejo la importacion; OI despues de la regla `rx_uso`.
+        $flat = [
+            'rx_uso_esfera_od' => 20, 'rx_uso_eje_od' => 125,
+            'rx_uso_esfera_oi' => -1.00,
+        ];
+        $id = $this->insertConsultation($flat);
+        $entryId = DB::table('consultation_rx_uso_entries')->insertGetId([
+            'consultation_id' => $id, 'orden' => 0, 'esfera_od' => 20, 'eje_od' => 125, 'esfera_oi' => -1.00,
+        ]);
+        $source = $this->source([
+            'RX_EN USO_ESFERA_OD' => '20/40', 'RX_EN USO_EJE_OD' => '+125-075x 90 20/20 prog ev gold',
+            'RX_EN USO_ESFERA_OI' => '20/200', 'RX_EN USO_EJE_OI' => '-1,25-1,00*20',
+        ]);
+
+        $this->service()->repairFromSource($source);
+
+        $row = $this->consultation($id);
+        $this->assertEqualsWithDelta(1.25, $row->rx_uso_esfera_od, 0.001);
+        $this->assertEqualsWithDelta(-0.75, $row->rx_uso_cilindro_od, 0.001);
+        $this->assertEquals(90, $row->rx_uso_eje_od);
+        $this->assertSame('20/40', $row->rx_uso_avcc_od);
+        $this->assertEqualsWithDelta(-1.25, $row->rx_uso_esfera_oi, 0.001);
+        $this->assertEqualsWithDelta(-1.00, $row->rx_uso_cilindro_oi, 0.001);
+        $this->assertEquals(20, $row->rx_uso_eje_oi);
+
+        $entry = DB::table('consultation_rx_uso_entries')->find($entryId);
+        $this->assertEqualsWithDelta(1.25, $entry->esfera_od, 0.001);
+        $this->assertEqualsWithDelta(-0.75, $entry->cilindro_od, 0.001);
+        $this->assertEquals(90, $entry->eje_od);
+        $this->assertSame('20/200', $entry->avcc_oi);
+        $this->assertSame('OD: 20/20 prog ev gold', $entry->observacion);
+    }
+
+    public function test_rx_en_uso_edited_by_hand_is_not_recovered(): void
+    {
+        $id = $this->insertConsultation(['rx_uso_esfera_od' => -0.50, 'rx_uso_cilindro_od' => -0.25, 'rx_uso_eje_od' => 90]);
+
+        $this->service()->repairFromSource($this->source([
+            'RX_EN USO_ESFERA_OD' => '20/40', 'RX_EN USO_EJE_OD' => '+125-075x 90',
+        ]));
+
+        $row = $this->consultation($id);
+        $this->assertEqualsWithDelta(-0.50, $row->rx_uso_esfera_od, 0.001);
+        $this->assertEqualsWithDelta(-0.25, $row->rx_uso_cilindro_od, 0.001);
+        $this->assertNull($row->rx_uso_avcc_od);
+    }
+
+    public function test_recovering_from_the_backup_twice_changes_nothing_and_can_be_reverted(): void
+    {
+        $id = $this->insertConsultation(['subj_cilindro_od' => 50, 'rx_uso_esfera_od' => 20, 'rx_uso_eje_od' => 125]);
+        $source = $this->source([
+            'RXPARCIAL_CILINDRO_OD' => '+050-100x 80',
+            'RX_EN USO_ESFERA_OD' => '20/40', 'RX_EN USO_EJE_OD' => '+125-075x 90',
+        ]);
+
+        // Primero el punto decimal, como en un despliegue real; despues el respaldo.
+        $this->service()->repair([LegacyConsultationRepairService::RULE_DECIMALS, LegacyConsultationRepairService::RULE_RX_USO]);
+        $this->service()->repairFromSource($source);
+        $second = $this->service()->repairFromSource($source);
+
+        $this->assertSame(0, $second['rules'][LegacyConsultationRepairService::RULE_SUBJ_SOURCE]['changes']);
+        $this->assertSame(0, $second['rules'][LegacyConsultationRepairService::RULE_RX_USO_SOURCE]['changes']);
+        $this->assertEqualsWithDelta(-1.00, $this->consultation($id)->subj_cilindro_od, 0.001);
+        $this->assertEquals(90, $this->consultation($id)->rx_uso_eje_od);
+
+        $this->service()->revert();
+
+        $row = $this->consultation($id);
+        $this->assertEqualsWithDelta(50, $row->subj_cilindro_od, 0.001);
+        $this->assertNull($row->subj_esfera_od);
+        $this->assertNull($row->subj_eje_od);
+        $this->assertEqualsWithDelta(20, $row->rx_uso_esfera_od, 0.001);
+        $this->assertEquals(125, $row->rx_uso_eje_od);
+        $this->assertNull($row->rx_uso_cilindro_od);
+        $this->assertNull($row->rx_uso_avcc_od);
+        $this->assertDatabaseCount('consultation_legacy_repairs', 0);
+    }
+
+    public function test_source_rules_need_the_backup_file(): void
+    {
+        $this->artisan('consultations:repair-legacy-import', ['--only' => 'subj_origen'])->assertFailed();
+        $this->artisan('consultations:repair-legacy-import', ['--source' => 'no-existe.sqlite'])->assertFailed();
     }
 
     public function test_command_runs_in_dry_run_mode(): void

@@ -124,9 +124,15 @@ Conservar `origen.sqlite` solo si falta aplicar en producción; después borrarl
   usuarios borrados; lo cubre `tests/Feature/ImportOpticaAndinaDoctorsTest.php`.
 - **Placeholders**: una historia cuya cédula no está en `CLIENTES` crea un paciente
   "Paciente importado <cédula>" con `legacy_id` `HIST-PAT-<id>`. Lo normal son 0–2 por carga.
-- **La reparación legacy** (`consultations:repair-legacy-import`) sigue sin aplicarse en ninguna
-  instancia. No interfiere: las consultas nuevas entran ya corregidas por `LegacyOpticalParser` y
-  la reparación solo divide enteros de 25 o más.
+- **Medidas de las historias ya importadas**: una importación sin `--replace` también completa
+  el subjetivo y la RX en uso de las consultas existentes (en el Access son un solo texto por
+  ojo y la primera carga guardó solo su primer número). Solo toca lo que nadie editó, queda en
+  `consultation_legacy_repairs` y se deshace con
+  `consultations:repair-legacy-import --revert --only=subj_origen,rx_uso_origen`. En la tabla
+  final son las filas "Medidas recuperadas en historias existentes" (en una segunda carga del
+  mismo archivo debe dar 0) y "Medidas del respaldo que no se pudieron leer" (textos que no son
+  una refracción; quedan para revisión manual). El punto decimal lo corrige una migración, no
+  hay que correr nada.
 - **`php artisan tinker --execute`** desde PowerShell pierde las comillas dobles del código PHP.
   Para consultas sueltas usar `python -I` con `sqlite3`, o PHP solo con comillas simples.
 - Access tiene ~127 tablas (facturas, procedimientos, catálogos). Solo se importan las tres de

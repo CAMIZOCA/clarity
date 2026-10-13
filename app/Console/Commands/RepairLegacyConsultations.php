@@ -4,12 +4,14 @@ namespace App\Console\Commands;
 
 use App\Services\LegacyConsultationRepairService;
 use Illuminate\Console\Command;
+use PDO;
 
 class RepairLegacyConsultations extends Command
 {
     protected $signature = 'consultations:repair-legacy-import
                             {--dry-run : Solo informar, no guardar en BD}
-                            {--only= : Reglas a aplicar, separadas por coma (decimales, rx_uso, ark, subj)}
+                            {--only= : Reglas a aplicar, separadas por coma (decimales, rx_uso, ark, subj; con --source: subj_origen, rx_uso_origen)}
+                            {--source= : SQLite convertido del Access: recupera el subjetivo y la RX en uso completos}
                             {--examples=20 : Ejemplos antes/despues que se muestran por regla}
                             {--revert : Deshace la reparacion con los valores guardados en la bitacora}';
 
@@ -35,11 +37,33 @@ class RepairLegacyConsultations extends Command
             return Command::SUCCESS;
         }
 
-        $report = $service->repair(
-            $rules ?: LegacyConsultationRepairService::DEFAULT_RULES,
-            $dryRun,
-            max(0, (int) $this->option('examples')),
-        );
+        $examples = max(0, (int) $this->option('examples'));
+        $sourcePath = trim((string) $this->option('source'));
+        $sourceRules = array_values(array_intersect($rules, LegacyConsultationRepairService::SOURCE_RULES));
+
+        if ($sourcePath === '' && $sourceRules !== []) {
+            $this->error('Las reglas '.implode(', ', $sourceRules).' necesitan el respaldo original: --source=ruta.sqlite');
+
+            return Command::FAILURE;
+        }
+
+        if ($sourcePath !== '' && ($rules === [] || $sourceRules !== [])) {
+            $source = $this->openSource($sourcePath);
+
+            if ($source === null) {
+                return Command::FAILURE;
+            }
+
+            // Con el respaldo solo corren las reglas que lo usan; las demas no lo necesitan.
+            $report = $service->repairFromSource(
+                $source,
+                $rules === [] ? LegacyConsultationRepairService::SOURCE_RULES : $sourceRules,
+                $dryRun,
+                $examples,
+            );
+        } else {
+            $report = $service->repair($rules ?: LegacyConsultationRepairService::DEFAULT_RULES, $dryRun, $examples);
+        }
 
         foreach ($report['rules'] as $rule => $summary) {
             $this->newLine();
@@ -72,6 +96,27 @@ class RepairLegacyConsultations extends Command
         }
 
         return Command::SUCCESS;
+    }
+
+    private function openSource(string $path): ?PDO
+    {
+        if (! is_file($path)) {
+            $this->error("Archivo no encontrado: {$path}");
+
+            return null;
+        }
+
+        $source = new PDO('sqlite:'.$path);
+        $source->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+        $table = $source->query("select count(*) from sqlite_master where type = 'table' and name = 'HISTORIAL OPTAMOLOGIA'");
+        if ((int) $table->fetchColumn() === 0) {
+            $this->error('El archivo no es el respaldo del sistema anterior: falta la tabla HISTORIAL OPTAMOLOGIA.');
+
+            return null;
+        }
+
+        return $source;
     }
 
     /**

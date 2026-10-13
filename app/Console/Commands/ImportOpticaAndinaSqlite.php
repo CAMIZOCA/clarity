@@ -8,6 +8,7 @@ use App\Models\ConsultationOphthalmoscopyModule;
 use App\Models\ConsultationTreatmentModule;
 use App\Models\Patient;
 use App\Models\User;
+use App\Services\LegacyConsultationRepairService;
 use App\Support\LegacyOpticalParser;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
@@ -69,6 +70,8 @@ class ImportOpticaAndinaSqlite extends Command
         'previous_consultations_removed' => 0,
         'previous_placeholders_removed' => 0,
         'placeholders_pruned' => 0,
+        'measures_recovered' => 0,
+        'measures_unreadable' => 0,
         'errors' => 0,
     ];
 
@@ -138,6 +141,12 @@ class ImportOpticaAndinaSqlite extends Command
 
         if ($only === 'all' || $only === 'consultations') {
             $this->importConsultations();
+
+            // Con --replace cada consulta se acaba de reescribir desde el respaldo.
+            if (! $this->replace) {
+                $this->recoverMeasuresOfExistingConsultations();
+            }
+
             $this->refreshPatientCrmStats();
 
             if (! $this->dryRun) {
@@ -404,6 +413,15 @@ class ImportOpticaAndinaSqlite extends Command
                 $this->v($row, "RX_EN USO_AVCC_{$suffix}"),
             );
         }
+        $subj = [];
+        foreach (['od' => 'OD', 'oi' => 'OI'] as $eye => $suffix) {
+            $subj[$eye] = LegacyOpticalParser::subjective(
+                $this->v($row, "RXPARCIAL_ESFERA_{$suffix}"),
+                $this->v($row, "RXPARCIAL_CILINDRO_{$suffix}"),
+                $this->v($row, "RXPARCIAL_EJE_{$suffix}"),
+                $this->v($row, "RXPARCIAL_AVL_{$suffix}"),
+            );
+        }
         $retinoscopy = LegacyOpticalParser::retinoscopy(
             $this->v($row, 'ARK_OD'),
             $this->v($row, 'ARK_OI'),
@@ -443,47 +461,55 @@ class ImportOpticaAndinaSqlite extends Command
             'retinoscopia_ppc' => $this->limit($this->v($row, 'RETINOSCOPIA_PPC'), 50),
             'cover_test' => $this->limit($retinoscopy['cover_test'], 100),
             'rx_uso_esfera_od' => $rxUso['od']['esfera'],
+            'rx_uso_esfera_od_neutral' => $rxUso['od']['esfera_neutral'],
             'rx_uso_cilindro_od' => $rxUso['od']['cilindro'],
             'rx_uso_eje_od' => $rxUso['od']['eje'],
             'rx_uso_add_od' => $rxUso['od']['add'],
             'rx_uso_avcc_od' => $this->limit($rxUso['od']['avcc'], 20),
             'rx_uso_esfera_oi' => $rxUso['oi']['esfera'],
+            'rx_uso_esfera_oi_neutral' => $rxUso['oi']['esfera_neutral'],
             'rx_uso_cilindro_oi' => $rxUso['oi']['cilindro'],
             'rx_uso_eje_oi' => $rxUso['oi']['eje'],
             'rx_uso_add_oi' => $rxUso['oi']['add'],
             'rx_uso_avcc_oi' => $this->limit($rxUso['oi']['avcc'], 20),
-            'subj_esfera_od' => LegacyOpticalParser::diopter($this->v($row, 'RXPARCIAL_ESFERA_OD')),
-            'subj_cilindro_od' => LegacyOpticalParser::diopter($this->v($row, 'RXPARCIAL_CILINDRO_OD')),
-            'subj_eje_od' => $this->integer($this->v($row, 'RXPARCIAL_EJE_OD')),
-            'subj_avl_od' => $this->limit($this->v($row, 'RXPARCIAL_AVL_OD'), 20),
+            'subj_esfera_od' => $subj['od']['esfera'],
+            'subj_esfera_od_neutral' => $subj['od']['esfera_neutral'],
+            'subj_cilindro_od' => $subj['od']['cilindro'],
+            'subj_eje_od' => $subj['od']['eje'],
+            'subj_avl_od' => $this->limit($subj['od']['avl'], 20),
             'subj_add_od' => $this->limit($this->v($row, 'RXPARCIAL_ADD_OD'), 20),
             'subj_avc_od' => $this->limit($this->v($row, 'RXPARCIAL_AVC_OD'), 20),
-            'subj_esfera_oi' => LegacyOpticalParser::diopter($this->v($row, 'RXPARCIAL_ESFERA_OI')),
-            'subj_cilindro_oi' => LegacyOpticalParser::diopter($this->v($row, 'RXPARCIAL_CILINDRO_OI')),
-            'subj_eje_oi' => $this->integer($this->v($row, 'RXPARCIAL_EJE_OI')),
-            'subj_avl_oi' => $this->limit($this->v($row, 'RXPARCIAL_AVL_OI'), 20),
+            'subj_esfera_oi' => $subj['oi']['esfera'],
+            'subj_esfera_oi_neutral' => $subj['oi']['esfera_neutral'],
+            'subj_cilindro_oi' => $subj['oi']['cilindro'],
+            'subj_eje_oi' => $subj['oi']['eje'],
+            'subj_avl_oi' => $this->limit($subj['oi']['avl'], 20),
             'subj_add_oi' => $this->limit($this->v($row, 'RXPARCIAL_ADD_OI'), 20),
             'subj_avc_oi' => $this->limit($this->v($row, 'RXPARCIAL_AVC_OI'), 20),
             'subj_dp' => $this->limit($this->v($row, 'RXPARCIAL_DP'), 20),
             'rx_final_esfera_od' => LegacyOpticalParser::diopter($this->v($row, 'RX_FINAL_OD_ESFRERA')),
+            'rx_final_esfera_od_neutral' => LegacyOpticalParser::isNeutral($this->v($row, 'RX_FINAL_OD_ESFRERA')),
             'rx_final_cilindro_od' => LegacyOpticalParser::diopter($this->v($row, 'RX_FINAL_OD_CILINDRO')),
             'rx_final_eje_od' => $this->integer($this->v($row, 'RX_FINAL_OD_EJE')),
             'rx_final_add_od' => LegacyOpticalParser::diopter($this->v($row, 'RX_FINAL_OD_ADD')),
             'rx_final_avl_od' => $this->limit($this->v($row, 'RX_FINAL_OD_AVL'), 20),
             'rx_final_dnp_od' => $this->limit($this->v($row, 'RX_FINAL_DNP_OD'), 20),
             'rx_final_esfera_oi' => LegacyOpticalParser::diopter($this->v($row, 'RX_FINAL_OI_ESFRERA')),
+            'rx_final_esfera_oi_neutral' => LegacyOpticalParser::isNeutral($this->v($row, 'RX_FINAL_OI_ESFRERA')),
             'rx_final_cilindro_oi' => LegacyOpticalParser::diopter($this->v($row, 'RX_FINAL_OI_CILINDRO')),
             'rx_final_eje_oi' => $this->integer($this->v($row, 'RX_FINAL_OI_EJE')),
             'rx_final_add_oi' => LegacyOpticalParser::diopter($this->v($row, 'RX_FINAL_OI_ADD')),
             'rx_final_avl_oi' => $this->limit($this->v($row, 'RX_FINAL_OI_AVL'), 20),
             'rx_final_dnp_oi' => $this->limit($this->v($row, 'RX_FINAL_DNP_OIZ'), 20),
             'vc_esfera_od' => LegacyOpticalParser::diopter($this->v($row, 'VISION_CERCA_ESFERA_OD')),
+            'vc_esfera_od_neutral' => LegacyOpticalParser::isNeutral($this->v($row, 'VISION_CERCA_ESFERA_OD')),
             'vc_cilindro_od' => LegacyOpticalParser::diopter($this->v($row, 'VISION_CERCA_Cyl_OD')),
             'vc_eje_od' => $this->integer($this->v($row, 'VISION_CERCA_EJE_OD')),
             'vc_av_od' => $this->limit($this->v($row, 'VISION_CERCA_AV_OD'), 20),
             'vc_dnp_od' => $this->limit($this->v($row, 'VISION_CERCA_DNP_OD'), 20),
             'vc_avcc_od' => $this->limit($this->v($row, 'VISION_CERCA_AVCC OD'), 20),
             'vc_esfera_oi' => LegacyOpticalParser::diopter($this->v($row, 'VISION_CERCA_ESFERA_OI')),
+            'vc_esfera_oi_neutral' => LegacyOpticalParser::isNeutral($this->v($row, 'VISION_CERCA_ESFERA_OI')),
             'vc_cilindro_oi' => LegacyOpticalParser::diopter($this->v($row, 'VISION_CERCA_Cyl_OI')),
             'vc_eje_oi' => $this->integer($this->v($row, 'VISION_CERCA_EJE_OI')),
             'vc_av_oi' => $this->limit($this->v($row, 'VISION_CERCA_AV_OI'), 20),
@@ -532,6 +558,7 @@ class ImportOpticaAndinaSqlite extends Command
             'observaciones' => $this->v($row, 'OBSERVACIONES'),
         ])->save();
 
+        $this->syncRxUsoEntry($consultation, $rxUso);
         $this->upsertContactLensModule($consultation, $row);
         $this->upsertOphthalmoscopyModule($consultation, $row);
         $this->upsertTreatmentModule($consultation, $row);
@@ -539,6 +566,61 @@ class ImportOpticaAndinaSqlite extends Command
         $isNew ? $this->stats['consultations_created']++ : $this->stats['consultations_updated']++;
 
         return $consultation;
+    }
+
+    /**
+     * La receta en uso que muestra el formulario es la primera entrada de
+     * `consultation_rx_uso_entries`, que ademas es el unico sitio con campo de
+     * observacion para la nota que acompanaba a la receta.
+     *
+     * @param  array<string, array<string, mixed>>  $rxUso  resultado de `LegacyOpticalParser::rxUso` por ojo
+     */
+    private function syncRxUsoEntry(Consultation $consultation, array $rxUso): void
+    {
+        $values = [];
+        $notes = [];
+
+        foreach ($rxUso as $eye => $eyeValues) {
+            foreach (['esfera', 'cilindro', 'eje', 'add'] as $column) {
+                $values["{$column}_{$eye}"] = $eyeValues[$column];
+            }
+            $values["avcc_{$eye}"] = $this->limit($eyeValues['avcc'], 20);
+            $values["esfera_{$eye}_neutral"] = $eyeValues['esfera_neutral'];
+
+            if ($eyeValues['observacion'] !== null) {
+                $notes[] = strtoupper($eye).': '.$eyeValues['observacion'];
+            }
+        }
+
+        $values['observacion'] = $notes === [] ? null : implode(' / ', $notes);
+
+        // Un flag en false no es un dato: sin receta, agudeza ni nota no hay entrada.
+        if (! $this->hasAnyValue(array_filter($values, fn ($value) => $value !== false))) {
+            return;
+        }
+
+        $consultation->rxUsoEntries()->updateOrCreate(['orden' => 0], $values);
+    }
+
+    /**
+     * Las consultas que ya estaban importadas no se reescriben, pero la primera
+     * importacion solo guardo el primer numero del subjetivo y de la RX en uso.
+     * Con el respaldo a la vista se completa lo que nadie haya editado despues.
+     */
+    private function recoverMeasuresOfExistingConsultations(): void
+    {
+        try {
+            $report = app(LegacyConsultationRepairService::class)->repairFromSource($this->source, dryRun: $this->dryRun, examples: 0);
+        } catch (Throwable $e) {
+            $this->recordError('HISTORIAL OPTAMOLOGIA', 'medidas', $e);
+
+            return;
+        }
+
+        foreach ($report['rules'] as $summary) {
+            $this->stats['measures_recovered'] += $summary['changes'];
+        }
+        $this->stats['measures_unreadable'] = count($report['anomalies']);
     }
 
     private function patientForConsultation(array $row, string $legacyId): Patient
@@ -1236,6 +1318,8 @@ class ImportOpticaAndinaSqlite extends Command
             ['Consultas placeholder previas eliminadas', $this->stats['previous_consultations_removed']],
             ['Pacientes placeholder previos eliminados', $this->stats['previous_placeholders_removed']],
             ['Placeholders eliminados', $this->stats['placeholders_pruned']],
+            ['Medidas recuperadas en historias existentes', $this->stats['measures_recovered']],
+            ['Medidas del respaldo que no se pudieron leer', $this->stats['measures_unreadable']],
             ['Errores', $this->stats['errors']],
         ]);
 
