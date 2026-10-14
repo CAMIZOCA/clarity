@@ -168,7 +168,7 @@ class ReceptionFeedTest extends TestCase
     {
         $consultation = $this->consultation([
             'rx_final_esfera_od' => -1.25, 'rx_final_cilindro_od' => -0.50, 'rx_final_eje_od' => 90,
-            'rx_final_add_od' => 1.50,
+            'rx_final_add_od' => 1.50, 'rx_final_av_od' => '20/20', 'rx_final_dnp_od' => '31',
             'rx_final_esfera_oi' => null, 'rx_final_esfera_oi_neutral' => true,
             'recomendaciones' => 'Antirreflejo',
             'luna_espesor' => 'Alto indice',
@@ -185,6 +185,9 @@ class ReceptionFeedTest extends TestCase
         $this->assertSame(46, $item['patient']['edad']);
         $this->assertEquals(-1.25, $item['rx']['od']['esfera']);
         $this->assertEquals(90, $item['rx']['od']['eje']);
+        // SQLite toma un nombre de columna inexistente como texto; MariaDB falla con 500.
+        $this->assertSame('20/20', $item['rx']['od']['av']);
+        $this->assertSame('31', $item['rx']['od']['dnp']);
         $this->assertTrue($item['rx']['oi']['neutra']);
         $this->assertSame('Alto indice', $item['lens']['espesor']);
         $this->assertSame(['Antirreflejo'], $item['recommendations']);

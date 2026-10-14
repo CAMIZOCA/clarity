@@ -30,9 +30,9 @@ class ReceptionFeedService
         'diagnostico_cie10', 'diagnostico_descripcion', 'diagnostico_adicional',
         'avsc_od', 'avsc_oi', 'avcc_od', 'avcc_oi',
         'rx_final_esfera_od', 'rx_final_cilindro_od', 'rx_final_eje_od', 'rx_final_add_od',
-        'rx_final_avl_od', 'rx_final_dnp_od', 'rx_final_esfera_od_neutral',
+        'rx_final_av_od', 'rx_final_dnp_od', 'rx_final_esfera_od_neutral',
         'rx_final_esfera_oi', 'rx_final_cilindro_oi', 'rx_final_eje_oi', 'rx_final_add_oi',
-        'rx_final_avl_oi', 'rx_final_dnp_oi', 'rx_final_esfera_oi_neutral',
+        'rx_final_av_oi', 'rx_final_dnp_oi', 'rx_final_esfera_oi_neutral',
         'rx_final_observaciones', 'medidas_notas',
         'luna_material', 'luna_espesor', 'luna_proteccion', 'luna_observacion',
     ];
@@ -175,7 +175,7 @@ class ReceptionFeedService
             'cilindro_texto' => $c->medidas_notas["rx_final_cilindro_{$eye}"] ?? null,
             'eje' => $c->{"rx_final_eje_{$eye}"},
             'add' => $c->{"rx_final_add_{$eye}"},
-            'av' => $c->{"rx_final_avl_{$eye}"},
+            'av' => $c->{"rx_final_av_{$eye}"},
             'dnp' => $c->{"rx_final_dnp_{$eye}"},
         ];
     }
