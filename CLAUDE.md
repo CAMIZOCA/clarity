@@ -337,6 +337,12 @@ consultas importadas (a veces notas clinicas) y cada guardado lo dejaba en `null
   ADD sigue siendo solo numero. Quien lea una medida del formulario como numero debe pasar antes
   por `splitMeasureNote` (lo hacen los `toNumber` de `refractionChecks.js` y
   `diagnosisSuggestions.js`). `splitNote` (PHP) y `splitMeasureNote` (JS) deben coincidir.
+  **Texto sin numero ("COMP")**: en esfera y cilindro de Subjetivo y RX final (solo ahi, con
+  `allowTextOnly`) un texto sin digitos es toda nota: la columna queda en `null` y
+  `medidas_notas` guarda "COMP" (un ojo sin vision, medida compensatoria). Cuenta como dato para
+  `required_fields`, y `applyMeasureNotes` lo devuelve al input. Como la columna es `null`, los
+  sitios que muestran la RX final deben leer tambien `medidas_notas` (resumen de recepcion,
+  `RxHistoryPicker`, `CertificadoPdf`); la orden de trabajo y la receta impresa no lo muestran.
 - **Dashboard = pantalla de recepcion**: cuando el optometra completa una consulta, el vendedor la
   ve en `/dashboard` sin abrir la historia. `GET /api/reception/consultations`
   (`ReceptionFeedService`, sin cache a proposito) devuelve las completadas de hoy (`?days=N` para

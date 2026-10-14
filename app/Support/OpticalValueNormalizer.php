@@ -31,10 +31,18 @@ class OpticalValueNormalizer
      * no una nota, y un texto sin numero se devuelve intacto para que falle la
      * validacion. Mismo criterio que `splitMeasureNote` en `opticalFormat.js`.
      *
-     * @return array{0: string, 1: ?string}
+     * Con `$allowTextOnly` (esfera y cilindro de subjetivo y RX final), un texto
+     * sin ningun digito ("COMP": medida compensatoria de un ojo sin vision) es
+     * toda nota y no hay medida: `[null, "COMP"]`.
+     *
+     * @return array{0: ?string, 1: ?string}
      */
-    public static function splitNote(string $raw): array
+    public static function splitNote(string $raw, bool $allowTextOnly = false): array
     {
+        if ($allowTextOnly && self::isTextOnly($raw)) {
+            return [null, mb_strtoupper(trim(preg_replace('/\s+/u', ' ', $raw)))];
+        }
+
         $pattern = '/^\s*([-+]{0,2}\s*\d[\d.,]*\s*°?|(?:'.implode('|', self::NEUTRAL_ALIASES).')(?=\s))\s*(\p{L}.*)$/iu';
 
         if (! preg_match($pattern, $raw, $matches)) {
@@ -44,6 +52,16 @@ class OpticalValueNormalizer
         $note = mb_strtoupper(trim(preg_replace('/\s+/u', ' ', $matches[2])));
 
         return [trim($matches[1]), $note === '' ? null : $note];
+    }
+
+    /** Empieza por letra, no trae digitos y no es una esfera neutra ("N", "PL", "N CC"). */
+    private static function isTextOnly(string $raw): bool
+    {
+        $text = trim($raw);
+        $firstWord = mb_strtoupper(preg_split('/\s+/u', $text, 2)[0]);
+
+        return preg_match('/^\p{L}[^\d]*$/u', $text) === 1
+            && ! in_array($firstWord, self::NEUTRAL_ALIASES, true);
     }
 
     public static function normalize(?string $raw, string $type): ?string

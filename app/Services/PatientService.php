@@ -570,14 +570,14 @@ class PatientService extends BaseService
             ->orderByDesc('fecha_consulta')
             ->orderByDesc('id')
             ->limit(max(1, min($limit, self::RX_HISTORY_MAX)))
-            ->get(['id', 'patient_id', 'optometrista_id', 'numero_consulta', 'fecha_consulta', 'estado', ...$measures, ...$neutralFlags])
+            ->get(['id', 'patient_id', 'optometrista_id', 'numero_consulta', 'fecha_consulta', 'estado', ...$measures, ...$neutralFlags, 'medidas_notas'])
             ->map(fn ($consultation) => [
                 'id' => $consultation->id,
                 'numero_consulta' => $consultation->numero_consulta,
                 'fecha_consulta' => $consultation->fecha_consulta?->toDateString(),
                 'estado' => $consultation->estado,
                 'optometrista' => $consultation->optometrista?->name,
-                ...$consultation->only([...$measures, ...$neutralFlags]),
+                ...$consultation->only([...$measures, ...$neutralFlags, 'medidas_notas']),
             ])
             ->all();
     }

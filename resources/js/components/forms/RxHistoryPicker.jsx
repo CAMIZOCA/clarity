@@ -23,7 +23,13 @@ const dash = (value) => (value === null || value === undefined || value === '' ?
 
 function sphere(row, eye) {
     if (row[`rx_final_esfera_${eye}_neutral`]) return 'N';
-    return dash(formatOpticalForInput(row[`rx_final_esfera_${eye}`]));
+    return measure(row, 'esfera', eye);
+}
+
+/** Medida con signo; sin numero, el texto que la reemplaza ("COMP"). */
+function measure(row, column, eye) {
+    const key = `rx_final_${column}_${eye}`;
+    return dash(formatOpticalForInput(row[key]) || row.medidas_notas?.[key]);
 }
 
 export default function RxHistoryPicker({ patientId, excludeId = null, onUse }) {
@@ -89,7 +95,7 @@ export default function RxHistoryPicker({ patientId, excludeId = null, onUse }) 
                                         </span>
                                     </td>
                                     <td className="px-2 py-1 text-center font-mono">{sphere(row, eye)}</td>
-                                    <td className="px-2 py-1 text-center font-mono">{dash(formatOpticalForInput(row[`rx_final_cilindro_${eye}`]))}</td>
+                                    <td className="px-2 py-1 text-center font-mono">{measure(row, 'cilindro', eye)}</td>
                                     <td className="px-2 py-1 text-center font-mono">{dash(row[`rx_final_eje_${eye}`])}</td>
                                     <td className="px-2 py-1 text-center font-mono">{dash(formatOpticalForInput(row[`rx_final_add_${eye}`]))}</td>
                                     <td className="px-2 py-1 text-center font-mono">{dash(row[`rx_final_av_${eye}`])}</td>

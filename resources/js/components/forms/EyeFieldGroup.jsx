@@ -56,9 +56,13 @@ const FIELD_META = {
 // despues del numero ("20cc" -> "20 CC"); la ADD no.
 const refractionText = (field) => (raw) => normalizeRefractionText(raw, FIELD_META[field].maxLength);
 
+// Subjetivo y RX final admiten un texto sin numero ("COMP") en esfera y cilindro:
+// la medida compensatoria de un ojo sin vision. Ver `StoreConsultationRequest::acceptsTextOnly`.
+const TEXT_MEASURE_PREFIXES = new Set(['subj', 'rx_final']);
+
 const FIELD_NORMALIZERS = {
-    esfera: (raw) => normalizeMeasureWithNote(raw, 'sphere'),
-    cilindro: (raw) => normalizeMeasureWithNote(raw, 'cylinder'),
+    esfera: (raw, allowTextOnly) => normalizeMeasureWithNote(raw, 'sphere', { allowTextOnly }),
+    cilindro: (raw, allowTextOnly) => normalizeMeasureWithNote(raw, 'cylinder', { allowTextOnly }),
     eje: (raw) => normalizeMeasureWithNote(raw, 'axis'),
     add: normalizeAdd,
     av_lectura: refractionText('av_lectura'),
@@ -188,7 +192,7 @@ export default function EyeFieldGroup({
         const raw = event.target.value;
         if (raw === '' || raw === null || raw === undefined) return;
 
-        const normalized = normalizer(raw);
+        const normalized = normalizer(raw, TEXT_MEASURE_PREFIXES.has(prefix));
         if (normalized !== raw) {
             setValue(event.target.name, normalized, { shouldDirty: true });
         }

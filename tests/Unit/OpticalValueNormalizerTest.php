@@ -90,6 +90,31 @@ class OpticalValueNormalizerTest extends TestCase
         ];
     }
 
+    #[DataProvider('textOnlyCases')]
+    public function test_text_without_a_number_is_all_note_when_allowed(string $input, ?string $value, ?string $note): void
+    {
+        $this->assertSame([$value, $note], OpticalValueNormalizer::splitNote($input, allowTextOnly: true));
+    }
+
+    public static function textOnlyCases(): array
+    {
+        return [
+            'compensatoria' => ['comp', null, 'COMP'],
+            'con espacios' => ['  Comp   ojo ', null, 'COMP OJO'],
+            'neutra sigue siendo esfera' => ['N', 'N', null],
+            'plano sigue siendo esfera' => ['pl', 'pl', null],
+            'neutra con nota' => ['N cc', 'N', 'CC'],
+            'numero con nota no cambia' => ['-1.25 cc', '-1.25', 'CC'],
+            'numero solo no cambia' => ['+0.75', '+0.75', null],
+            'letras con numero no son solo texto' => ['comp 2', 'comp 2', null],
+        ];
+    }
+
+    public function test_text_without_a_number_is_not_a_note_unless_allowed(): void
+    {
+        $this->assertSame(['comp', null], OpticalValueNormalizer::splitNote('comp'));
+    }
+
     public function test_null_and_empty_pass_through_unchanged(): void
     {
         $this->assertNull(OpticalValueNormalizer::normalize(null, 'sphere'));

@@ -77,11 +77,24 @@ export function normalizeOpticalValue(raw, type) {
 // `OpticalValueNormalizer::splitNote` (PHP), que es quien las separa al guardar.
 const MEASURE_NOTE = /^\s*([-+]{0,2}\s*\d[\d.,]*\s*°?|(?:N|NEUTRO|PLANO|PL)(?=\s))\s*(\p{L}.*)$/iu;
 
+// Texto sin ningun digito ("COMP"): con `allowTextOnly` es toda nota y no hay
+// medida. Mismo criterio que `OpticalValueNormalizer::isTextOnly` (PHP).
+const TEXT_ONLY = /^\p{L}[^\d]*$/u;
+
 /**
  * @param {string|number|null|undefined} raw
+ * @param {{ allowTextOnly?: boolean }} [options]
  * @returns {{ value: string|number|null|undefined, note: string }}
  */
-export function splitMeasureNote(raw) {
+export function splitMeasureNote(raw, { allowTextOnly = false } = {}) {
+    if (allowTextOnly && typeof raw === 'string') {
+        const text = raw.trim();
+        const firstWord = text.split(/\s+/)[0].toUpperCase();
+        if (TEXT_ONLY.test(text) && !NEUTRAL_ALIASES.has(firstWord)) {
+            return { value: '', note: text.replace(/\s+/g, ' ').toUpperCase() };
+        }
+    }
+
     const match = typeof raw === 'string' ? raw.match(MEASURE_NOTE) : null;
     if (!match) return { value: raw, note: '' };
 
@@ -96,14 +109,17 @@ export function withMeasureNote(value, note) {
 /**
  * `normalizeOpticalValue` para esfera, cilindro y eje, que admiten letras
  * despues del numero: "20cc" -> "20 CC", "-125cc" -> "-1.25 CC".
+ * Con `allowTextOnly`, un texto sin numero ("comp") queda como "COMP".
  *
  * @param {string|null|undefined} raw
  * @param {'sphere'|'cylinder'|'axis'} type
+ * @param {{ allowTextOnly?: boolean }} [options]
  */
-export function normalizeMeasureWithNote(raw, type) {
+export function normalizeMeasureWithNote(raw, type, options) {
     if (raw === null || raw === undefined || raw === '') return raw;
 
-    const { value, note } = splitMeasureNote(String(raw));
+    const { value, note } = splitMeasureNote(String(raw), options);
+    if (value === '' && note) return note;
 
     return withMeasureNote(normalizeOpticalValue(value, type), note);
 }

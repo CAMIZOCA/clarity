@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useController } from 'react-hook-form';
 import { Calendar } from 'lucide-react';
 import { toDisplayDate, toIsoDate } from '../../utils/dates';
@@ -10,6 +10,9 @@ import { focusField } from '../../utils/fieldNavigation';
  * `<input type="date">` se renderiza segun el locale del navegador y no es
  * controlable, por eso aqui se usa un input de texto con mascara. Hacia
  * react-hook-form siempre emite `YYYY-MM-DD`, que es lo que espera la API.
+ *
+ * El boton del calendario abre un `<input type="date">` nativo oculto, solo como
+ * ayuda para elegir el dia: la fuente de verdad sigue siendo el texto con mascara.
  */
 
 /** Inserta las barras a medida que se escribe: `12051990` -> `12/05/1990`. */
@@ -50,6 +53,8 @@ export default function DateInput({
     const { field, fieldState } = useController({ control, name, rules });
     const [display, setDisplay] = useState(() => toDisplayDate(field.value));
     const [touched, setTouched] = useState(false);
+    const textRef = useRef(null);
+    const pickerRef = useRef(null);
 
     // Resincronizar cuando el valor cambia desde fuera (reset, carga de datos).
     // Lo escrito solo cuenta si es una fecha completa: `toIsoDate` cae en
@@ -85,6 +90,28 @@ export default function DateInput({
         field.onBlur();
     };
 
+    const openPicker = () => {
+        const picker = pickerRef.current;
+        if (!picker) return;
+
+        try {
+            if (typeof picker.showPicker === 'function') picker.showPicker();
+            else picker.click();
+        } catch {
+            // Sin activacion de usuario o contexto no soportado: se sigue escribiendo.
+        }
+    };
+
+    const handlePick = (event) => {
+        const iso = event.target.value;
+        if (!iso) return;
+
+        setDisplay(toDisplayDate(iso));
+        field.onChange(iso);
+        setTouched(true);
+        textRef.current?.focus({ preventScroll: true });
+    };
+
     const handleKeyDown = (event) => {
         if (event.key === 'Enter' && !event.isComposing && nextFieldId) {
             const nextField = document.getElementById(nextFieldId);
@@ -114,7 +141,10 @@ export default function DateInput({
             <div className="relative flex items-center">
                 <input
                     id={name}
-                    ref={field.ref}
+                    ref={(node) => {
+                        textRef.current = node;
+                        field.ref(node);
+                    }}
                     name={field.name}
                     type="text"
                     inputMode="numeric"
@@ -133,7 +163,27 @@ export default function DateInput({
                         ${invalid ? 'border-red-400 bg-red-50' : 'border-gray-300 bg-white'}`}
                     {...props}
                 />
-                <Calendar size={16} className="pointer-events-none absolute right-3 text-gray-400" />
+                <button
+                    type="button"
+                    tabIndex={-1}
+                    disabled={disabled}
+                    onClick={openPicker}
+                    aria-label="Abrir calendario"
+                    className="absolute right-0 flex h-full min-w-11 items-center justify-center rounded-r-lg
+                        text-gray-400 hover:text-[#1a2a4a] disabled:pointer-events-none"
+                >
+                    <Calendar size={16} />
+                </button>
+                <input
+                    ref={pickerRef}
+                    type="date"
+                    tabIndex={-1}
+                    aria-hidden="true"
+                    disabled={disabled}
+                    value={toIsoDate(field.value)}
+                    onChange={handlePick}
+                    className="pointer-events-none absolute bottom-0 right-0 h-0 w-0 opacity-0"
+                />
             </div>
             {hint && !errorText && <p className="text-xs text-gray-500">{hint}</p>}
             {errorText && <p className="text-xs text-red-500">{errorText}</p>}

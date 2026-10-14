@@ -41,6 +41,8 @@ function val(v) {
 function rxCell(consultation, key, eye) {
     if (key === 'rx_final_esfera' && consultation[`${key}_${eye}_neutral`]) return 'N';
     const value = consultation[`${key}_${eye}`];
+    // Esfera/cilindro sin numero ("COMP"): se imprime el texto que lo reemplaza.
+    if (value === null || value === undefined) return val(consultation.medidas_notas?.[`${key}_${eye}`]);
     return SIGNED_RX_KEYS.has(key) ? formatOpticalForInput(value) : val(value);
 }
 

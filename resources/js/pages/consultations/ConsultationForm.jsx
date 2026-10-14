@@ -129,6 +129,12 @@ const SIGNED_OPTICAL_FIELDS = ['rx_uso', 'subj', 'rx_final', 'vc'].flatMap((pref
 const OPTICAL_COLUMN_TYPES = { esfera: 'sphere', cilindro: 'cylinder', eje: 'axis', add: 'add' };
 
 /**
+ * Esfera y cilindro de subjetivo y RX final admiten un texto sin numero
+ * ("COMP"): el servidor lo guarda como nota y deja la medida en null.
+ */
+const allowsTextOnly = (name) => /^(subj|rx_final)_(esfera|cilindro)_o[di]$/.test(name);
+
+/**
  * Deja las medidas del envio como las dejaria el formulario al salir del campo.
  *
  * El autoguardado puede caer con un campo todavia enfocado, y un cilindro
@@ -144,7 +150,7 @@ function normalizeOpticalPayload(payload) {
                     // La ADD es solo un numero; el resto admite una nota ("20 CC").
                     row[name] = type === 'add'
                         ? normalizeOpticalValue(row[name], type)
-                        : normalizeMeasureWithNote(row[name], type);
+                        : normalizeMeasureWithNote(row[name], type, { allowTextOnly: allowsTextOnly(name) });
                 }
             }
         }
@@ -248,8 +254,13 @@ const emptyRxUsoEntry = () => RX_USO_COLUMNS.reduce(
  */
 function applyMeasureNotes(values, notes) {
     for (const [field, note] of Object.entries(notes ?? {})) {
-        if (!isBlank(note) && !isBlank(values[field])) {
+        if (isBlank(note)) continue;
+
+        if (!isBlank(values[field])) {
             values[field] = withMeasureNote(values[field], note);
+        } else if (allowsTextOnly(field)) {
+            // Texto en lugar de la medida ("COMP"): no hay numero al que unirlo.
+            values[field] = note;
         }
     }
     return values;

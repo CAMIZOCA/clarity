@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Enums\Permission;
 use App\Models\Consultation;
 use App\Models\Patient;
+use App\Models\Setting;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
@@ -153,6 +154,70 @@ class ConsultationMeasureNotesTest extends TestCase
         $this->putJson("/api/consultations/{$consultation->id}", $this->payload([
             'estado' => 'completada', 'queratometria_horizontal_od' => 'abc',
         ]))->assertStatus(422)->assertJsonValidationErrors('queratometria_horizontal_od');
+    }
+
+    /** Un ojo sin vision: la optica escribe "COMP" donde iria la medida. */
+    public function test_text_instead_of_a_measure_is_kept_as_a_note_in_sphere_and_cylinder(): void
+    {
+        $id = $this->postJson('/api/consultations', $this->payload([
+            'subj_esfera_od' => 'comp',
+            'subj_cilindro_od' => '-0.50',
+            'rx_final_esfera_od' => 'COMP',
+            'rx_final_cilindro_oi' => 'comp',
+            'rx_final_esfera_oi' => '-6.00',
+        ]))->assertCreated()->json('id');
+
+        $consultation = Consultation::findOrFail($id);
+        $this->assertNull($consultation->subj_esfera_od);
+        $this->assertNull($consultation->rx_final_esfera_od);
+        $this->assertFalse($consultation->rx_final_esfera_od_neutral);
+        $this->assertNull($consultation->rx_final_cilindro_oi);
+        $this->assertEqualsWithDelta(-6.0, $consultation->rx_final_esfera_oi, 0.001);
+        $this->assertSame(
+            ['subj_esfera_od' => 'COMP', 'rx_final_esfera_od' => 'COMP', 'rx_final_cilindro_oi' => 'COMP'],
+            $consultation->medidas_notas,
+        );
+
+        $this->getJson("/api/consultations/{$id}")
+            ->assertOk()
+            ->assertJsonPath('medidas_notas.rx_final_esfera_od', 'COMP');
+
+        // El formulario reenvia el texto tal cual: sigue ahi. Al borrarlo, se va.
+        $this->putJson("/api/consultations/{$id}", $this->payload([
+            'subj_esfera_od' => 'COMP', 'rx_final_esfera_od' => '', 'rx_final_cilindro_oi' => 'COMP',
+        ]))->assertOk();
+
+        $this->assertSame(
+            ['subj_esfera_od' => 'COMP', 'rx_final_cilindro_oi' => 'COMP'],
+            Consultation::findOrFail($id)->medidas_notas,
+        );
+    }
+
+    public function test_text_instead_of_a_measure_fills_a_required_field_on_completion(): void
+    {
+        Setting::set('required_fields', json_encode(['rx_final_esfera_od']));
+
+        $this->postJson('/api/consultations', $this->payload(['estado' => 'completada']))
+            ->assertStatus(422)->assertJsonValidationErrors('rx_final_esfera_od');
+
+        $this->postJson('/api/consultations', $this->payload(['estado' => 'completada', 'rx_final_esfera_od' => 'COMP']))
+            ->assertCreated();
+    }
+
+    public function test_text_without_a_number_is_only_accepted_in_sphere_and_cylinder_of_subjective_and_final_rx(): void
+    {
+        foreach (['subj_eje_od', 'rx_final_eje_od', 'rx_final_add_od', 'vc_esfera_od', 'rx_uso_esfera_od'] as $field) {
+            $this->postJson('/api/consultations', $this->payload([$field => 'COMP']))
+                ->assertStatus(422)->assertJsonValidationErrors($field);
+        }
+
+        $this->postJson('/api/consultations', $this->payload([
+            'rx_uso_entries' => [['esfera_od' => 'COMP']],
+        ]))->assertStatus(422)->assertJsonValidationErrors('rx_uso_entries.0.esfera_od');
+
+        // Un texto largo no es una nota.
+        $this->postJson('/api/consultations', $this->payload(['subj_esfera_od' => 'compensatoria porque no ve']))
+            ->assertStatus(422)->assertJsonValidationErrors('medidas_notas.subj_esfera_od');
     }
 
     public function test_a_note_does_not_excuse_an_invalid_measure(): void

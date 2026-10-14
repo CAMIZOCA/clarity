@@ -33,7 +33,7 @@ class ReceptionFeedService
         'rx_final_avl_od', 'rx_final_dnp_od', 'rx_final_esfera_od_neutral',
         'rx_final_esfera_oi', 'rx_final_cilindro_oi', 'rx_final_eje_oi', 'rx_final_add_oi',
         'rx_final_avl_oi', 'rx_final_dnp_oi', 'rx_final_esfera_oi_neutral',
-        'rx_final_observaciones',
+        'rx_final_observaciones', 'medidas_notas',
         'luna_material', 'luna_espesor', 'luna_proteccion', 'luna_observacion',
     ];
 
@@ -170,6 +170,9 @@ class ReceptionFeedService
             'esfera' => $c->{"rx_final_esfera_{$eye}"},
             'neutra' => (bool) $c->{"rx_final_esfera_{$eye}_neutral"},
             'cilindro' => $c->{"rx_final_cilindro_{$eye}"},
+            // Texto en lugar de la medida ("COMP"): la columna queda en null.
+            'esfera_texto' => $c->medidas_notas["rx_final_esfera_{$eye}"] ?? null,
+            'cilindro_texto' => $c->medidas_notas["rx_final_cilindro_{$eye}"] ?? null,
             'eje' => $c->{"rx_final_eje_{$eye}"},
             'add' => $c->{"rx_final_add_{$eye}"},
             'av' => $c->{"rx_final_avl_{$eye}"},

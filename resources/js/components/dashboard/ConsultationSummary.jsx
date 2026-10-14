@@ -13,7 +13,11 @@ const RX_COLUMNS = [
 ];
 
 function rxValue(eye, key) {
-    if (key === 'esfera') return eye.neutra ? 'N' : displaySphere(eye.esfera, EMPTY);
+    if (key === 'esfera') {
+        if (eye.neutra) return 'N';
+        return eye.esfera === null && eye.esfera_texto ? eye.esfera_texto : displaySphere(eye.esfera, EMPTY);
+    }
+    if (key === 'cilindro' && eye.cilindro === null && eye.cilindro_texto) return eye.cilindro_texto;
     if (key === 'cilindro' || key === 'add') return displaySigned(eye[key], EMPTY);
     if (key === 'eje') return eye.eje === null || eye.eje === undefined || eye.eje === '' ? EMPTY : `${eye.eje}°`;
     return eye[key] || EMPTY;

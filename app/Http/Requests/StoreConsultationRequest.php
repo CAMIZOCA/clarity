@@ -410,13 +410,13 @@ class StoreConsultationRequest extends FormRequest
             $val = $this->input($field);
             if ($val !== null && $val !== '') {
                 if ($this->acceptsNote($field, $type)) {
-                    [$val, $note] = OpticalValueNormalizer::splitNote((string) $val);
+                    [$val, $note] = OpticalValueNormalizer::splitNote((string) $val, $this->acceptsTextOnly($field, $type));
                     if ($note !== null) {
                         $notes[$field] = $note;
                     }
                 }
 
-                $normalized[$field] = OpticalValueNormalizer::normalize((string) $val, $type);
+                $normalized[$field] = $val === null ? null : OpticalValueNormalizer::normalize((string) $val, $type);
             }
         }
 
@@ -543,6 +543,11 @@ class StoreConsultationRequest extends FormRequest
                 continue;
             }
 
+            // Un texto en lugar de la medida ("COMP") cuenta como dato.
+            if (filled($this->input("medidas_notas.{$field}")) && blank($this->input($field))) {
+                continue;
+            }
+
             $rules[$field] = ['required', ...array_values(array_filter(
                 $rules[$field],
                 fn ($rule) => ! in_array($rule, ['nullable', 'sometimes', 'required'], true)
@@ -660,6 +665,15 @@ class StoreConsultationRequest extends FormRequest
     private function acceptsNote(string $field, string $type): bool
     {
         return $type !== 'add' && preg_match('/^(subj|rx_final|vc)_/', $field) === 1;
+    }
+
+    /**
+     * Esfera y cilindro de subjetivo y RX final admiten un texto sin numero
+     * ("COMP"): la medida queda en `null` y el texto va a `medidas_notas`.
+     */
+    private function acceptsTextOnly(string $field, string $type): bool
+    {
+        return in_array($type, ['sphere', 'cylinder'], true) && preg_match('/^(subj|rx_final)_/', $field) === 1;
     }
 
     /** Misma normalizacion de medidas opticas para las recetas en uso anidadas. */
