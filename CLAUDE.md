@@ -152,6 +152,12 @@ el insert aborta. Agregar cualquier producto en el POS respondia 500.
 
 Al escribir una columna opcional, el fallback debe ser el default de la columna, no `null`.
 
+Lo mismo al reves, al leer: SQLite toma un `select` de una columna que **no existe** como un
+texto literal y no falla, mientras MariaDB responde 500 (`Unknown column`). `ReceptionFeedService`
+pedia `rx_final_avl_*`, que la migracion `2026_09_14_000003` ya habia eliminado (hoy es
+`rx_final_av_*`): las pruebas pasaban y el dashboard daba 500 en produccion. Una prueba que
+recorra un `select(...)` explicito debe afirmar el **valor** de cada columna leida, no solo el 200.
+
 ### 9. Nombre del paciente
 
 `patients.nombre` es el **nombre de pila** y `patients.apellido` el apellido. Los registros
