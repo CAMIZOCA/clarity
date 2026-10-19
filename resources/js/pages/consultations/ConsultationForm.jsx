@@ -430,6 +430,9 @@ function buildDefaultValues(patient, consultation, meta, defaultDoctor = null) {
             ojo_dominante: '',
             but_value: '',
             shirmer_test: '',
+            dhiv: '',
+            tincion: '',
+            estado: '',
             frecuencia_parpadeo: '',
             observaciones: '',
             test_lens: {
@@ -1869,16 +1872,19 @@ export default function ConsultationForm({ patient, consultation, meta }) {
             </CollapsibleSection>
 
             <CollapsibleSection title="Módulo de lentes de contacto" subtitle="Adaptación, lente de prueba y lente definitivo." sectionKey="lentes_contacto" {...moduleSectionProps('consulta:sec_lentes_contacto')}>
-                <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-4">
+                <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-5">
                     <FormInput label="Diámetro pupilar" name="contact_lens_module.diametro_pupilar" register={register} />
                     <FormInput label="Diámetro corneal" name="contact_lens_module.diametro_corneal" register={register} />
                     <FormInput label="Apertura palpebral" name="contact_lens_module.apertura_palpebral" register={register} />
                     <FormInput label="Tensión palpebral" name="contact_lens_module.tension_palpebral" register={register} />
+                    <FormInput label="DHIV" name="contact_lens_module.dhiv" register={register} />
                     <FormSelect label="Ojo dominante" name="contact_lens_module.ojo_dominante" register={register} options={[{ value: 'OD', label: 'OD' }, { value: 'OI', label: 'OI' }]} />
                     <FormInput label="BUT" name="contact_lens_module.but_value" register={register} />
                     <FormInput label="Test de Schirmer" name="contact_lens_module.shirmer_test" register={register} />
+                    <FormInput label="Tinción" name="contact_lens_module.tincion" register={register} />
                     <FormInput label="Frecuencia de parpadeo" name="contact_lens_module.frecuencia_parpadeo" register={register} />
-                    <div className="lg:col-span-4">
+                    <FormSelect label="Estado" name="contact_lens_module.estado" register={register} options={[{ value: 'en_observacion', label: 'En proceso de observación' }, { value: 'finalizado', label: 'Finalizado' }]} />
+                    <div className="lg:col-span-5">
                         <TextArea label="Observaciones" name="contact_lens_module.observaciones" register={register} rows={3} />
                     </div>
                 </div>
