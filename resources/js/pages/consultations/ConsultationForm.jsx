@@ -503,12 +503,12 @@ const FIELD_SECTION_RULES = [
     [/^(diagnoses\.|diagnostico_)/, 'diagnostico'],
     [/^(lens_recommendation\.|recommendations_list\.)/, 'recomendaciones'],
     [/^sale_items\./, 'venta'],
-    [/^(observaciones$|queratometria_|examen_externo_|vision_colores$)/, 'observaciones'],
+    [/^(observaciones$|queratometria_|examen_externo_)/, 'observaciones'],
     [/^motor_binocular_data\./, 'motor_binocular'],
     [/^contact_lens_module\./, 'lentes_contacto'],
     [/^ophthalmoscopy_module\./, 'oftalmoscopia'],
     [/^treatment_module\./, 'tratamiento'],
-    [/^(av_lectura_|ark_|avsc_|avcc_|retinoscopia_|rx_uso_|lente_anterior$|subj_|rx_final_|vc_)/, 'refraccion'],
+    [/^(av_lectura_|ark_|avsc_|avcc_|retinoscopia_|rx_uso_|lente_anterior$|subj_|rx_final_|vc_|vision_colores$)/, 'refraccion'],
     [/^(fecha_consulta|optometrista_id|doctor_license|print_template_key|motivo_consulta|ultimo_control)$/, 'cabecera'],
 ];
 
@@ -1359,12 +1359,12 @@ export default function ConsultationForm({ patient, consultation, meta }) {
         'consulta:col_avsc', 'consulta:col_avcc', 'consulta:rx_uso_cilindro', 'consulta:rx_uso_avcc',
         'consulta:subj_esfera', 'consulta:subj_eje', 'consulta:subj_avl',
         'consulta:rx_final_prisma', 'consulta:rx_final_base', 'consulta:rx_final_distancia',
-        'consulta:grp_vision_cerca', 'consulta:lente_anterior',
+        'consulta:grp_vision_cerca', 'consulta:vision_colores', 'consulta:lente_anterior',
     ];
     const hasRefractionAdvanced = refractionAdvKeys.some((k) => isAdvanced(k));
     const cabeceraHasAdvanced = isAdvanced('consulta:ultimo_control');
     const diagnosticoHasAdvanced = isAdvanced('consulta:diagnostico_adicional');
-    const observacionesHasAdvanced = ['consulta:queratometria', 'consulta:examen_externo', 'consulta:vision_colores'].some((k) => isAdvanced(k));
+    const observacionesHasAdvanced = ['consulta:queratometria', 'consulta:examen_externo'].some((k) => isAdvanced(k));
 
     // "Guardar borrador" sobre una consulta completada hacia pensar que la
     // devolvia a borrador; ese boton nunca cambia el estado.
@@ -1604,6 +1604,11 @@ export default function ConsultationForm({ patient, consultation, meta }) {
                             label="RX - Visión de Cerca"
                         />
                     )}
+                    {advVisible('consulta:vision_colores', refractionAdv) && (
+                        <div className="mt-4 max-w-md">
+                            <FormInput label="Visión de colores" name="vision_colores" register={register} placeholder="14/14 Test Ishihara" hint="Se imprime en el certificado." />
+                        </div>
+                    )}
                     {hasRefractionAdvanced && (
                         <div className="mt-2">
                             <AdvancedToggleButton open={refractionAdv.open} onToggle={refractionAdv.toggle} />
@@ -1827,9 +1832,6 @@ export default function ConsultationForm({ patient, consultation, meta }) {
                     )}
                     {advVisible('consulta:examen_externo', observacionesAdv) && (
                         <TextArea label="Examen externo OI" name="examen_externo_oi" register={register} rows={3} />
-                    )}
-                    {advVisible('consulta:vision_colores', observacionesAdv) && (
-                        <FormInput label="Visión de colores" name="vision_colores" register={register} placeholder="14/14 Test Ishihara" hint="Se imprime en el certificado." />
                     )}
                 </div>
                 {observacionesHasAdvanced && (
