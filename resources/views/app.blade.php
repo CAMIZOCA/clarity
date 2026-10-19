@@ -4,6 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta name="app-build" content="{{ \App\Services\AppVersion::current() }}">
     <title>Clarity | Sistema de gestion para opticas</title>
     <meta name="description" content="Clarity centraliza pacientes, consultas, recetas, ventas, inventario, laboratorio, caja, CRM, sucursales y reportes para opticas.">
     <meta name="theme-color" content="#05070f">
