@@ -27,7 +27,7 @@ class AiController extends Controller
     public function status(): JsonResponse
     {
         return $this->ok([
-            'enabled' => $this->ai->isEnabled(),
+            'enabled' => $this->ai->isAvailable(),
             'model'   => 'claude-haiku-4-5',
             'features' => [
                 'patient_summary'        => true,

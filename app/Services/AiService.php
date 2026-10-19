@@ -52,6 +52,14 @@ class AiService
     }
 
     /**
+     * Habilitada y con API key: solo entonces la IA puede responder.
+     */
+    public function isAvailable(): bool
+    {
+        return $this->enabled && (bool) config('services.anthropic.api_key');
+    }
+
+    /**
      * IA-1: Resumen inteligente del paciente para el vendedor.
      * Analiza historial clínico y comercial y genera 3 insights accionables.
      *

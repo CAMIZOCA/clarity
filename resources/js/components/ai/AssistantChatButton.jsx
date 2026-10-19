@@ -50,12 +50,13 @@ export default function AssistantChatButton({ context = {} }) {
   useEffect(() => {
     if (open) {
       setTimeout(() => inputRef.current?.focus(), 100);
-      // Check if AI is enabled (only once)
-      if (aiEnabled === null) {
-        checkAiStatus();
-      }
     }
   }, [open]);
+
+  // Sin IA configurada el asistente no tiene nada que ofrecer: se oculta el botón.
+  useEffect(() => {
+    checkAiStatus();
+  }, []);
 
   const checkAiStatus = async () => {
     try {
@@ -112,6 +113,8 @@ export default function AssistantChatButton({ context = {} }) {
   const clearChat = () => {
     setMessages([WELCOME_MSG]);
   };
+
+  if (!aiEnabled) return null;
 
   return (
     <>
