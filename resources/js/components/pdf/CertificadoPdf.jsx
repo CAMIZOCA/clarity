@@ -6,7 +6,7 @@ import { useToast } from '../ui/Toast';
 import { useSettings } from '../../contexts/SettingsContext';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { parseDate } from '../../utils/dates';
+import { parseDate, todayIso } from '../../utils/dates';
 import { formatOpticalForInput } from '../../utils/opticalFormat';
 
 const RX_COLS = [
@@ -14,7 +14,7 @@ const RX_COLS = [
     { key: 'rx_final_cilindro', label: 'CILINDRO' },
     { key: 'rx_final_eje', label: 'EJE' },
     { key: 'rx_final_add', label: 'ADD' },
-    { key: 'rx_final_av', label: 'AV' },
+    { key: 'rx_final_av', label: 'AVL' },
     { key: 'rx_final_prisma', label: 'PRISMA' },
     { key: 'rx_final_base', label: 'BASE' },
     { key: 'rx_final_dnp', label: 'DNP/DP' },
@@ -80,18 +80,27 @@ function PdfContent({ data, settings, logoUrl, doctor, showRx = true }) {
     const cedula = patient.cedula || patient.company_ruc || '';
     const edad = patient.edad ?? '';
 
-    const fechaRaw = c.fecha_consulta
-        ? format(parseDate(c.fecha_consulta), "EEEE, d 'de' MMMM 'de' yyyy", { locale: es })
-        : '';
-    const fecha = fechaRaw ? fechaRaw.charAt(0).toUpperCase() + fechaRaw.slice(1) : '';
+    const longDate = iso => {
+        const raw = iso ? format(parseDate(iso), "EEEE, d 'de' MMMM 'de' yyyy", { locale: es }) : '';
+        return raw ? raw.charAt(0).toUpperCase() + raw.slice(1) : '';
+    };
+    const fecha = longDate(c.fecha_consulta);
+    // Fecha de emision: la del dia en que se imprime, no la de la consulta.
+    const fechaEmision = longDate(todayIso()).toLowerCase();
 
     // Diagnóstico por ojo: campos de certificado con fallback a la relación
     // diagnoses. Un diagnostico "general" (ej. presbicia) aplica a ambos ojos.
-    const diagGeneral = diagnoses.filter(d => d.eye === 'general').map(d => [d.code, d.description].filter(Boolean).join(' '));
+    // Los codigos van juntos y despues la descripcion ("H52.1, H52.2 Astigmatismo...").
+    const joinDiagnoses = list => {
+        const codes = list.map(d => d.code).filter(Boolean).join(', ');
+        const descriptions = [...new Set(list.map(d => d.description).filter(Boolean))].join(', ');
+        return [codes, descriptions].filter(Boolean).join(' ');
+    };
+    const diagGeneral = diagnoses.filter(d => d.eye === 'general');
     const diagOd = c.certificado_diagnostico_od
-        || [...diagnoses.filter(d => d.eye === 'od').map(d => [d.code, d.description].filter(Boolean).join(' ')), ...diagGeneral].join(', ');
+        || joinDiagnoses([...diagnoses.filter(d => d.eye === 'od'), ...diagGeneral]);
     const diagOi = c.certificado_diagnostico_oi
-        || [...diagnoses.filter(d => d.eye === 'oi').map(d => [d.code, d.description].filter(Boolean).join(' ')), ...diagGeneral].join(', ');
+        || joinDiagnoses([...diagnoses.filter(d => d.eye === 'oi'), ...diagGeneral]);
 
     const hasRx = RX_COLS.some(col => c[`${col.key}_od`] || c[`${col.key}_oi`]);
     const hasAv = c.avsc_od || c.avsc_oi || c.avcc_od || c.avcc_oi;
@@ -103,14 +112,16 @@ function PdfContent({ data, settings, logoUrl, doctor, showRx = true }) {
         || val(c.recomendaciones)
         || recList.filter(r => r.text).map(r => r.text).join('\n');
 
-    const th = { border: '1px solid #9db4d0', padding: '3px 6px', textAlign: 'center', fontSize: '10px' };
-    const td = { border: '1px solid #9db4d0', padding: '3px 6px', textAlign: 'center', fontSize: '11px' };
+    const th = { border: '1px solid #9db4d0', padding: '5px 8px', textAlign: 'center', fontSize: '10px' };
+    const td = { border: '1px solid #9db4d0', padding: '5px 8px', textAlign: 'center', fontSize: '11px' };
 
     return (
-        <div id="pdf-content" style={{ fontFamily: 'Arial, sans-serif', fontSize: '12px', color: '#111', background: '#fff', padding: '28px 34px', maxWidth: '820px', margin: '0 auto' }}>
+        // Hoja A4 completa (210x297 mm a 96 dpi): el margen es el padding, el cuerpo va arriba
+        // y la firma y el pie se reparten hacia abajo con `marginTop: auto`.
+        <div id="pdf-content" style={{ fontFamily: 'Arial, sans-serif', fontSize: '12px', color: '#111', background: '#fff', boxSizing: 'border-box', width: '794px', minHeight: '1120px', padding: '56px 60px 44px', margin: '0 auto', display: 'flex', flexDirection: 'column' }}>
             {/* Encabezado: el logo ya identifica a la clinica, asi que el nombre
                 y el eslogan en texto solo van cuando no hay logo cargado. */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '6px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '14px' }}>
                 {logoUrl ? (
                     <img src={logoUrl} alt="Logo" style={{ height: '70px', objectFit: 'contain' }} crossOrigin="anonymous" />
                 ) : (
@@ -122,18 +133,18 @@ function PdfContent({ data, settings, logoUrl, doctor, showRx = true }) {
             </div>
 
             {/* Título */}
-            <h1 style={{ textAlign: 'center', fontSize: '22px', fontWeight: 'bold', color: NAVY, letterSpacing: '1px', margin: '10px 0 4px', textDecoration: 'underline' }}>
+            <h1 style={{ textAlign: 'center', fontSize: '22px', fontWeight: 'bold', color: NAVY, letterSpacing: '1px', margin: '22px 0 18px', textDecoration: 'underline' }}>
                 CERTIFICADO VISUAL
             </h1>
-            <div style={{ textAlign: 'right', color: BLUE, fontWeight: 'bold', fontSize: '12px', marginBottom: '10px' }}>
-                {fecha}
+            <div style={{ textAlign: 'right', fontWeight: 'bold', fontSize: '12.5px', marginBottom: '22px' }}>
+                {settings.clinic_city || 'Quito'}, {fechaEmision}
             </div>
 
             {/* Narrativa + datos del paciente */}
-            <div style={{ fontSize: '12.5px', lineHeight: 1.7, marginBottom: '14px' }}>
+            <div style={{ fontSize: '13px', lineHeight: 1.9, marginBottom: '26px' }}>
                 <div>
                     Por medio de la presente certifico haber examinado al paciente{' '}
-                    <strong style={{ textTransform: 'uppercase' }}>{patient.nombre_completo || patient.nombre}</strong>
+                    <strong>{patient.nombre_completo || patient.nombre}</strong>
                 </div>
                 <div>De <strong>{edad}</strong> Años de edad, con Cédula ID: <strong>{cedula}</strong></div>
                 {fecha && <div>Asistió a consulta, el día: {fecha}</div>}
@@ -142,7 +153,7 @@ function PdfContent({ data, settings, logoUrl, doctor, showRx = true }) {
 
             {/* Agudeza visual + visión de colores */}
             {(hasAv || c.vision_colores) && (
-                <div style={{ display: 'flex', gap: '18px', alignItems: 'flex-start', marginBottom: '16px' }}>
+                <div style={{ display: 'flex', gap: '18px', alignItems: 'flex-start', marginBottom: '28px' }}>
                     {hasAv && (
                         <div style={{ display: 'flex', gap: '14px' }}>
                             {[{ label: 'AV.SC', od: c.avsc_od, oi: c.avsc_oi }, { label: 'AV.CC', od: c.avcc_od, oi: c.avcc_oi }].map(t => (
@@ -172,16 +183,16 @@ function PdfContent({ data, settings, logoUrl, doctor, showRx = true }) {
 
             {/* Diagnóstico */}
             {(diagOd || diagOi) && (
-                <div style={{ marginBottom: '14px' }}>
-                    <div style={{ fontWeight: 'bold', color: NAVY, fontSize: '13px', marginBottom: '6px' }}>DIAGNÓSTICO:</div>
-                    {diagOd && <div style={{ fontSize: '12px', marginBottom: '3px' }}><strong>O.D</strong>&nbsp;&nbsp;&nbsp;{diagOd}</div>}
+                <div style={{ marginBottom: '28px' }}>
+                    <div style={{ fontWeight: 'bold', color: NAVY, fontSize: '13px', marginBottom: '8px' }}>DIAGNÓSTICO:</div>
+                    {diagOd && <div style={{ fontSize: '12px', marginBottom: '6px' }}><strong>O.D</strong>&nbsp;&nbsp;&nbsp;{diagOd}</div>}
                     {diagOi && <div style={{ fontSize: '12px' }}><strong>O.I</strong>&nbsp;&nbsp;&nbsp;&nbsp;{diagOi}</div>}
                 </div>
             )}
 
             {/* RX Final */}
             {showRx && hasRx && (
-                <div style={{ marginBottom: '16px' }}>
+                <div style={{ marginBottom: '28px' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <thead>
                             <tr><th colSpan={RX_COLS.length + 1} style={{ ...th, background: BLUE, color: '#fff', border: '1px solid ' + BLUE }}>RX FINAL</th></tr>
@@ -204,16 +215,16 @@ function PdfContent({ data, settings, logoUrl, doctor, showRx = true }) {
 
             {/* Recomendaciones */}
             {recomendaciones && (
-                <div style={{ marginBottom: '18px' }}>
-                    <div style={{ fontWeight: 'bold', color: NAVY, fontSize: '13px', marginBottom: '4px' }}>RECOMENDACIONES:</div>
+                <div style={{ marginBottom: '22px' }}>
+                    <div style={{ fontWeight: 'bold', color: NAVY, fontSize: '13px', marginBottom: '6px' }}>RECOMENDACIONES:</div>
                     <div style={{ fontSize: '12px', whiteSpace: 'pre-line', textTransform: 'uppercase' }}>{recomendaciones}</div>
                 </div>
             )}
 
-            <div style={{ fontSize: '12px', margin: '18px 0 26px' }}>Es todo cuanto puedo certificar.</div>
+            <div style={{ fontSize: '12.5px', margin: '8px 0 36px' }}>Es todo cuanto puedo certificar.</div>
 
-            {/* Firma */}
-            <div style={{ textAlign: 'center', marginTop: '10px' }}>
+            {/* Firma: `marginTop: auto` la baja hacia el pie cuando sobra hoja. */}
+            <div style={{ textAlign: 'center', marginTop: 'auto', paddingBottom: '36px' }}>
                 {doctor?.nombre && <div style={{ fontSize: '12px', fontWeight: 'bold' }}>{doctor.nombre}</div>}
                 {doctor?.titulo && <div style={{ fontSize: '11px', fontWeight: 'bold', letterSpacing: '1px' }}>{doctor.titulo}</div>}
                 {doctor?.registro_senescyt && (
@@ -225,16 +236,14 @@ function PdfContent({ data, settings, logoUrl, doctor, showRx = true }) {
                     <img src={doctor.firma_url} alt="Firma" crossOrigin="anonymous"
                         style={{ height: '70px', objectFit: 'contain', margin: '4px auto', display: 'block' }} />
                 )}
-                {doctor?.nombre && (
-                    <div style={{ fontSize: '12px', fontWeight: 'bold', textTransform: 'uppercase', borderTop: doctor?.firma_url ? 'none' : '1px solid #333', paddingTop: '2px', display: 'inline-block', minWidth: '220px' }}>
-                        {doctor.nombre}
-                    </div>
+                {!doctor?.firma_url && doctor?.nombre && (
+                    <div style={{ borderTop: '1px solid #333', margin: '40px auto 0', width: '220px' }} />
                 )}
                 {doctor?.titulo && <div style={{ fontSize: '11px', color: '#333' }}>{doctor.titulo.charAt(0) + doctor.titulo.slice(1).toLowerCase()}</div>}
             </div>
 
             {/* Pie de página */}
-            <div style={{ marginTop: '30px', paddingTop: '10px', borderTop: '1px solid #bcd0e6', textAlign: 'center', fontSize: '10px', color: '#555' }}>
+            <div style={{ paddingTop: '10px', borderTop: '1px solid #bcd0e6', textAlign: 'center', fontSize: '10px', color: '#555' }}>
                 {settings.clinic_address && <div>Dirección: {settings.clinic_address}{settings.clinic_phone ? ` · Telf.: ${settings.clinic_phone}` : ''}</div>}
                 {(settings.clinic_email || settings.clinic_website) && (
                     <div>
@@ -291,7 +300,7 @@ export default function CertificadoPdf({ data, onClose, consultationDoctor }) {
         : `certificado_${certificateType.key}_${numero}.pdf`;
 
     const pdfOptions = () => ({
-        margin: 8,
+        margin: 0, // el margen de la hoja es el padding de #pdf-content
         filename: fileName,
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: { scale: 2, useCORS: true },
@@ -330,8 +339,8 @@ export default function CertificadoPdf({ data, onClose, consultationDoctor }) {
                 <meta charset="UTF-8">
                 <title>Certificado - ${settings.clinic_name}</title>
                 <style>
-                    body { margin: 0; padding: 20px; font-family: Arial, sans-serif; }
-                    @media print { body { margin: 0; padding: 10px; } }
+                    @page { size: A4; margin: 0; }
+                    body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
                 </style>
             </head>
             <body>${content.innerHTML}</body>
