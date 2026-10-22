@@ -22,6 +22,8 @@ import { displaySphere, displaySigned, formatOpticalForInput, normalizeMeasureWi
 import { refractionWarnings } from '../../utils/refractionChecks';
 import { toDisplayDate, toIsoDate, todayIso } from '../../utils/dates';
 import { handleFieldNavigation } from '../../utils/fieldNavigation';
+import { buildMotorBinocularDefaults } from '../../data/motorBinocularSchema';
+import MotorBinocularSection from './MotorBinocularSection';
 
 const REQUIRED_FIELD_LABELS = {
     optometrista_id: 'Médico / Optometrista',
@@ -408,20 +410,14 @@ function buildDefaultValues(patient, consultation, meta, defaultDoctor = null) {
         // `null`, y antes del spread ese null pisaba el valor por defecto. Asi
         // se perdian en pantalla `luna_observacion` y las pruebas binoculares
         // heredadas (`cover_test`, `ppc`...), que solo viven en columnas planas.
+        // `buildMotorBinocularDefaults` las recoge (y el PPC de Oftalmoscopia).
         lens_recommendation: {
             material_item_id: consultation?.lens_recommendation?.material_item_id ?? '',
             thickness_item_id: consultation?.lens_recommendation?.thickness_item_id ?? '',
             protection_item_id: consultation?.lens_recommendation?.protection_item_id ?? '',
             observation: consultation?.lens_recommendation?.observation ?? consultation?.luna_observacion ?? '',
         },
-        motor_binocular_data: consultation?.motor_binocular_data ?? {
-            ducciones: { od: consultation?.ducciones_od ?? '', oi: consultation?.ducciones_oi ?? '', observacion: '' },
-            versiones: { od: '', oi: '', observacion: consultation?.versiones ?? '' },
-            ppc: { od: '', oi: '', observacion: consultation?.ppc ?? '' },
-            cover_test: { od: '', oi: '', observacion: consultation?.cover_test ?? '' },
-            reflejos_pupilares: { od: '', oi: '', observacion: consultation?.reflejos_pupilares ?? '' },
-            test_hirschberg: { od: '', oi: '', observacion: consultation?.test_hirschberg ?? '' },
-        },
+        motor_binocular_data: buildMotorBinocularDefaults(consultation),
         contact_lens_module: consultation?.contact_lens_module ?? {
             diametro_pupilar: '',
             diametro_corneal: '',
@@ -1841,36 +1837,8 @@ export default function ConsultationForm({ patient, consultation, meta }) {
                 )}
             </CollapsibleSection>
 
-            <CollapsibleSection title="Motor, binocular y reflejos" subtitle="Registro por ojo con observación general por prueba." sectionKey="motor_binocular" {...moduleSectionProps('consulta:sec_motor_binocular')}>
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                        <thead>
-                            <tr className="bg-slate-100">
-                                <th className="px-3 py-2 text-left text-xs font-semibold uppercase text-slate-500">Prueba</th>
-                                <th className="px-3 py-2 text-center text-xs font-semibold uppercase text-slate-500">OD</th>
-                                <th className="px-3 py-2 text-center text-xs font-semibold uppercase text-slate-500">OI</th>
-                                <th className="px-3 py-2 text-center text-xs font-semibold uppercase text-slate-500">Observación</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {[
-                                ['ducciones', 'Ducciones'],
-                                ['versiones', 'Versiones'],
-                                ['ppc', 'P.P.C.'],
-                                ['cover_test', 'Cover test'],
-                                ['reflejos_pupilares', 'Reflejos pupilares'],
-                                ['test_hirschberg', 'Test de Hirschberg'],
-                            ].map(([key, label]) => (
-                                <tr key={key} className="border-b border-slate-200">
-                                    <td className="px-3 py-3 font-medium text-slate-700">{label}</td>
-                                    <td className="px-2 py-2"><input className="w-full rounded-xl border border-slate-300 px-3 py-2" {...register(`motor_binocular_data.${key}.od`)} /></td>
-                                    <td className="px-2 py-2"><input className="w-full rounded-xl border border-slate-300 px-3 py-2" {...register(`motor_binocular_data.${key}.oi`)} /></td>
-                                    <td className="px-2 py-2"><input className="w-full rounded-xl border border-slate-300 px-3 py-2" {...register(`motor_binocular_data.${key}.observacion`)} /></td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
+            <CollapsibleSection title="Módulo de Terapia Visual – Examen motor, binocular y acomodativo" subtitle="Motilidad ocular, binocularidad y vergencias, acomodación y reflejos pupilares." sectionKey="motor_binocular" {...moduleSectionProps('consulta:sec_motor_binocular')}>
+                <MotorBinocularSection register={register} />
             </CollapsibleSection>
 
             <CollapsibleSection title="Módulo de lentes de contacto" subtitle="Adaptación, lente de prueba y lente definitivo." sectionKey="lentes_contacto" {...moduleSectionProps('consulta:sec_lentes_contacto')}>
@@ -1945,9 +1913,7 @@ export default function ConsultationForm({ patient, consultation, meta }) {
                     <FormInput label="Fijación OD" name="ophthalmoscopy_module.fijacion_od" register={register} />
                     <FormInput label="Fijación OI" name="ophthalmoscopy_module.fijacion_oi" register={register} />
                     <FormInput label="Valoración motora / test" name="ophthalmoscopy_module.valoracion_motora" register={register} />
-                    <FormInput label="PPC OBJ" name="ophthalmoscopy_module.ppc_obj" register={register} />
-                    <FormInput label="Luz" name="ophthalmoscopy_module.luz" register={register} />
-                    <FormInput label="FR" name="ophthalmoscopy_module.fr" register={register} />
+                    {/* PPC OBJ, Luz y FR pasaron al PPC de Terapia visual; sus valores siguen viajando en los defaults. */}
                 </div>
                 <div className="overflow-x-auto">
                     <table className="w-full min-w-[900px] text-sm">

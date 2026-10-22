@@ -213,6 +213,33 @@ Ordenados por impacto.
 
 ## Historial de cambios relevantes
 
+### 2026-10-22 — Modulo de Terapia Visual (motor, binocular y acomodativo)
+
+La seccion "Motor, binocular y reflejos" (6 filas OD/OI/Observacion) se sustituye por
+"Modulo de Terapia Visual – Examen motor, binocular y acomodativo", con cuatro bloques:
+
+1. Motilidad ocular: ducciones, versiones, seguimientos y sacadicos.
+2. Binocularidad y vergencias: Hirschberg, angulo Kappa, cover test VL/VP, PPC (objeto real, luz,
+   luz con filtro rojo), vergencias fusionales BO/BI VL/VP, flexibilidad de vergencias, Worth de
+   4 puntos y estereopsis.
+3. Acomodacion: amplitud OD/OI/AO, MEM, ARN, ARP y flippers MAF/BAF.
+4. Reflejos pupilares.
+
+- Se guarda en la JSON existente `consultations.motor_binocular_data`, forma v2
+  `{ bloque: { prueba: { campo: texto } } }`. No hay columnas nuevas (`consultations` esta al
+  limite de fila de InnoDB) ni migracion de datos.
+- La conversion es solo en pantalla (`buildMotorBinocularDefaults`): la v1 pasa ducciones y
+  reflejos tal cual; el OD/OI de versiones, cover test, PPC y Hirschberg va a la observacion de esa
+  prueba como "OD: x / OI: y | nota". Las consultas importadas (sin JSON) llevan sus columnas planas
+  a su prueba, y el PPC OBJ/Luz/FR de Oftalmoscopia rellena el PPC si esta vacio. Se guarda en v2 al
+  siguiente guardado.
+- Los campos PPC OBJ / Luz / FR se quitaron de la seccion Oftalmoscopia. Sus columnas, y las planas
+  heredadas, no se borran nunca.
+- Sigue oculta por defecto (`consulta:sec_motor_binocular`) y no se imprime en ningun PDF.
+- Definicion: `resources/js/data/motorBinocularSchema.js` (`MOTOR_BINOCULAR_BLOCKS`). Interfaz:
+  `resources/js/pages/consultations/MotorBinocularSection.jsx`. La validacion del servidor
+  (`motor_binocular_data.*.*.*`, texto max 255) no cambio: un campo nuevo solo se agrega al schema.
+
 ### 2026-10-13 — Letras despues del numero en las medidas ("20 CC")
 
 - Pedido de la optica: anotar "CC" junto al numero que se comprobo con una prueba. Escribir

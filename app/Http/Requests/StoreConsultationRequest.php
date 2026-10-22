@@ -201,6 +201,7 @@ class StoreConsultationRequest extends FormRequest
             'reflejos_pupilares' => ['nullable', 'string', 'max:100'],
             'test_hirschberg' => ['nullable', 'string', 'max:100'],
             'motor_binocular_data' => ['nullable', 'array'],
+            'motor_binocular_data.*.*.*' => ['nullable', 'string', 'max:255'],
 
             // Certificado
             'certificado_diagnostico_od' => ['nullable', 'string'],
