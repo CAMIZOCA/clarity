@@ -317,6 +317,15 @@ consultas importadas (a veces notas clinicas) y cada guardado lo dejaba en `null
 - **Medico de la consulta**: una consulta nueva queda a nombre de quien la crea solo si es medico
   (`User::CLINICIAN_ROLES`, lo resuelve `StoreConsultationRequest`). Al elegir medico se trae su
   registro SENESCYT a `doctor_license`, sin pisar uno escrito a mano.
+- **Terapia visual (motor, binocular y acomodativo)**: la seccion del formulario (4 bloques) se
+  define en `resources/js/data/motorBinocularSchema.js` (`MOTOR_BINOCULAR_BLOCKS`) y se pinta en
+  `pages/consultations/MotorBinocularSection.jsx`. Se guarda en la JSON `consultations.motor_binocular_data`
+  como v2 `{ bloque: { prueba: { campo: texto } } }`, sin columnas nuevas ni migracion de datos.
+  `buildMotorBinocularDefaults()` convierte al mostrar la v1 (`{prueba:{od,oi,observacion}}`) y las
+  columnas planas importadas (el OD/OI de versiones, cover test, PPC y Hirschberg pasa a la
+  observacion de esa prueba); el PPC OBJ/Luz/FR de Oftalmoscopia rellena el PPC si esta vacio. Se
+  guarda como v2 en el siguiente guardado. Un campo nuevo solo va en el schema. Sigue en "avanzados"
+  (`consulta:sec_motor_binocular`) y no sale en ningun PDF.
 - **Probar la consulta en el navegador**: el interceptor de escrituras se instala en otra pagina
   y se llega a la consulta navegando dentro del SPA (`history.pushState` + `popstate`). Instalarlo
   despues de cargar la consulta deja pasar el primer autoguardado.

@@ -22,7 +22,7 @@ export const FORM_ADVANCED_OPTIONS = [
         description: 'Campos poco usados según el llenado histórico. Los marcados se ocultan tras "Mostrar campos avanzados" o en la zona avanzada al final.',
         items: [
             // Secciones completas (van a la zona avanzada, colapsadas)
-            { key: 'consulta:sec_motor_binocular', label: 'Sección: Motor, binocular y reflejos', type: 'section', defaultAdvanced: true },
+            { key: 'consulta:sec_motor_binocular', label: 'Sección: Terapia visual – Motor, binocular y acomodativo', type: 'section', defaultAdvanced: true },
             { key: 'consulta:sec_lentes_contacto', label: 'Sección: Módulo de lentes de contacto', type: 'section', defaultAdvanced: true },
             { key: 'consulta:sec_oftalmoscopia', label: 'Sección: Oftalmoscopía', type: 'section', defaultAdvanced: true },
             { key: 'consulta:sec_tratamiento', label: 'Sección: Tratamiento', type: 'section', defaultAdvanced: true },

@@ -37,14 +37,14 @@ Eres un experto en el módulo de consultas oftalmológicas, el más complejo del
 4. RX FINAL (esfera, cilindro, eje, add, avl, prisma, base, dnp — por OD/OI)
 5. VISIÓN DE CERCA (esfera, cilindro, eje, av, dnp, avcc — por OD/OI)
 6. OTROS (lente_anterior, queratometria, examen_externo, vision_colores)
-7. PRUEBAS BINOCULARES (ducciones, versiones, ppc, cover_test, reflejos, hirschberg)
+7. TERAPIA VISUAL — motor, binocular y acomodativo (motilidad, binocularidad y vergencias, acomodacion, reflejos pupilares) → JSON `motor_binocular_data` v2 (schema en `resources/js/data/motorBinocularSchema.js`; las columnas planas heredadas se muestran en su prueba y no se borran)
 8. LUNAS (material, espesor, protección, observación) → usa ClinicalCatalogItems
 9. DIAGNÓSTICOS (múltiples, con CIE-10, por ojo)
 10. RECOMENDACIONES (múltiples, desde catálogo)
 11. OBSERVACIONES (texto libre)
 --- MÓDULOS DINÁMICOS ---
 12. LENTES DE CONTACTO (diámetros, BUT, schirmer, test lens, final lens)
-13. OFTALMOSCOPIA (fijación, valoración motora, resultados por distancia)
+13. OFTALMOSCOPIA (fijación, valoración motora, resultados por distancia). Sus campos PPC OBJ / Luz / FR ya no se muestran: se quitaron del formulario y pasan a PPC de Terapia visual (bloque 7), pero sus columnas `ppc_obj`, `luz` y `fr` no se borran
 14. TRATAMIENTO (plan, horas uso, método limpieza, modalidad)
 ```
 
