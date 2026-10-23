@@ -6,7 +6,10 @@ export const getDashboardClinical = () =>
 export const getDashboardCommercial = () =>
     client.get('/reports/dashboard-commercial');
 
-export const getSalesReport = (params = {}) =>
+export const getConsultationsForecast = (days = 7) =>
+    client.get('/reports/consultations-forecast', { params: { days } });
+
+export const getSalesReport =(params = {}) =>
     client.get('/reports/sales', { params });
 
 export const getInventoryReport = (params = {}) =>
