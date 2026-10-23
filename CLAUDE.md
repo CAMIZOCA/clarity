@@ -274,6 +274,13 @@ viejos, y guardarla otra vez los reescribia) y `/me` devolvia un usuario despues
 (`isNetworkOnly`). Un endpoint de datos fuera de `/api/` hay que agregarlo ahi, y cualquier
 cambio de estrategia exige subir `CACHE_NAME` para purgar lo ya guardado en los navegadores.
 
+**Aviso de version nueva sin depender del SW**: `app.blade.php` incrusta `<meta name="app-build">`
+(`AppVersion::current()`, hash del manifest de Vite) y `GET /app-version.json` devuelve el actual.
+`useAppUpdate` los compara al volver a la pestana, al recuperar foco/red y cada 5 min; si difieren
+recarga sola (limpiando caches) salvo en pantallas de edicion (`EDITING_PATHS`), donde `UpdateModal`
+pide pulsar un boton. Una pantalla de escritura nueva debe agregarse a `EDITING_PATHS`. Un chunk 404
+(`vite:preloadError`) dispara lo mismo. `sessionStorage` evita recargar en bucle.
+
 ### 16. Guardar una consulta importada no puede borrarle columnas
 
 El formulario reenvia la consulta entera, y varias columnas planas se reescriben desde un modulo
