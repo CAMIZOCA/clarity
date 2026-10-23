@@ -12,6 +12,7 @@ import { DEFAULT_MENU_VISIBLE_ITEMS, DEFAULT_MENU_VISIBLE_SECTIONS } from '../..
 import { useSettings } from '../../contexts/SettingsContext';
 import LatestConsultationCard from '../../components/dashboard/LatestConsultationCard';
 import DayConsultationList from '../../components/dashboard/DayConsultationList';
+import ConsultationsChart from '../../components/dashboard/ConsultationsChart';
 import { HIGHLIGHT_MINUTES, minutesSince } from '../../components/dashboard/timeFormat';
 
 /** Cuanto tiempo queda resaltada una consulta recien llegada. */
@@ -52,6 +53,7 @@ export default function DashboardPage() {
     const [freshIds, setFreshIds] = useState(() => new Set());
     const [selectedId, setSelectedId] = useState(null);
     const [expandedId, setExpandedId] = useState(null);
+    const [chartRefresh, setChartRefresh] = useState(0);
 
     const canSeeFeed = can('consultations.handoff');
     // El optometra ve las listas para retomar una consulta, pero la tarjeta
@@ -162,7 +164,10 @@ export default function DashboardPage() {
                             </span>
                             <button
                                 type="button"
-                                onClick={loadFeed}
+                                onClick={() => {
+                                    loadFeed();
+                                    setChartRefresh(count => count + 1);
+                                }}
                                 disabled={refreshing}
                                 className="flex items-center gap-2 px-4 py-2 rounded-xl border border-[#1a2a4a] text-[#1a2a4a] text-sm font-medium hover:bg-[#1a2a4a] hover:text-white transition-colors disabled:opacity-60"
                             >
@@ -216,6 +221,9 @@ export default function DashboardPage() {
                     <StatCard icon={Stethoscope} label="Consultas completadas hoy" value={todayCount} color="bg-blue-500" />
                 )}
             </div>
+
+            {/* Consultas de los ultimos 7 dias y pronostico de los siguientes */}
+            {canSeeFeed && <ConsultationsChart refreshToken={chartRefresh} />}
 
             {/* Consultas por dia */}
             {canSeeFeed && (

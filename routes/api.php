@@ -74,6 +74,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Reports
     Route::get('/reports/dashboard', [ReportController::class, 'dashboard']);
     Route::get('/reports/consultations', [ReportController::class, 'consultations']);
+    Route::get('/reports/consultations-forecast', [ReportController::class, 'consultationsForecast']);
     Route::get('/reports/diagnoses', [ReportController::class, 'diagnoses']);
     Route::get('/reports/patients', [ReportController::class, 'patients']);
     Route::get('/reports/export/csv', [ReportController::class, 'exportCsv']);

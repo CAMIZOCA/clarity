@@ -343,8 +343,20 @@ class MysqlDumpSqliteConverter
                 $offset = strlen($matches[0]);
 
                 // mysqldump escribe cada INSERT en una linea; si un valor
-                // trajera un salto literal, se sigue leyendo hasta cerrarlo.
-                while (($rows = $this->parseRows($line, $offset)) === null) {
+                // trajera un salto literal (las notas legacy lo traen), se sigue
+                // leyendo hasta cerrarlo. Reinterpretar el INSERT en cada linea
+                // es cuadratico con 26 MB, asi que solo se intenta al final de
+                // sentencia (`;`); si no cierra, se sigue leyendo.
+                $rows = null;
+                while ($rows === null) {
+                    if (str_ends_with(rtrim($line), ';')) {
+                        $rows = $this->parseRows($line, $offset);
+                    }
+
+                    if ($rows !== null) {
+                        break;
+                    }
+
                     $next = gzgets($handle);
                     if ($next === false) {
                         throw new RuntimeException("El backup SQL esta truncado en la tabla {$table}.");

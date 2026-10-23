@@ -14,6 +14,7 @@ use App\Models\LabOrder;
 use App\Models\Patient;
 use App\Models\Payment;
 use App\Models\Sale;
+use App\Services\ConsultationForecastService;
 use App\Support\AppConfig;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -89,6 +90,19 @@ class ReportController extends Controller
             ->get();
 
         return response()->json(compact('total', 'completadas', 'porDia'));
+    }
+
+    /**
+     * Ultimos `days` dias reales y los `days` siguientes estimados. No se cachea:
+     * la consulta agrupada es barata y el grafico debe reflejar lo guardado hoy.
+     */
+    public function consultationsForecast(Request $request, ConsultationForecastService $forecast): JsonResponse
+    {
+        $validated = $request->validate([
+            'days' => ['nullable', 'integer', 'min:1', 'max:14'],
+        ]);
+
+        return response()->json($forecast->forecast((int) ($validated['days'] ?? 7)));
     }
 
     public function diagnoses(Request $request): JsonResponse

@@ -86,7 +86,7 @@ class SystemMaintenanceTest extends TestCase
         ])->assertCreated()
             ->assertJsonPath('data.type', 'system_restore')
             ->assertJsonPath('data.summary.source_type', 'system_backup')
-            ->assertJsonPath('data.summary.users', 2)
+            ->assertJsonPath('data.summary.users', 3)
             ->assertJsonPath('data.summary.converted_from.source_driver', 'mysql')
             ->assertJsonPath('data.summary.converted_from.skipped_tables', ['tabla_que_ya_no_existe'])
             ->assertJsonPath('data.summary.converted_from.pending_migrations_applied', [$latest]);
@@ -97,7 +97,7 @@ class SystemMaintenanceTest extends TestCase
         $pdo = new PDO('sqlite:'.Storage::disk('local')->path($operation->path));
         $names = $pdo->query('select name from users order by id')->fetchAll(PDO::FETCH_COLUMN);
 
-        $this->assertSame(["Dra. O'Brien \"Ñandú\"\nlinea (a,b); fin", "It's \\ ok"], $names);
+        $this->assertSame(["Dra. O'Brien \"Ñandú\"\nlinea (a,b); fin", "It's \\ ok", "Linea uno;\nlinea dos"], $names);
         $this->assertSame(0, (int) $pdo->query('select count(*) from sessions')->fetchColumn());
         $this->assertSame(
             count($migrations) + 1,
@@ -309,7 +309,10 @@ class SystemMaintenanceTest extends TestCase
             ') ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4;',
             'INSERT INTO `users` VALUES '
                 ."(5,'Dra. O\\'Brien \\\"Ñandú\\\"\\nlinea (a,b); fin','x','a@clinica.test','hash',NULL),"
-                ."(7,'It''s \\\\ ok',NULL,'b@clinica.test','hash','2026-10-09 14:26:01');",
+                ."(7,'It''s \\\\ ok',NULL,'b@clinica.test','hash','2026-10-09 14:26:01'),"
+                // Salto de linea real dentro del valor, con un `;` al final de la linea:
+                // como las notas legacy de las consultas, el INSERT ocupa varias lineas.
+                ."(9,'Linea uno;\nlinea dos','x','c@clinica.test','hash',NULL);",
             '',
         ]);
 
