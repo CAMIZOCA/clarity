@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Casts\MeasureNotesCast;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -86,7 +87,7 @@ class Consultation extends Model
             'estado_cancelado' => 'boolean',
             'motor_binocular_data' => 'array',
             'near_vision_data' => 'array',
-            'medidas_notas' => 'array',
+            'medidas_notas' => MeasureNotesCast::class,
             'rx_uso_esfera_od_neutral' => 'boolean',
             'rx_uso_esfera_oi_neutral' => 'boolean',
             'subj_esfera_od_neutral' => 'boolean',
