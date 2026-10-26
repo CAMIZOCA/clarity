@@ -290,20 +290,38 @@ export default function CertificadoPdf({ data, onClose, consultationDoctor }) {
 
     const patient = data?.patient ?? data?.consultation?.patient ?? {};
     const [email, setEmail] = useState(patient.email || '');
+    // Sin SMTP configurado no hay envio: el correo y el boton Enviar no se muestran.
+    const mailConfigured = data?.mail_configured === true;
     const [sending, setSending] = useState(false);
     const [downloading, setDownloading] = useState(false);
 
     const consultationId = data?.consultation?.id ?? data?.consultation_id ?? null;
     const numero = data?.consultation?.numero_consulta || 'consulta';
-    const fileName = certificateType.key === 'general'
-        ? `certificado_${numero}.pdf`
-        : `certificado_${certificateType.key}_${numero}.pdf`;
+    // Nombre del paciente sin tildes ni caracteres que el sistema de archivos no admite.
+    const nombrePaciente = (patient.nombre_completo || `${patient.nombre ?? ''} ${patient.apellido ?? ''}`)
+        .normalize('NFD').replace(/[̀-ͯ]/g, '')
+        .replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_');
+    const partes = [
+        'certificado',
+        certificateType.key === 'general' ? null : certificateType.key,
+        nombrePaciente || null,
+        numero,
+    ].filter(Boolean);
+    const fileName = `${partes.join('_')}.pdf`;
 
     const pdfOptions = () => ({
         margin: 0, // el margen de la hoja es el padding de #pdf-content
         filename: fileName,
         image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true },
+        html2canvas: {
+            scale: 2,
+            useCORS: true,
+            // html2canvas no entiende los colores `oklch` de Tailwind 4 y aborta. La hoja
+            // solo usa estilos en linea, asi que la copia se renderiza sin las hojas de estilo.
+            onclone: clonedDoc => {
+                clonedDoc.querySelectorAll('style, link[rel="stylesheet"]').forEach(node => node.remove());
+            },
+        },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
     });
 
@@ -312,7 +330,13 @@ export default function CertificadoPdf({ data, onClose, consultationDoctor }) {
         const content = document.getElementById('pdf-content');
         if (!content) throw new Error('No hay contenido');
         const html2pdf = (await import('html2pdf.js')).default;
-        return await html2pdf().set(pdfOptions()).from(content).outputPdf('blob');
+        try {
+            return await html2pdf().set(pdfOptions()).from(content).outputPdf('blob');
+        } finally {
+            // Si html2canvas falla, html2pdf deja su capa transparente a pantalla completa
+            // (z-index 1000) y la pagina deja de responder a los clics.
+            document.querySelectorAll('.html2pdf__overlay').forEach(node => node.remove());
+        }
     };
 
     // Sube el PDF al backend para guardarlo (y opcionalmente enviarlo).
@@ -361,12 +385,13 @@ export default function CertificadoPdf({ data, onClose, consultationDoctor }) {
             a.href = url;
             a.download = fileName;
             a.click();
-            URL.revokeObjectURL(url);
+            // Revocar en el acto puede cortar la descarga cuando el navegador pregunta donde guardar.
+            setTimeout(() => URL.revokeObjectURL(url), 60000);
             // Guardar copia en la base de datos.
             try { await persist(blob, false); } catch { /* la descarga no debe fallar por esto */ }
             addToast('Certificado descargado', 'success');
         } catch {
-            handlePrint();
+            addToast('No se pudo generar el PDF. Use "Imprimir" y elija "Guardar como PDF".', 'error');
         } finally { setDownloading(false); }
     };
 
@@ -385,11 +410,11 @@ export default function CertificadoPdf({ data, onClose, consultationDoctor }) {
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
-            <div className="w-full max-w-4xl overflow-hidden rounded-2xl bg-white shadow-2xl flex flex-col max-h-[95vh]">
+            <div className="w-full max-w-6xl overflow-hidden rounded-2xl bg-white shadow-2xl flex flex-col max-h-[95vh]">
                 {/* Header */}
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 px-6 py-4 shrink-0">
-                    <h2 className="text-lg font-semibold text-gray-900">Certificado visual</h2>
-                    <div className="flex flex-wrap items-center gap-2">
+                    <h2 className="text-lg font-semibold text-gray-900 shrink-0">Certificado visual</h2>
+                    <div className="flex min-w-0 items-center gap-2 overflow-x-auto whitespace-nowrap">
                         <select
                             value={typeKey}
                             onChange={e => setTypeKey(e.target.value)}
@@ -410,16 +435,20 @@ export default function CertificadoPdf({ data, onClose, consultationDoctor }) {
                                 {doctors.map(d => <option key={d.id} value={d.id}>{d.nombre}</option>)}
                             </select>
                         )}
-                        <input
-                            type="email"
-                            value={email}
-                            onChange={e => setEmail(e.target.value)}
-                            placeholder="correo del paciente"
-                            className="px-3 py-2 border border-gray-300 rounded-lg text-sm w-52 focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]"
-                        />
-                        <Button variant="secondary" size="sm" onClick={handleSendEmail} loading={sending}>
-                            <Mail size={16} /> Enviar
-                        </Button>
+                        {mailConfigured && (
+                            <>
+                                <input
+                                    type="email"
+                                    value={email}
+                                    onChange={e => setEmail(e.target.value)}
+                                    placeholder="correo del paciente"
+                                    className="px-3 py-2 border border-gray-300 rounded-lg text-sm w-56 focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]"
+                                />
+                                <Button variant="secondary" size="sm" onClick={handleSendEmail} loading={sending}>
+                                    <Mail size={16} /> Enviar
+                                </Button>
+                            </>
+                        )}
                         <Button variant="secondary" size="sm" onClick={handleDownloadPdf} loading={downloading}>
                             <Download size={16} /> Descargar
                         </Button>
