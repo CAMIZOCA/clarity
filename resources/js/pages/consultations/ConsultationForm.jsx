@@ -1191,6 +1191,18 @@ export default function ConsultationForm({ patient, consultation, meta, readOnly
         }
         if (!current) return;
 
+        // El PDF sale de la BD: esperar los guardados en curso y guardar lo pendiente,
+        // o se imprime una consulta vacia (cabecera sin medidas).
+        try {
+            if (hasUnsavedChanges()) {
+                await doSave(true);
+            } else {
+                await saveQueueRef.current.catch(() => {});
+            }
+        } catch {
+            return; // doSave ya mostro el error.
+        }
+
         try {
             const response = await client.get(`/consultations/${current}/pdf-data`);
             setPdfData(response.data);

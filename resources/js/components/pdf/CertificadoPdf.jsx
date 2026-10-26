@@ -103,7 +103,8 @@ function PdfContent({ data, settings, logoUrl, doctor, showRx = true }) {
         || joinDiagnoses([...diagnoses.filter(d => d.eye === 'oi'), ...diagGeneral]);
 
     const hasRx = RX_COLS.some(col => c[`${col.key}_od`] || c[`${col.key}_oi`]);
-    const hasAv = c.avsc_od || c.avsc_oi || c.avcc_od || c.avcc_oi;
+    // AV.CC del certificado es la AV de la tabla RX FINAL (no la de retinoscopia VL).
+    const hasAv = c.avsc_od || c.avsc_oi || c.rx_final_av_od || c.rx_final_av_oi;
 
     // Recomendaciones del certificado: `certificado_nota` es el campo que usa la
     // clínica (ej. "USO PERMANENTE"); si está vacío se cae al texto libre y al catálogo.
@@ -156,7 +157,7 @@ function PdfContent({ data, settings, logoUrl, doctor, showRx = true }) {
                 <div style={{ display: 'flex', gap: '18px', alignItems: 'flex-start', marginBottom: '28px' }}>
                     {hasAv && (
                         <div style={{ display: 'flex', gap: '14px' }}>
-                            {[{ label: 'AV.SC', od: c.avsc_od, oi: c.avsc_oi }, { label: 'AV.CC', od: c.avcc_od, oi: c.avcc_oi }].map(t => (
+                            {[{ label: 'AV.SC', od: c.avsc_od, oi: c.avsc_oi }, { label: 'AV.CC', od: c.rx_final_av_od, oi: c.rx_final_av_oi }].map(t => (
                                 <table key={t.label} style={{ borderCollapse: 'collapse' }}>
                                     <thead>
                                         <tr><th colSpan={2} style={{ ...th, background: BLUE, color: '#fff', border: '1px solid ' + BLUE }}>{t.label}</th></tr>

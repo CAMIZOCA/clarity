@@ -239,6 +239,9 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 });
 
+// Publica: el logo de la clinica se muestra en la pantalla de ingreso.
+Route::get('/branding', [SettingController::class, 'branding']);
+
 // Sin esto, cualquier /api/* mal escrito cae en el catch-all de la SPA
 // (routes/web.php) y devuelve 200 con el HTML del index, lo que enmascara
 // el error: axios ve un 200 y entrega HTML como si fueran datos.
