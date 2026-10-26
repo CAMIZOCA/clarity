@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\Permission;
 use App\Http\Controllers\Api\Concerns\ApiResponses;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreConsultationRequest;
@@ -23,6 +24,8 @@ class ConsultationController extends Controller
 
     public function index(Request $request): JsonResponse
     {
+        abort_unless($request->user()->can(Permission::CONSULTATIONS_VIEW->value), 403);
+
         $query = Consultation::with(['patient:id,nombre,apellido,cedula,codigo_interno', 'optometrista:id,name'])
             ->orderByDesc('fecha_consulta');
 
@@ -59,8 +62,10 @@ class ConsultationController extends Controller
         return response()->json($this->consultationService->loadConsultation($consultation), 201);
     }
 
-    public function show(Consultation $consultation): JsonResponse
+    public function show(Request $request, Consultation $consultation): JsonResponse
     {
+        abort_unless($request->user()->can(Permission::CONSULTATIONS_VIEW->value), 403);
+
         return response()->json($this->consultationService->loadConsultation($consultation));
     }
 
@@ -76,15 +81,19 @@ class ConsultationController extends Controller
         return response()->json($this->consultationService->loadConsultation($consultation));
     }
 
-    public function destroy(Consultation $consultation): JsonResponse
+    public function destroy(Request $request, Consultation $consultation): JsonResponse
     {
+        abort_unless($request->user()->can(Permission::CONSULTATIONS_DELETE->value), 403);
+
         $this->consultationService->delete($consultation);
 
         return response()->json(['message' => 'Consulta eliminada.']);
     }
 
-    public function pdfData(Consultation $consultation): JsonResponse
+    public function pdfData(Request $request, Consultation $consultation): JsonResponse
     {
+        abort_unless($request->user()->can(Permission::CONSULTATIONS_VIEW->value), 403);
+
         return response()->json($this->consultationService->generatePdfData($consultation));
     }
 

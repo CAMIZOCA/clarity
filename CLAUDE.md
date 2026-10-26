@@ -378,6 +378,29 @@ consultas importadas (a veces notas clinicas) y cada guardado lo dejaba en `null
   `$fillable`/`extraFields()` para que el formulario no pueda enviarla. Las completadas sin ella
   (importadas) cuentan por `fecha_consulta` y no se destacan. "Iniciar venta" abre
   `/pos?paciente=ID&consulta=ID` y la venta queda con `consultation_id`.
+- **Menu y rutas por permiso**: `MENU_ITEM_PERMISSIONS` (`data/menuOptions.js`) da el permiso de
+  cada item; `Sidebar.jsx` lo oculta y `router/index.jsx` envuelve la ruta en `RequirePermission`
+  ("No tiene acceso"). El ajuste global `menu_visible_*` sigue decidiendo que se ofrece; el permiso,
+  quien lo ve. Un item o ruta nueva necesita su permiso ahi. Los permisos viajan en `/me` **y** en la
+  respuesta de `/login` (`UserResource`): sin eso el menu salia vacio hasta recargar.
+- **Reportes**: `ReportController` exige `reports.clinical` (clinicos) o cualquiera de
+  `reports.sales/financial/inventory` (comerciales). `/reports/dashboard` queda abierto (dashboard y
+  contador de Agenda) y `consultations-forecast` pide `consultations.handoff`.
+- **Recepcion**: pacientes, consultas en lectura, agenda completa y ordenes de trabajo (ver, crear,
+  editar, cambiar estado; no eliminar). Sin reportes, ventas, caja, inventario ni CRM
+  (migracion `2026_10_26_000002`). Ve un mensaje de animo por dia bajo la fecha del dashboard
+  (`data/dailyMessages.js`, `messageOfTheDay`).
+- **Ficha de lectura de la consulta**: `/consulta/:id/ver` (`ConsultationViewPage`) muestra solo lo
+  lleno, con rotulos de `data/consultationViewSchema.js`. Quien no tiene `consultations.edit` llega ahi
+  desde la ficha del paciente y el dashboard (`utils/consultationLinks.js`) y `/consulta/:id` lo
+  redirige. Un campo nuevo de la consulta que Recepcion deba ver se agrega al schema.
+- **Consulta en solo lectura**: sin `consultations.edit` (Recepcion) la consulta se abre con
+  `readOnly`: cada `CollapsibleSection` envuelve su contenido en `<fieldset disabled>` via
+  `FormReadOnlyContext` (el encabezado queda fuera para poder abrirla), los avanzados se muestran
+  todos, `doSave` no hace nada y no hay autoguardado ni aviso de salida; solo queda Imprimir.
+  Recepcion tiene `consultations.view` y `generate_pdf`, no `create/edit/delete`, y edita solo la
+  ficha del paciente. `index`/`show`/`pdf-data` exigen `consultations.view` y `destroy`
+  `consultations.delete`. Un control nuevo de la consulta fuera de una seccion debe respetar `readOnly`.
 - **La consulta se abre desde el paciente**: no hay item "Consulta" en el menu. Las rutas
   `/consulta?paciente=ID` y `/consulta/:id` siguen existiendo y son las que usa la ficha.
 - **El alta de paciente empieza por la cedula**: `PatientFormPage` no habilita el resto del

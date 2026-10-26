@@ -70,3 +70,40 @@ export const MENU_ITEM_OPTIONS_BY_SECTION = {
 export const DEFAULT_MENU_VISIBLE_ITEMS = Object.values(MENU_ITEM_OPTIONS_BY_SECTION).flatMap((items) =>
     items.map((item) => item.key)
 );
+
+/**
+ * Permiso que pide cada item del menu; un array basta con uno. La misma tabla
+ * protege la ruta (`RequirePermission` en el router): menu y URL no pueden
+ * desalinearse. El servidor vuelve a comprobarlo en cada endpoint.
+ */
+export const MENU_ITEM_PERMISSIONS = {
+    pacientes: 'patients.view',
+    agenda: 'appointments.view',
+    ordenes_trabajo: 'lab_orders.create',
+    lentes_especiales: 'special_lenses.view',
+    referencias: 'references.view',
+    brigadas: 'brigades.view',
+    pos: 'sales.create',
+    ventas: 'sales.view',
+    caja: 'cash.view',
+    laboratorio: 'lab_orders.view',
+    inventario_productos: 'products.view',
+    inventario_stock: 'inventory.view',
+    inventario_movimientos: 'inventory.view',
+    crm_campanas: 'crm.view',
+    crm_plantillas: 'crm.view',
+    crm_recordatorios: 'crm.view',
+    reportes_clinicos: 'reports.clinical',
+    reportes_comerciales: ['reports.sales', 'reports.financial', 'reports.inventory'],
+    dashboard_gerencial: 'reports.financial',
+};
+
+/** `permission` puede ser un string o un array (alcanza con uno). */
+export function hasAnyPermission(can, permission) {
+    if (!permission) return true;
+    return (Array.isArray(permission) ? permission : [permission]).some((p) => can(p));
+}
+
+export function canUseMenuItem(can, item) {
+    return hasAnyPermission(can, MENU_ITEM_PERMISSIONS[item]);
+}

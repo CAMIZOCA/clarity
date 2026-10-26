@@ -1,5 +1,6 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useContext, useState } from 'react';
 import { ChevronDown, ChevronUp, SlidersHorizontal } from 'lucide-react';
+import { FormReadOnlyContext } from './CollapsibleSection';
 
 /**
  * Estado (persistido por usuario) para revelar/ocultar los campos avanzados de
@@ -30,6 +31,9 @@ export function useAdvancedToggle(storageKey) {
  * núcleo, junto a los campos poco usados que revela.
  */
 export function AdvancedToggleButton({ open, onToggle, className = '' }) {
+    // En solo lectura los avanzados ya se muestran todos.
+    if (useContext(FormReadOnlyContext)) return null;
+
     return (
         <button
             type="button"

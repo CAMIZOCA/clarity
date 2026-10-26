@@ -11,6 +11,7 @@ import Button from '../../components/ui/Button';
 import PatientAutocomplete from '../../components/ui/PatientAutocomplete';
 import ConfirmModal from '../../components/ui/ConfirmModal';
 import { useToast } from '../../components/ui/Toast';
+import { useAuth } from '../../contexts/AuthContext';
 import { toDateTimeLocal } from '../../utils/dates';
 
 const ESTADO_COLORS = {
@@ -31,6 +32,10 @@ const emptyForm = () => ({
 
 export default function AgendaPage() {
     const { addToast } = useToast();
+    const { can } = useAuth();
+    const canCreate = can('appointments.create');
+    const canEdit = can('appointments.edit');
+    const canDelete = can('appointments.delete');
     const [events, setEvents] = useState([]);
     const [modalOpen, setModalOpen] = useState(false);
     const [confirmOpen, setConfirmOpen] = useState(false);
@@ -67,6 +72,7 @@ export default function AgendaPage() {
     }, [addToast]);
 
     const openNew = (selectInfo) => {
+        if (!canCreate) return;
         const f = emptyForm();
         if (selectInfo) {
             f.fecha_hora_inicio = selectInfo.startStr.slice(0, 16);
@@ -146,9 +152,11 @@ export default function AgendaPage() {
                     <h1 className="text-3xl font-bold text-gray-900">Agenda</h1>
                     <p className="text-gray-500 mt-1">Gestión de citas y calendario</p>
                 </div>
-                <Button onClick={() => openNew(null)}>
-                    <Plus size={20} /> Nueva cita
-                </Button>
+                {canCreate && (
+                    <Button onClick={() => openNew(null)}>
+                        <Plus size={20} /> Nueva cita
+                    </Button>
+                )}
             </div>
 
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
@@ -162,7 +170,7 @@ export default function AgendaPage() {
                         center: 'title',
                         right: 'dayGridMonth,timeGridWeek,timeGridDay',
                     }}
-                    selectable
+                    selectable={canCreate}
                     selectMirror
                     editable={false}
                     events={fetchEvents}
@@ -249,12 +257,16 @@ export default function AgendaPage() {
                         />
                     </div>
                     <div className="flex justify-between items-center pt-2 border-t border-gray-100">
-                        {editing ? (
+                        {editing && canDelete ? (
                             <Button type="button" variant="danger" size="sm" onClick={() => setConfirmOpen(true)}>Eliminar cita</Button>
                         ) : <span />}
                         <div className="flex gap-3">
-                            <Button variant="secondary" type="button" onClick={() => setModalOpen(false)}>Cancelar</Button>
-                            <Button type="submit" loading={saving}>{editing ? 'Guardar' : 'Crear cita'}</Button>
+                            <Button variant="secondary" type="button" onClick={() => setModalOpen(false)}>
+                                {editing && !canEdit ? 'Cerrar' : 'Cancelar'}
+                            </Button>
+                            {(editing ? canEdit : canCreate) && (
+                                <Button type="submit" loading={saving}>{editing ? 'Guardar' : 'Crear cita'}</Button>
+                            )}
                         </div>
                     </div>
                 </form>

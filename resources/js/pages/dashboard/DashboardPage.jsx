@@ -8,7 +8,9 @@ import { getPayload } from '../../api/response';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useAuth } from '../../contexts/AuthContext';
-import { DEFAULT_MENU_VISIBLE_ITEMS, DEFAULT_MENU_VISIBLE_SECTIONS } from '../../data/menuOptions';
+import { DEFAULT_MENU_VISIBLE_ITEMS, DEFAULT_MENU_VISIBLE_SECTIONS, canUseMenuItem } from '../../data/menuOptions';
+import { messageOfTheDay } from '../../data/dailyMessages';
+import { todayIso } from '../../utils/dates';
 import { useSettings } from '../../contexts/SettingsContext';
 import LatestConsultationCard from '../../components/dashboard/LatestConsultationCard';
 import DayConsultationList from '../../components/dashboard/DayConsultationList';
@@ -139,8 +141,10 @@ export default function DashboardPage() {
         ? settings.menu_visible_items
         : DEFAULT_MENU_VISIBLE_ITEMS;
     const isMenuSectionVisible = (section) => visibleMenuSections.includes(section);
-    const isMenuItemVisible = (item) => visibleMenuItems.includes(item);
+    const isMenuItemVisible = (item) => visibleMenuItems.includes(item) && canUseMenuItem(can, item);
     const canManageSettings = can('settings.edit');
+    // Un mensaje de animo por dia para Recepcion.
+    const dailyMessage = user?.roles?.includes('recepcionista') ? messageOfTheDay(todayIso()) : null;
 
     return (
         <div className="p-6 max-w-7xl mx-auto">
@@ -152,6 +156,12 @@ export default function DashboardPage() {
                     <p className="text-gray-500 mt-1">
                         {saludo}, {user?.name?.split(' ')[0]} · {format(today, 'yyyy')}
                     </p>
+                    {dailyMessage && (
+                        <p className="mt-3 max-w-2xl text-base italic text-[#1a2a4a]/80">
+                            “{dailyMessage.text}”
+                            {dailyMessage.ref && <span className="ml-2 not-italic text-sm text-gray-500">— {dailyMessage.ref}</span>}
+                        </p>
+                    )}
                 </div>
                 <div className="flex items-center gap-3">
                     {canSeeFeed && (

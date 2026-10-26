@@ -8,6 +8,7 @@ use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
+use Spatie\Permission\Models\Permission as SpatiePermission;
 use Tests\TestCase;
 
 /**
@@ -25,7 +26,8 @@ class ConsultationForecastTest extends TestCase
         parent::setUp();
 
         Carbon::setTestNow('2026-10-23 12:00:00');
-        Sanctum::actingAs(User::factory()->create());
+        SpatiePermission::firstOrCreate(['name' => 'consultations.handoff', 'guard_name' => 'web']);
+        Sanctum::actingAs(User::factory()->create()->givePermissionTo('consultations.handoff'));
 
         $this->patient = Patient::create([
             'nombre' => 'Violeta Almeida',

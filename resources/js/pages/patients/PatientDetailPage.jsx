@@ -8,6 +8,7 @@ import Badge from '../../components/ui/Badge';
 import { useToast } from '../../components/ui/Toast';
 import { useSettings } from '../../contexts/SettingsContext';
 import { useAuth } from '../../contexts/AuthContext';
+import { consultationUrl } from '../../utils/consultationLinks';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { toDisplayDate } from '../../utils/dates';
@@ -110,15 +111,21 @@ export default function PatientDetailPage() {
                     </p>
                 </div>
                 <div className="flex gap-3">
-                    <Link to={`/consulta?paciente=${id}`}>
-                        <Button><Plus size={18} /> Nueva Consulta</Button>
-                    </Link>
-                    <Link to={`/informes-garantia/nuevo?paciente=${id}`}>
-                        <Button variant="secondary"><ShieldCheck size={18} /> Informe de Garantía</Button>
-                    </Link>
-                    <Link to={`/pacientes/${id}/editar`}>
-                        <Button variant="secondary"><Edit2 size={18} /> Editar</Button>
-                    </Link>
+                    {can('consultations.create') && (
+                        <Link to={`/consulta?paciente=${id}`}>
+                            <Button><Plus size={18} /> Nueva Consulta</Button>
+                        </Link>
+                    )}
+                    {can('guarantee_reports.manage') && (
+                        <Link to={`/informes-garantia/nuevo?paciente=${id}`}>
+                            <Button variant="secondary"><ShieldCheck size={18} /> Informe de Garantía</Button>
+                        </Link>
+                    )}
+                    {can('patients.edit') && (
+                        <Link to={`/pacientes/${id}/editar`}>
+                            <Button variant="secondary"><Edit2 size={18} /> Editar</Button>
+                        </Link>
+                    )}
                 </div>
             </div>
 
@@ -254,11 +261,13 @@ export default function PatientDetailPage() {
                                                     </p>
                                                 )}
                                             </div>
-                                            <Link to={`/consulta/${item.id}`}>
-                                                <Button variant="ghost" size="sm">
-                                                    <Eye size={16} /> Ver
-                                                </Button>
-                                            </Link>
+                                            {can('consultations.view') && (
+                                                <Link to={consultationUrl(can, item.id)}>
+                                                    <Button variant="ghost" size="sm">
+                                                        <Eye size={16} /> Ver
+                                                    </Button>
+                                                </Link>
+                                            )}
                                         </div>
                                     </div>
                                 ) : (

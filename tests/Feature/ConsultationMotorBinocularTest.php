@@ -62,7 +62,7 @@ class ConsultationMotorBinocularTest extends TestCase
         app(PermissionRegistrar::class)->forgetCachedPermissions();
 
         $user = User::factory()->create();
-        foreach ([Permission::CONSULTATIONS_CREATE->value, Permission::CONSULTATIONS_EDIT->value] as $permission) {
+        foreach ([Permission::CONSULTATIONS_VIEW->value, Permission::CONSULTATIONS_CREATE->value, Permission::CONSULTATIONS_EDIT->value] as $permission) {
             SpatiePermission::firstOrCreate(['name' => $permission, 'guard_name' => 'web']);
             $user->givePermissionTo($permission);
         }

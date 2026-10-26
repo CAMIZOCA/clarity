@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
+import { Navigate, useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { UserSearch, Plus, AlertTriangle } from 'lucide-react';
 import client from '../../api/client';
 import { cached, invalidate } from '../../api/cache';
@@ -8,12 +8,14 @@ import ConsultationForm from './ConsultationForm';
 import Button from '../../components/ui/Button';
 import Breadcrumbs from '../../components/ui/Breadcrumbs';
 import { getPayload } from '../../api/response';
+import { useAuth } from '../../contexts/AuthContext';
 import { toDisplayDate, getYear } from '../../utils/dates';
 
 export default function ConsultationPage() {
     const { consultationId } = useParams();
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
+    const { can } = useAuth();
     const [selectedPatient, setSelectedPatient] = useState(null);
     const [consultation, setConsultation] = useState(null);
     const [meta, setMeta] = useState(null);
@@ -63,6 +65,25 @@ export default function ConsultationPage() {
             .then(r => setSelectedPatient(getPayload(r)))
             .catch(() => { /* se conserva la ficha reducida del autocomplete */ });
     }, []);
+
+    // Recepcion ve la historia pero no la crea ni la edita (el servidor
+    // tambien lo rechaza). Una consulta existente se abre en solo lectura.
+    // Sin permiso de edicion la consulta se ve en la ficha de solo lectura.
+    if (consultationId && !can('consultations.edit')) {
+        return <Navigate to={`/consulta/${consultationId}/ver`} replace />;
+    }
+
+    if (!consultationId && !can('consultations.create')) return (
+        <div className="p-6 max-w-3xl mx-auto">
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-center">
+                <AlertTriangle size={28} className="mx-auto mb-3 text-amber-600" />
+                <p className="font-medium text-amber-900">No tiene permiso para crear consultas.</p>
+                <div className="mt-4 flex justify-center">
+                    <Button variant="secondary" onClick={() => navigate(-1)}>Volver</Button>
+                </div>
+            </div>
+        </div>
+    );
 
     if (loadError) return (
         <div className="p-6 max-w-3xl mx-auto">
@@ -178,6 +199,7 @@ export default function ConsultationPage() {
                         patient={selectedPatient}
                         consultation={consultation}
                         meta={meta}
+                        readOnly={Boolean(consultationId) && !can('consultations.edit')}
                     />
                 </>
             )}

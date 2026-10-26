@@ -3,6 +3,7 @@ import { FlaskConical, AlertCircle, Clock, CheckCircle, Plus, RefreshCw, X } fro
 import { getLabOrders, updateLabOrderStatus, createLabOrder, getLabSuppliers } from '../../api/sales';
 import PatientAutocomplete from '../../components/ui/PatientAutocomplete';
 import { getList } from '../../api/response';
+import { useToast } from '../../components/ui/Toast';
 
 const KANBAN_COLUMNS = [
     { key: 'draft',     label: 'Borrador',        color: 'gray'   },
@@ -108,7 +109,7 @@ function OrderCard({ order, onDragStart, dragging }) {
                 </div>
 
                 <p className="text-sm font-medium text-gray-800 leading-tight truncate">
-                    {order.patient?.name ?? order.patient_name ?? '—'}
+                    {order.patient?.nombre_completo || order.patient?.nombre || order.patient_name || '—'}
                 </p>
 
                 <p className="text-xs text-gray-500 truncate mt-0.5">
@@ -196,6 +197,7 @@ const EMPTY_FORM = {
 };
 
 export default function LabOrdersPage() {
+    const { addToast } = useToast();
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [suppliers, setSuppliers] = useState([]);
@@ -237,8 +239,10 @@ export default function LabOrdersPage() {
         try {
             await updateLabOrderStatus(Number(orderId), { status: newStatus });
             await loadOrders();
-        } catch {
-            /* silently fail — let user retry */
+        } catch (err) {
+            // Antes se ignoraba: un 403 o un cambio de estado no permitido
+            // dejaba la tarjeta en su sitio sin explicar por que.
+            addToast(err.response?.data?.message || 'No se pudo cambiar el estado de la orden.', 'error');
         }
     };
 

@@ -15,9 +15,9 @@ class UpdateAppointmentRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'patient_id'        => ['sometimes', 'integer', 'exists:patients,id'],
-            'optometrista_id'   => ['sometimes', 'integer', 'exists:users,id'],
-            'titulo'            => ['sometimes', 'string', 'min:3', 'max:255'],
+            'patient_id'        => ['sometimes', 'nullable', 'integer', 'exists:patients,id'],
+            'optometrista_id'   => ['sometimes', 'nullable', 'integer', 'exists:users,id'],
+            'titulo'            => ['sometimes', 'nullable', 'string', 'min:3', 'max:255'],
             'fecha_hora_inicio' => ['sometimes', 'date'],
             'fecha_hora_fin'    => ['sometimes', 'date', 'after:fecha_hora_inicio'],
             'estado'            => ['sometimes', Rule::in(['pendiente', 'atendido', 'cancelado'])],

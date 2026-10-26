@@ -10,7 +10,7 @@ import ConfirmModal from '../../components/ui/ConfirmModal';
 import EyeFieldGroup from '../../components/forms/EyeFieldGroup';
 import RxHistoryPicker from '../../components/forms/RxHistoryPicker';
 import DiagnosisPicker, { checklistRowIndexes } from '../../components/forms/DiagnosisPicker';
-import CollapsibleSection, { openCollapsibleSection } from '../../components/forms/CollapsibleSection';
+import CollapsibleSection, { FormReadOnlyContext, openCollapsibleSection } from '../../components/forms/CollapsibleSection';
 import { AdvancedToggleButton, useAdvancedToggle } from '../../components/forms/AdvancedFieldsToggle';
 import CertificadoPdf from '../../components/pdf/CertificadoPdf';
 import { useToast } from '../../components/ui/Toast';
@@ -733,7 +733,7 @@ function InlineBadge({ label, tone = 'neutral' }) {
     );
 }
 
-export default function ConsultationForm({ patient, consultation, meta }) {
+export default function ConsultationForm({ patient, consultation, meta, readOnly = false }) {
     const navigate = useNavigate();
     const { addToast } = useToast();
     const requiredFields = useRequiredFields();
@@ -1021,6 +1021,9 @@ export default function ConsultationForm({ patient, consultation, meta }) {
      * el servidor la version mas vieja si las respuestas llegaban cruzadas.
      */
     const doSave = useCallback((showMsg = false, forceStatus = null, waitTurn = showMsg) => {
+        // Sin `consultations.edit` el servidor responde 403: ni se intenta.
+        if (readOnly) return Promise.resolve(null);
+
         // El autoguardado no hace cola: si hay un guardado en curso, el
         // siguiente ciclo se encarga.
         if (!waitTurn && pendingSavesRef.current > 0) return Promise.resolve(null);
@@ -1033,16 +1036,17 @@ export default function ConsultationForm({ patient, consultation, meta }) {
         saveQueueRef.current = run;
 
         return run;
-    }, [performSave]);
+    }, [performSave, readOnly]);
 
     /** Hay algo escrito que el servidor todavia no tiene. */
     const hasUnsavedChanges = useCallback(() => {
+        if (readOnly) return false;
         const values = getValues();
 
         return consultationIdRef.current
             ? snapshotOf(values) !== savedSnapshotRef.current
             : clinicalSnapshotOf(values) !== initialClinicalSnapshotRef.current;
-    }, [getValues]);
+    }, [getValues, readOnly]);
 
     // El menu, la flecha atras o un enlace sacaban de la consulta sin avisar,
     // incluso con el aviso de "Cambios sin guardar" en pantalla.
@@ -1078,6 +1082,8 @@ export default function ConsultationForm({ patient, consultation, meta }) {
     }, [hasUnsavedChanges]);
 
     useEffect(() => {
+        if (readOnly) return undefined;
+
         autosaveTimerRef.current = setInterval(() => {
             // El error ya quedo registrado en `unsavedError` dentro de doSave;
             // aqui solo se evita el unhandled rejection.
@@ -1085,7 +1091,7 @@ export default function ConsultationForm({ patient, consultation, meta }) {
         }, 30000);
 
         return () => clearInterval(autosaveTimerRef.current);
-    }, [doSave]);
+    }, [doSave, readOnly]);
 
     const validateRequired = () => {
         const required = requiredFields;
@@ -1310,10 +1316,12 @@ export default function ConsultationForm({ patient, consultation, meta }) {
     };
 
     const { isAdvanced } = useAdvancedFields('consulta');
-    const refractionAdv = useAdvancedToggle('consulta:refraccion');
-    const cabeceraAdv = useAdvancedToggle('consulta:cabecera');
-    const diagnosticoAdv = useAdvancedToggle('consulta:diagnostico');
-    const observacionesAdv = useAdvancedToggle('consulta:observaciones');
+    // En solo lectura no hay boton para revelar avanzados: se muestran todos.
+    const revealInReadOnly = (adv) => (readOnly ? { ...adv, open: true } : adv);
+    const refractionAdv = revealInReadOnly(useAdvancedToggle('consulta:refraccion'));
+    const cabeceraAdv = revealInReadOnly(useAdvancedToggle('consulta:cabecera'));
+    const diagnosticoAdv = revealInReadOnly(useAdvancedToggle('consulta:diagnostico'));
+    const observacionesAdv = revealInReadOnly(useAdvancedToggle('consulta:observaciones'));
     // Por `sectionKey`, para que `goToField` revele un campo avanzado con error.
     advancedTogglesRef.current = {
         cabecera: cabeceraAdv,
@@ -1374,9 +1382,10 @@ export default function ConsultationForm({ patient, consultation, meta }) {
     });
 
     return (
+      <FormReadOnlyContext.Provider value={readOnly}>
       <RequiredErrorsCtx.Provider value={requiredErrors}>
         <form
-            onSubmit={handleSubmit(onSubmit, onInvalidSubmit)}
+            onSubmit={readOnly ? (event) => event.preventDefault() : handleSubmit(onSubmit, onInvalidSubmit)}
             onKeyDown={handleFieldNavigation}
             onChange={clearFieldError}
             className="pb-24 lg:pb-8"
@@ -1385,6 +1394,7 @@ export default function ConsultationForm({ patient, consultation, meta }) {
                 <div className="flex flex-wrap items-center gap-2">
                     <InlineBadge label={`Paciente ${patient.codigo_interno || patient.id}`} />
                     <InlineBadge label={isCompleted ? 'Completada' : 'Borrador'} tone={isCompleted ? 'done' : 'draft'} />
+                    {readOnly && <InlineBadge label="Solo lectura" />}
                     {lastSaved && (
                         <span className="flex items-center gap-1.5 text-sm text-emerald-600">
                             <CheckCircle size={16} />
@@ -1423,16 +1433,25 @@ export default function ConsultationForm({ patient, consultation, meta }) {
                     </div>
                 )}
                 <div className="hidden flex-wrap items-center gap-3 lg:flex">
-                    <Button type="button" variant="secondary" onClick={handleSaveDraft} loading={saving}>
-                        <Clock size={18} /> {saveLabel}
-                    </Button>
+                    {!readOnly && (
+                        <Button type="button" variant="secondary" onClick={handleSaveDraft} loading={saving}>
+                            <Clock size={18} /> {saveLabel}
+                        </Button>
+                    )}
                     <Button type="button" variant="secondary" onClick={handleGeneratePdf}>
                         <Printer size={18} /> Imprimir
                     </Button>
-                    <Button type="submit" loading={saving}>
-                        <Save size={18} /> Completar consulta
-                    </Button>
+                    {!readOnly && (
+                        <Button type="submit" loading={saving}>
+                            <Save size={18} /> Completar consulta
+                        </Button>
+                    )}
                 </div>
+                {readOnly && (
+                    <p className="w-full text-sm text-slate-500">
+                        Puede ver e imprimir esta consulta, pero no modificarla.
+                    </p>
+                )}
             </div>
 
             <CollapsibleSection title="Cabecera clínica" subtitle="Resumen operativo del paciente y la consulta actual." sectionKey="cabecera">
@@ -1953,29 +1972,37 @@ export default function ConsultationForm({ patient, consultation, meta }) {
             </CollapsibleSection>
 
             <div className="mobile-sticky-actions -mx-4 px-4 py-4 lg:hidden">
-                <div className="grid grid-cols-3 gap-2">
-                    <Button type="button" variant="secondary" className="justify-center" onClick={handleSaveDraft}>
-                        <Clock size={18} /> Guardar
-                    </Button>
+                <div className={`grid gap-2 ${readOnly ? 'grid-cols-1' : 'grid-cols-3'}`}>
+                    {!readOnly && (
+                        <Button type="button" variant="secondary" className="justify-center" onClick={handleSaveDraft}>
+                            <Clock size={18} /> Guardar
+                        </Button>
+                    )}
                     <Button type="button" variant="secondary" className="justify-center" onClick={handleGeneratePdf}>
                         <FileText size={18} /> Vista previa
                     </Button>
-                    <Button type="submit" className="justify-center" loading={saving}>
-                        <Save size={18} /> Completar
-                    </Button>
+                    {!readOnly && (
+                        <Button type="submit" className="justify-center" loading={saving}>
+                            <Save size={18} /> Completar
+                        </Button>
+                    )}
                 </div>
             </div>
 
             <div className="hidden flex-wrap justify-end gap-3 pb-8 lg:flex">
-                <Button type="button" variant="secondary" onClick={handleSaveDraft}>
-                    <Clock size={20} /> {saveLabel}
-                </Button>
+                {!readOnly && (
+                    <Button type="button" variant="secondary" onClick={handleSaveDraft}>
+                        <Clock size={20} /> {saveLabel}
+                    </Button>
+                )}
                 <Button type="button" variant="secondary" onClick={handleGeneratePdf}>
                     <FileText size={20} /> Vista previa
                 </Button>
-                <Button type="submit" loading={saving}>
-                    <Save size={20} /> Completar consulta
-                </Button>
+                {!readOnly && (
+                    <Button type="submit" loading={saving}>
+                        <Save size={20} /> Completar consulta
+                    </Button>
+                )}
             </div>
         </form>
 
@@ -2080,5 +2107,6 @@ export default function ConsultationForm({ patient, consultation, meta }) {
             </div>
         )}
       </RequiredErrorsCtx.Provider>
+      </FormReadOnlyContext.Provider>
     );
 }
