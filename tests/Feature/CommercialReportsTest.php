@@ -7,6 +7,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Laravel\Sanctum\Sanctum;
 use PHPUnit\Framework\Attributes\DataProvider;
+use Spatie\Permission\Models\Permission as SpatiePermission;
 use Tests\TestCase;
 
 /**
@@ -33,7 +34,8 @@ class CommercialReportsTest extends TestCase
         config(['cache.default' => 'database']);
         Cache::store('database')->clear();
 
-        Sanctum::actingAs(User::factory()->create());
+        SpatiePermission::firstOrCreate(['name' => 'reports.sales', 'guard_name' => 'web']);
+        Sanctum::actingAs(User::factory()->create()->givePermissionTo('reports.sales'));
     }
 
     public static function reportEndpoints(): array

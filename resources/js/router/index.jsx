@@ -2,6 +2,8 @@ import React, { lazy, Suspense } from 'react';
 import { createBrowserRouter, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import AppShell from '../components/layout/AppShell';
+import RequirePermission from '../components/auth/RequirePermission';
+import { MENU_ITEM_PERMISSIONS } from '../data/menuOptions';
 
 // Pages (lazy loaded)
 const LandingPage = lazy(() => import('../pages/LandingPage'));
@@ -11,6 +13,7 @@ const PatientListPage = lazy(() => import('../pages/patients/PatientListPage'));
 const PatientFormPage = lazy(() => import('../pages/patients/PatientFormPage'));
 const PatientDetailPage = lazy(() => import('../pages/patients/PatientDetailPage'));
 const ConsultationPage = lazy(() => import('../pages/consultations/ConsultationPage'));
+const ConsultationViewPage = lazy(() => import('../pages/consultations/ConsultationViewPage'));
 const GuaranteeReportFormPage = lazy(() => import('../pages/guaranteeReports/GuaranteeReportFormPage'));
 const AgendaPage = lazy(() => import('../pages/agenda/AgendaPage'));
 const BrigadeListPage = lazy(() => import('../pages/brigades/BrigadeListPage'));
@@ -88,15 +91,23 @@ function PublicRoute({ children }) {
     return children;
 }
 
-function wrap(Component) {
+/**
+ * `permission`: string o array (alcanza con uno). Escribir la URL a mano no
+ * abre una pantalla que el menu no muestra.
+ */
+function wrap(Component, permission = null) {
     return (
         <PrivateRoute>
-            <Suspense fallback={<Loader />}>
-                <Component />
-            </Suspense>
+            <RequirePermission permission={permission}>
+                <Suspense fallback={<Loader />}>
+                    <Component />
+                </Suspense>
+            </RequirePermission>
         </PrivateRoute>
     );
 }
+
+const P = MENU_ITEM_PERMISSIONS;
 
 export const router = createBrowserRouter([
     {
@@ -115,14 +126,15 @@ export const router = createBrowserRouter([
         children: [
             { path: 'dashboard', element: wrap(DashboardPage) },
             { path: 'consulta', element: wrap(ConsultationPage) },
-            { path: 'consulta/:consultationId', element: wrap(ConsultationPage) },
-            { path: 'pacientes', element: wrap(PatientListPage) },
-            { path: 'pacientes/nuevo', element: wrap(PatientFormPage) },
-            { path: 'pacientes/:id', element: wrap(PatientDetailPage) },
-            { path: 'pacientes/:id/editar', element: wrap(PatientFormPage) },
+            { path: 'consulta/:consultationId', element: wrap(ConsultationPage, 'consultations.view') },
+            { path: 'consulta/:consultationId/ver', element: wrap(ConsultationViewPage, 'consultations.view') },
+            { path: 'pacientes', element: wrap(PatientListPage, P.pacientes) },
+            { path: 'pacientes/nuevo', element: wrap(PatientFormPage, 'patients.create') },
+            { path: 'pacientes/:id', element: wrap(PatientDetailPage, P.pacientes) },
+            { path: 'pacientes/:id/editar', element: wrap(PatientFormPage, 'patients.edit') },
             { path: 'informes-garantia/nuevo', element: wrap(GuaranteeReportFormPage) },
             { path: 'informes-garantia/:id/editar', element: wrap(GuaranteeReportFormPage) },
-            { path: 'agenda', element: wrap(AgendaPage) },
+            { path: 'agenda', element: wrap(AgendaPage, P.agenda) },
             { path: 'brigadas', element: wrap(BrigadeListPage) },
             { path: 'brigadas/nueva', element: wrap(BrigadeFormPage) },
             { path: 'brigadas/:id', element: wrap(BrigadeDetailPage) },
@@ -133,33 +145,33 @@ export const router = createBrowserRouter([
             { path: 'referencias', element: wrap(ReferenceListPage) },
             { path: 'referencias/nueva', element: wrap(ReferenceFormPage) },
             { path: 'referencias/:id/editar', element: wrap(ReferenceFormPage) },
-            { path: 'usuarios', element: wrap(UserListPage) },
-            { path: 'usuarios/nuevo', element: wrap(UserFormPage) },
-            { path: 'usuarios/:id/editar', element: wrap(UserFormPage) },
-            { path: 'reportes', element: wrap(ReportsPage) },
+            { path: 'usuarios', element: wrap(UserListPage, 'users.view') },
+            { path: 'usuarios/nuevo', element: wrap(UserFormPage, 'users.create') },
+            { path: 'usuarios/:id/editar', element: wrap(UserFormPage, 'users.edit') },
+            { path: 'reportes', element: wrap(ReportsPage, P.reportes_clinicos) },
             { path: 'perfil', element: wrap(ProfilePage) },
-            { path: 'configuracion', element: wrap(SettingsPage) },
-            { path: 'catalogos', element: wrap(CatalogPage) },
+            { path: 'configuracion', element: wrap(SettingsPage, 'settings.edit') },
+            { path: 'catalogos', element: wrap(CatalogPage, 'settings.edit') },
             { path: 'ayuda', element: wrap(HelpPage) },
-            { path: 'ordenes-trabajo', element: wrap(OrdenTrabajoPage) },
-            { path: 'inventario/productos', element: wrap(ProductListPage) },
-            { path: 'inventario/productos/nuevo', element: wrap(ProductFormPage) },
-            { path: 'inventario/productos/:id', element: wrap(ProductDetailPage) },
-            { path: 'inventario/productos/:id/editar', element: wrap(ProductFormPage) },
-            { path: 'inventario/stock', element: wrap(StockPage) },
-            { path: 'inventario/movimientos', element: wrap(StockPage) },
-            { path: 'pos', element: wrap(PosPage) },
-            { path: 'ventas', element: wrap(SalesHistoryPage) },
-            { path: 'laboratorio', element: wrap(LabOrdersPage) },
-            { path: 'caja', element: wrap(CashRegisterPage) },
-            { path: 'dashboard-gerencial', element: wrap(GerencialDashboard) },
-            { path: 'reportes-comerciales', element: wrap(CommercialReportsPage) },
-            { path: 'crm/campanas', element: wrap(CampaignPage) },
-            { path: 'crm/plantillas', element: wrap(TemplatePage) },
-            { path: 'crm/recordatorios', element: wrap(RemindersPage) },
-            { path: 'admin/sucursales', element: wrap(BranchesPage) },
-            { path: 'admin/bodegas', element: wrap(WarehousesPage) },
-            { path: 'admin/mantenimiento', element: wrap(MaintenancePage) },
+            { path: 'ordenes-trabajo', element: wrap(OrdenTrabajoPage, P.ordenes_trabajo) },
+            { path: 'inventario/productos', element: wrap(ProductListPage, P.inventario_productos) },
+            { path: 'inventario/productos/nuevo', element: wrap(ProductFormPage, 'products.create') },
+            { path: 'inventario/productos/:id', element: wrap(ProductDetailPage, P.inventario_productos) },
+            { path: 'inventario/productos/:id/editar', element: wrap(ProductFormPage, 'products.edit') },
+            { path: 'inventario/stock', element: wrap(StockPage, P.inventario_stock) },
+            { path: 'inventario/movimientos', element: wrap(StockPage, P.inventario_movimientos) },
+            { path: 'pos', element: wrap(PosPage, P.pos) },
+            { path: 'ventas', element: wrap(SalesHistoryPage, P.ventas) },
+            { path: 'laboratorio', element: wrap(LabOrdersPage, P.laboratorio) },
+            { path: 'caja', element: wrap(CashRegisterPage, P.caja) },
+            { path: 'dashboard-gerencial', element: wrap(GerencialDashboard, P.dashboard_gerencial) },
+            { path: 'reportes-comerciales', element: wrap(CommercialReportsPage, P.reportes_comerciales) },
+            { path: 'crm/campanas', element: wrap(CampaignPage, P.crm_campanas) },
+            { path: 'crm/plantillas', element: wrap(TemplatePage, P.crm_plantillas) },
+            { path: 'crm/recordatorios', element: wrap(RemindersPage, P.crm_recordatorios) },
+            { path: 'admin/sucursales', element: wrap(BranchesPage, 'branches.manage') },
+            { path: 'admin/bodegas', element: wrap(WarehousesPage, 'branches.manage') },
+            { path: 'admin/mantenimiento', element: wrap(MaintenancePage, 'system.maintenance') },
         ],
     },
     { path: '*', element: <Navigate to="/dashboard" replace /> },

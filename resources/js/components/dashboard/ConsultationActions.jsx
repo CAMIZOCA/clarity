@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { FileText, ShoppingCart } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { consultationUrl } from '../../utils/consultationLinks';
 
 const STYLES = {
     light: {
@@ -27,7 +28,7 @@ export default function ConsultationActions({ item, onDark = false }) {
         <div className="flex flex-wrap gap-2">
             {can('consultations.view') && (
                 <Link
-                    to={`/consulta/${item.id}`}
+                    to={consultationUrl(can, item.id)}
                     className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${styles.history}`}
                 >
                     <FileText size={16} /> Abrir historia

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\Permission;
 use App\Http\Controllers\Controller;
 use App\Models\Appointment;
 use App\Models\Branch;
@@ -71,6 +72,8 @@ class ReportController extends Controller
 
     public function consultations(Request $request): JsonResponse
     {
+        $this->authorizeClinical($request);
+
         $from = $request->input('from', now()->startOfMonth()->toDateString());
         $to = $request->input('to', now()->toDateString());
 
@@ -98,6 +101,9 @@ class ReportController extends Controller
      */
     public function consultationsForecast(Request $request, ConsultationForecastService $forecast): JsonResponse
     {
+        // Es el grafico del dashboard, no un reporte: lo ve quien ve el resumen de consultas.
+        abort_unless($request->user()->can(Permission::CONSULTATIONS_HANDOFF->value), 403);
+
         $validated = $request->validate([
             'days' => ['nullable', 'integer', 'min:1', 'max:14'],
         ]);
@@ -107,6 +113,8 @@ class ReportController extends Controller
 
     public function diagnoses(Request $request): JsonResponse
     {
+        $this->authorizeClinical($request);
+
         $from = $request->input('from', now()->startOfYear()->toDateString());
         $to = $request->input('to', now()->toDateString());
 
@@ -123,6 +131,8 @@ class ReportController extends Controller
 
     public function patients(Request $request): JsonResponse
     {
+        $this->authorizeClinical($request);
+
         $from = $request->input('from', now()->startOfMonth()->toDateString());
         $to = $request->input('to', now()->toDateString());
 
@@ -139,6 +149,8 @@ class ReportController extends Controller
 
     public function exportCsv(Request $request): Response
     {
+        $this->authorizeClinical($request);
+
         $from = $request->input('from', now()->startOfMonth()->toDateString());
         $to = $request->input('to', now()->toDateString());
 
@@ -183,6 +195,8 @@ class ReportController extends Controller
      */
     public function salesReport(Request $request): JsonResponse
     {
+        $this->authorizeCommercial($request);
+
         $dateFrom = $request->input('date_from', now()->startOfMonth()->toDateString());
         $dateTo = $request->input('date_to', now()->toDateString());
         $branchId = $request->input('branch_id');
@@ -307,6 +321,8 @@ class ReportController extends Controller
      */
     public function inventoryReport(Request $request): JsonResponse
     {
+        $this->authorizeCommercial($request);
+
         $warehouseId = $request->input('warehouse_id');
         $branchId = $request->input('branch_id');
         $category = $request->input('category');
@@ -447,6 +463,8 @@ class ReportController extends Controller
      */
     public function labReport(Request $request): JsonResponse
     {
+        $this->authorizeCommercial($request);
+
         $dateFrom = $request->input('date_from', now()->startOfMonth()->toDateString());
         $dateTo = $request->input('date_to', now()->toDateString());
         $labSupplierId = $request->input('lab_supplier_id');
@@ -579,6 +597,8 @@ class ReportController extends Controller
      */
     public function cashReport(Request $request): JsonResponse
     {
+        $this->authorizeCommercial($request);
+
         $dateFrom = $request->input('date_from', now()->startOfMonth()->toDateString());
         $dateTo = $request->input('date_to', now()->toDateString());
         $branchId = $request->input('branch_id');
@@ -697,6 +717,8 @@ class ReportController extends Controller
      */
     public function branchComparison(Request $request): JsonResponse
     {
+        $this->authorizeCommercial($request);
+
         $dateFrom = $request->input('date_from', now()->startOfMonth()->toDateString());
         $dateTo = $request->input('date_to', now()->toDateString());
 
@@ -750,6 +772,8 @@ class ReportController extends Controller
      */
     public function dashboardCommercial(Request $request): JsonResponse
     {
+        $this->authorizeCommercial($request);
+
         $cacheKey = 'report_dashboard_commercial_'.now()->format('Y-m-d-H-i');
 
         $data = Cache::remember($cacheKey, 60, function () {
@@ -942,5 +966,26 @@ class ReportController extends Controller
         });
 
         return response()->json($data);
+    }
+
+    private function authorizeClinical(Request $request): void
+    {
+        abort_unless($request->user()->can(Permission::REPORTS_CLINICAL->value), 403);
+    }
+
+    /**
+     * Los reportes comerciales comparten pantalla: basta cualquiera de sus
+     * permisos para no dejar la pagina a medias.
+     */
+    private function authorizeCommercial(Request $request): void
+    {
+        $user = $request->user();
+
+        abort_unless(
+            $user->can(Permission::REPORTS_SALES->value)
+                || $user->can(Permission::REPORTS_FINANCIAL->value)
+                || $user->can(Permission::REPORTS_INVENTORY->value),
+            403
+        );
     }
 }

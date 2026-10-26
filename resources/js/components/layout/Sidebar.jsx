@@ -37,7 +37,7 @@ import {
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSettings } from '../../contexts/SettingsContext';
-import { DEFAULT_MENU_VISIBLE_ITEMS, DEFAULT_MENU_VISIBLE_SECTIONS, MENU_ITEM_OPTIONS_BY_SECTION } from '../../data/menuOptions';
+import { DEFAULT_MENU_VISIBLE_ITEMS, DEFAULT_MENU_VISIBLE_SECTIONS, MENU_ITEM_OPTIONS_BY_SECTION, canUseMenuItem } from '../../data/menuOptions';
 import client from '../../api/client';
 import { motionTransition, SPRING_SHEET, REDUCED_MOTION_TRANSITION } from '../../utils/motion';
 const primaryLinkClass = 'flex items-center gap-3 rounded-xl px-4 py-3 text-[15px] font-medium transition-colors';
@@ -90,7 +90,7 @@ function Section({ title, icon: Icon, children, defaultOpen = true }) {
     );
 }
 
-function SidebarContent({ onNavigate, onLogout, isAdmin, canManageSettings, pendingAppointments, userName, userRole, visibleMenuSections, visibleMenuItems }) {
+function SidebarContent({ onNavigate, onLogout, isAdmin, can, canManageSettings, pendingAppointments, userName, userRole, visibleMenuSections, visibleMenuItems }) {
     const visibleSections = Array.isArray(visibleMenuSections) && visibleMenuSections.length > 0
         ? visibleMenuSections
         : DEFAULT_MENU_VISIBLE_SECTIONS;
@@ -98,7 +98,8 @@ function SidebarContent({ onNavigate, onLogout, isAdmin, canManageSettings, pend
         ? visibleMenuItems
         : DEFAULT_MENU_VISIBLE_ITEMS;
     const isMenuSectionVisible = (section) => visibleSections.includes(section);
-    const isMenuItemVisible = (item) => visibleItems.includes(item);
+    // El ajuste global decide que se ofrece; el permiso, quien lo ve.
+    const isMenuItemVisible = (item) => visibleItems.includes(item) && canUseMenuItem(can, item);
     const hasVisibleItemsInSection = (section) =>
         MENU_ITEM_OPTIONS_BY_SECTION[section]?.some((item) => isMenuItemVisible(item.key));
     const shouldShowSection = (section) => isMenuSectionVisible(section) && hasVisibleItemsInSection(section);
@@ -282,6 +283,7 @@ export default function Sidebar({ mobileOpen = false, onClose }) {
                 onNavigate={handleNavigate}
                 onLogout={handleLogout}
                 isAdmin={isAdmin()}
+                can={can}
                 canManageSettings={can('settings.edit')}
                 pendingAppointments={pendingAppointments}
                 userName={userMeta.userName}

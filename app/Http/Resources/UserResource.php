@@ -16,7 +16,10 @@ class UserResource extends JsonResource
             'role' => $this->role,
             'roles' => $this->whenLoaded('roles', fn () => $this->roles->pluck('name')),
             'permissions' => $this->when(
-                $request->routeIs('users.show') || $request->is('api/me') || $request->is('me'),
+                // Tambien al iniciar sesion: el menu y las rutas dependen de los
+                // permisos, y sin ellos un usuario no admin veia el menu vacio
+                // hasta recargar la pagina (que es cuando se pide /me).
+                $request->routeIs('users.show') || $request->is('api/me') || $request->is('me') || $request->is('login'),
                 fn () => $this->getAllPermissions()->pluck('name')
             ),
             'codigo' => $this->codigo,

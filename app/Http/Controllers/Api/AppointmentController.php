@@ -2,8 +2,9 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Controller;
+use App\Enums\Permission;
 use App\Http\Controllers\Api\Concerns\ApiResponses;
+use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreAppointmentRequest;
 use App\Http\Requests\UpdateAppointmentRequest;
 use App\Http\Resources\AppointmentResource;
@@ -17,6 +18,8 @@ class AppointmentController extends Controller
 
     public function index(Request $request): JsonResponse
     {
+        abort_unless($request->user()->can(Permission::APPOINTMENTS_VIEW->value), 403);
+
         $query = Appointment::with(['patient:id,nombre,apellido,cedula', 'optometrista:id,name']);
 
         if ($from = $request->input('from')) {
@@ -42,8 +45,10 @@ class AppointmentController extends Controller
             ->setStatusCode(201);
     }
 
-    public function show(Appointment $appointment): JsonResponse
+    public function show(Request $request, Appointment $appointment): JsonResponse
     {
+        abort_unless($request->user()->can(Permission::APPOINTMENTS_VIEW->value), 403);
+
         $appointment->load(['patient', 'optometrista']);
 
         return (new AppointmentResource($appointment))->response();
@@ -57,8 +62,10 @@ class AppointmentController extends Controller
         return (new AppointmentResource($appointment))->response();
     }
 
-    public function destroy(Appointment $appointment): JsonResponse
+    public function destroy(Request $request, Appointment $appointment): JsonResponse
     {
+        abort_unless($request->user()->can(Permission::APPOINTMENTS_DELETE->value), 403);
+
         $appointment->delete();
 
         return response()->json(['message' => 'Cita eliminada.']);

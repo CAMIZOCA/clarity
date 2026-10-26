@@ -1,7 +1,13 @@
-import React, { useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 
 const OPEN_SECTION_EVENT = 'collapsible-section:open';
+
+/**
+ * Formulario en solo lectura: cada seccion envuelve su contenido en un
+ * `<fieldset disabled>`. El encabezado queda fuera para poder abrirla.
+ */
+export const FormReadOnlyContext = createContext(false);
 
 /**
  * Abre desde fuera la seccion con ese `sectionKey` (ej. para llevar al usuario
@@ -58,6 +64,7 @@ export default function CollapsibleSection({
     }, [sectionKey]);
 
     const advanced = variant === 'advanced';
+    const readOnly = useContext(FormReadOnlyContext);
 
     return (
         <section data-section-key={sectionKey} className={`mb-6 overflow-hidden rounded-2xl border shadow-sm ${advanced ? 'border-slate-200 bg-slate-50/70' : 'border-slate-200 bg-white'}`}>
@@ -82,7 +89,7 @@ export default function CollapsibleSection({
             {open && (
                 <>
                     {subtitle && <div className="border-b border-slate-100 bg-slate-50 px-5 py-2 text-xs text-slate-500">{subtitle}</div>}
-                    <div className="p-5">{children}</div>
+                    <fieldset disabled={readOnly} className="min-w-0 p-5">{children}</fieldset>
                 </>
             )}
         </section>

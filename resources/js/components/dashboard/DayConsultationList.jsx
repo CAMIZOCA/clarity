@@ -23,7 +23,9 @@ export default function DayConsultationList({ day, index, expandedId, onToggle }
             </header>
 
             {items.length === 0 ? (
-                <p className="py-6 text-center text-gray-400 text-sm">Sin consultas completadas</p>
+                <p className="py-6 text-center text-gray-400 text-sm">
+                    {index === 0 ? 'Todavía no se ha atendido ningún paciente hoy.' : 'Sin consultas completadas'}
+                </p>
             ) : (
                 <ul className="divide-y divide-gray-50">
                     {items.map(item => {

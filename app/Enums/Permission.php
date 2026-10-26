@@ -141,16 +141,21 @@ enum Permission: string
                 self::PATIENTS_VIEW->value,
                 self::PATIENTS_CREATE->value,
                 self::PATIENTS_EDIT->value,
+                self::CONSULTATIONS_VIEW->value,           // Solo lectura: sin create/edit/delete
+                self::CONSULTATIONS_PDF->value,
                 self::CONSULTATIONS_HANDOFF->value,
                 self::APPOINTMENTS_VIEW->value,
                 self::APPOINTMENTS_CREATE->value,
                 self::APPOINTMENTS_EDIT->value,
                 self::APPOINTMENTS_DELETE->value,
+                self::LAB_ORDERS_VIEW->value,              // Ordenes de trabajo, sin eliminar
+                self::LAB_ORDERS_CREATE->value,
+                self::LAB_ORDERS_EDIT->value,
+                self::LAB_ORDERS_MANAGE->value,
                 self::BRIGADES_VIEW->value,
                 self::REFERENCES_VIEW->value,
                 self::GUARANTEE_REPORTS_VIEW->value,
-                self::REPORTS_CLINICAL->value,
-                self::CRM_VIEW->value,
+                // Sin reportes ni la parte comercial (ventas, caja, inventario, CRM).
             ],
 
             Role::VENDEDOR => [
