@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../components/ui/Toast';
 import Button from '../../components/ui/Button';
+import client from '../../api/client';
 
 export default function LoginPage() {
     const { login } = useAuth();
@@ -14,6 +15,14 @@ export default function LoginPage() {
     const [showPass, setShowPass] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    // null = logo por defecto (sin logo cargado o la consulta falló).
+    const [logoUrl, setLogoUrl] = useState(null);
+
+    useEffect(() => {
+        client.get('/branding', { skipErrorToast: true })
+            .then(r => setLogoUrl(r.data?.clinic_logo_url || null))
+            .catch(() => setLogoUrl(null));
+    }, []);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -42,11 +51,15 @@ export default function LoginPage() {
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8">
                 {/* Logo */}
                 <div className="text-center mb-8">
-                    <div className="inline-flex items-center justify-center w-16 h-16 bg-[#1a2a4a] rounded-2xl mb-4">
-                        <svg viewBox="0 0 24 24" className="w-9 h-9 fill-white">
-                            <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
-                        </svg>
-                    </div>
+                    {logoUrl ? (
+                        <img src={logoUrl} alt="Logo de la clínica" className="mx-auto max-h-24 max-w-[12rem] object-contain mb-4" />
+                    ) : (
+                        <div className="inline-flex items-center justify-center w-16 h-16 bg-[#1a2a4a] rounded-2xl mb-4">
+                            <svg viewBox="0 0 24 24" className="w-9 h-9 fill-white">
+                                <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                            </svg>
+                        </div>
+                    )}
                     <h1 className="text-2xl font-bold text-gray-900">Sistema Clínico</h1>
                     <p className="text-gray-500 mt-1">Optometría — Ingreso al sistema</p>
                 </div>

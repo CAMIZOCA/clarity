@@ -51,6 +51,19 @@ class SettingController extends Controller
         return $settings;
     }
 
+    /**
+     * Logo de la clinica para la pantalla de ingreso. Va sin autenticar porque
+     * el login aun no tiene sesion, y solo expone la URL del logo.
+     */
+    public function branding(): JsonResponse
+    {
+        $logo = Setting::get('clinic_logo');
+
+        return response()->json([
+            'clinic_logo_url' => $logo ? Storage::disk('public')->url($logo) : null,
+        ]);
+    }
+
     public function update(Request $request): JsonResponse
     {
         abort_unless($request->user()?->can(Permission::SETTINGS_EDIT->value), 403);
