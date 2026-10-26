@@ -290,6 +290,8 @@ export default function CertificadoPdf({ data, onClose, consultationDoctor }) {
 
     const patient = data?.patient ?? data?.consultation?.patient ?? {};
     const [email, setEmail] = useState(patient.email || '');
+    // Sin SMTP configurado no hay envio: el correo y el boton Enviar no se muestran.
+    const mailConfigured = data?.mail_configured === true;
     const [sending, setSending] = useState(false);
     const [downloading, setDownloading] = useState(false);
 
@@ -433,16 +435,20 @@ export default function CertificadoPdf({ data, onClose, consultationDoctor }) {
                                 {doctors.map(d => <option key={d.id} value={d.id}>{d.nombre}</option>)}
                             </select>
                         )}
-                        <input
-                            type="email"
-                            value={email}
-                            onChange={e => setEmail(e.target.value)}
-                            placeholder="correo del paciente"
-                            className="px-3 py-2 border border-gray-300 rounded-lg text-sm w-56 focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]"
-                        />
-                        <Button variant="secondary" size="sm" onClick={handleSendEmail} loading={sending}>
-                            <Mail size={16} /> Enviar
-                        </Button>
+                        {mailConfigured && (
+                            <>
+                                <input
+                                    type="email"
+                                    value={email}
+                                    onChange={e => setEmail(e.target.value)}
+                                    placeholder="correo del paciente"
+                                    className="px-3 py-2 border border-gray-300 rounded-lg text-sm w-56 focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]"
+                                />
+                                <Button variant="secondary" size="sm" onClick={handleSendEmail} loading={sending}>
+                                    <Mail size={16} /> Enviar
+                                </Button>
+                            </>
+                        )}
                         <Button variant="secondary" size="sm" onClick={handleDownloadPdf} loading={downloading}>
                             <Download size={16} /> Descargar
                         </Button>

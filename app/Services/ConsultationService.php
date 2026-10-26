@@ -140,6 +140,8 @@ class ConsultationService extends BaseService
                 ->orderByDesc('is_default')
                 ->orderBy('nombre')
                 ->get(),
+            // Sin SMTP el certificado no se puede enviar: el formulario oculta el correo.
+            'mail_configured' => MailConfigService::isConfigured(),
         ];
     }
 
