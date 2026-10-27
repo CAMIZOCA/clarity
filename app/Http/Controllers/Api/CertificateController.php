@@ -7,11 +7,14 @@ use App\Http\Controllers\Api\Concerns\ApiResponses;
 use App\Http\Controllers\Controller;
 use App\Mail\CertificateMail;
 use App\Models\Certificate;
+use App\Models\CertifyingDoctor;
 use App\Models\Consultation;
 use App\Models\Setting;
+use App\Services\CertificateDocxService;
 use App\Services\MailConfigService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\Rule;
@@ -117,6 +120,38 @@ class CertificateController extends Controller
         }
 
         return $this->created($certificate->fresh(), $send ? 'Certificado guardado y enviado.' : 'Certificado guardado.');
+    }
+
+    /**
+     * Descargar el certificado visual en Word, con el mismo modelo y doctor que el PDF.
+     * No se guarda en `certificates`: es solo una descarga.
+     * GET /api/consultations/{consultation}/certificado-docx?tipo=&certifying_doctor_id=
+     */
+    public function downloadDocx(Request $request, Consultation $consultation, CertificateDocxService $docx): Response|JsonResponse
+    {
+        if (! $request->user()->can(Permission::CONSULTATIONS_PDF->value)) {
+            return $this->forbidden();
+        }
+
+        $validated = $request->validate([
+            'tipo' => ['nullable', Rule::in(Certificate::TIPOS)],
+            'certifying_doctor_id' => ['nullable', 'integer', 'exists:certifying_doctors,id'],
+        ]);
+
+        $doctor = isset($validated['certifying_doctor_id'])
+            ? CertifyingDoctor::find($validated['certifying_doctor_id'])
+            : null;
+
+        $contents = $docx->generate(
+            $consultation,
+            $validated['tipo'] ?? Certificate::TIPO_GENERAL,
+            $doctor,
+        );
+
+        return response($contents, 200, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'Content-Disposition' => 'attachment; filename="certificado.docx"',
+        ]);
     }
 
     /**

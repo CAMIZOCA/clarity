@@ -40,7 +40,7 @@ Estado: ✅ completo · 🟡 parcial · ⚠️ sin UI
 | Referencias oftalmologicas | `/referencias` | `OphthalmologyReferenceController` | ✅ |
 | Brigadas | `/brigadas` | `BrigadeController` | ✅ |
 | Informes de garantia | `/informes-garantia` | `GuaranteeReportController` | ✅ |
-| Certificados | (en ficha de paciente) — modelos General y Escolar/Vehicular (sin RX final) | `CertificateController` | ✅ |
+| Certificados | (en ficha de paciente) — modelos General y Escolar/Vehicular (sin RX final); descarga en PDF (navegador) y en Word (`.docx`, servidor) | `CertificateController`, `CertificateDocxService` | ✅ |
 | Catalogos clinicos | `/catalogos` | `CatalogController` | ✅ |
 | Plantillas de impresion | ⚠️ sin UI de gestion | `PrintTemplate` + `updateTemplate` | 🟡 |
 | CIE-10 | ⚠️ componente huerfano | `Cie10Controller` | 🟡 |
@@ -142,6 +142,14 @@ medico de la cabecera clinica (`certifying_doctors.user_id`, o el que se llama i
 predeterminado es solo el respaldo y se avisa cuando se usa. Con logo cargado no se imprimen el
 nombre ni el eslogan de la clinica.
 
+Certificado en Word (`GET /api/consultations/{id}/certificado-docx?tipo=&certifying_doctor_id=`):
+`CertificateDocxService` genera el `.docx` con PhpWord a partir de la consulta guardada, con el
+mismo modelo y doctor que se ven en pantalla. Es espejo de `CertificadoPdf.jsx`: un cambio de
+diseno o de datos se replica en ambos. No se guarda en `certificates` (solo descarga). Los
+archivos temporales de PhpWord van a `storage/app/phpword`, porque `sys_get_temp_dir()` en
+Windows apunta a una carpeta a la que PHP no tiene acceso. La impresion (Imprimir) copia el
+contenedor completo de la hoja para conservar sus margenes.
+
 Grupos de catalogo (`clinical_catalog_groups.key`): `diagnoses`, `lens_materials`,
 `lens_thicknesses`, `lens_protections`, `recommendations`, `contact_lens_types`
 (este ultimo sembrado pero sin consumir en el formulario).
@@ -212,6 +220,18 @@ Ordenados por impacto.
 ---
 
 ## Historial de cambios relevantes
+
+### 2026-10-27 — Certificado visual en Word y ajustes de impresion
+
+- **Word**: boton "Word" junto a "PDF" en el certificado visual. Genera el `.docx` en el servidor
+  (`CertificateDocxService`, dependencia `phpoffice/phpword`) con el mismo modelo General o
+  Escolar/Vehicular y el mismo doctor que firma. Solo descarga; no crea registro en `certificates`.
+- **Boton PDF**: antes decia "Descargar"; ahora "PDF" para distinguirlo del Word.
+- **Fallo corregido**: el Word devolvia 500 en Windows porque PhpWord escribia en `C:\Windows\Temp`,
+  sin permiso para PHP. Ahora usa `storage/app/phpword`.
+- **Impresion**: Imprimir copiaba solo el interior de la hoja y perdia el padding (logo pegado al
+  borde superior, margenes laterales minimos). Ahora copia el contenedor completo.
+- Tests: `tests/Feature/CertificateDocxTest.php` (5 casos).
 
 ### 2026-10-22 — Modulo de Terapia Visual (motor, binocular y acomodativo)
 

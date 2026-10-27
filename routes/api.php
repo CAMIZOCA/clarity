@@ -95,6 +95,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/certificates', [CertificateController::class, 'index']);
     Route::post('/certificates', [CertificateController::class, 'store']);
     Route::post('/certificates/test-email', [CertificateController::class, 'sendTest']);
+    Route::get('/consultations/{consultation}/certificado-docx', [CertificateController::class, 'downloadDocx']);
 
     // Catalog management
     Route::get('/catalog-groups', [CatalogController::class, 'groups']);

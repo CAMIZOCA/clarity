@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { X, Download, Printer, Mail } from 'lucide-react';
+import { X, Download, Printer, Mail, FileText } from 'lucide-react';
 import Button from '../ui/Button';
 import client from '../../api/client';
 import { useToast } from '../ui/Toast';
@@ -295,6 +295,7 @@ export default function CertificadoPdf({ data, onClose, consultationDoctor }) {
     const mailConfigured = data?.mail_configured === true;
     const [sending, setSending] = useState(false);
     const [downloading, setDownloading] = useState(false);
+    const [downloadingWord, setDownloadingWord] = useState(false);
 
     const consultationId = data?.consultation?.id ?? data?.consultation_id ?? null;
     const numero = data?.consultation?.numero_consulta || 'consulta';
@@ -368,7 +369,7 @@ export default function CertificadoPdf({ data, onClose, consultationDoctor }) {
                     body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
                 </style>
             </head>
-            <body>${content.innerHTML}</body>
+            <body>${content.outerHTML}</body>
             </html>
         `);
         win.document.close();
@@ -394,6 +395,28 @@ export default function CertificadoPdf({ data, onClose, consultationDoctor }) {
         } catch {
             addToast('No se pudo generar el PDF. Use "Imprimir" y elija "Guardar como PDF".', 'error');
         } finally { setDownloading(false); }
+    };
+
+    // Word: lo genera el servidor (CertificateDocxService, espejo de PdfContent) con el mismo
+    // modelo y doctor que se ven aqui. Lee la consulta guardada, igual que el PDF de pdf-data.
+    const handleDownloadWord = async () => {
+        if (!consultationId) { addToast('Guarda la consulta antes de descargar el Word', 'error'); return; }
+        setDownloadingWord(true);
+        try {
+            const { data: blob } = await client.get(`/consultations/${consultationId}/certificado-docx`, {
+                params: { tipo: certificateType.key, certifying_doctor_id: selectedDoctor?.id },
+                responseType: 'blob',
+            });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName.replace(/\.pdf$/, '.docx');
+            a.click();
+            setTimeout(() => URL.revokeObjectURL(url), 60000);
+            addToast('Certificado Word descargado', 'success');
+        } catch {
+            addToast('No se pudo generar el Word del certificado', 'error');
+        } finally { setDownloadingWord(false); }
     };
 
     const handleSendEmail = async () => {
@@ -451,7 +474,10 @@ export default function CertificadoPdf({ data, onClose, consultationDoctor }) {
                             </>
                         )}
                         <Button variant="secondary" size="sm" onClick={handleDownloadPdf} loading={downloading}>
-                            <Download size={16} /> Descargar
+                            <Download size={16} /> PDF
+                        </Button>
+                        <Button variant="secondary" size="sm" onClick={handleDownloadWord} loading={downloadingWord}>
+                            <FileText size={16} /> Word
                         </Button>
                         <Button size="sm" onClick={handlePrint}>
                             <Printer size={16} /> Imprimir

@@ -365,6 +365,9 @@ consultas importadas (a veces notas clinicas) y cada guardado lo dejaba en `null
   `required_fields`, y `applyMeasureNotes` lo devuelve al input. Como la columna es `null`, los
   sitios que muestran la RX final deben leer tambien `medidas_notas` (resumen de recepcion,
   `RxHistoryPicker`, `CertificadoPdf`); la orden de trabajo y la receta impresa no lo muestran.
+  El Word del certificado (`CertificateDocxService`) es espejo de `CertificadoPdf.jsx`: cambiar
+  diseno o datos en uno exige cambiarlo en el otro. Sus temporales van a `storage/app/phpword`,
+  no a `sys_get_temp_dir()` (en Windows apunta a una carpeta sin permiso para PHP).
 - **Dashboard = pantalla de recepcion**: cuando el optometra completa una consulta, el vendedor la
   ve en `/dashboard` sin abrir la historia. `GET /api/reception/consultations`
   (`ReceptionFeedService`, sin cache a proposito) devuelve las completadas de hoy (`?days=N` para
