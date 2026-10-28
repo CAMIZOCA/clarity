@@ -14,7 +14,7 @@ class AuthController extends Controller
     public function login(Request $request): JsonResponse
     {
         $request->validate([
-            'email'    => 'required|email',
+            'email' => 'required|email',
             'password' => 'required',
         ]);
 
@@ -23,6 +23,17 @@ class AuthController extends Controller
                 'email' => ['Las credenciales son incorrectas.'],
             ]);
         }
+
+        // `AuthenticateSession` (Sanctum) guarda el hash de la contrasena en la sesion y
+        // solo lo revisa mientras hay usuario. Si el anterior ya no existe (borrado), el
+        // hash viejo queda ahi: el login respondia 200 pero el siguiente request no
+        // coincidia, vaciaba la sesion y todo /api daba 401 con el usuario "dentro".
+        $request->session()->forget(
+            array_values(array_filter(
+                array_keys($request->session()->all()),
+                fn (string $key) => str_starts_with($key, 'password_hash_'),
+            ))
+        );
 
         $request->session()->regenerate();
 
