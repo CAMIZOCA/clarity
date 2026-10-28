@@ -1,8 +1,12 @@
-import React, { useState, useCallback } from 'react';
-import { ClipboardList, Eye, RefreshCw, AlertCircle, CheckCircle, Save } from 'lucide-react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { ClipboardList, Eye, RefreshCw, AlertCircle, CheckCircle, Save, Receipt } from 'lucide-react';
 import PatientAutocomplete from '../../components/ui/PatientAutocomplete';
 import OrdenTrabajoPdf from '../../components/pdf/OrdenTrabajoPdf';
+import ReciboPdf from '../../components/pdf/ReciboPdf';
 import client from '../../api/client';
+import { getPayload } from '../../api/response';
+import { toDisplayDate } from '../../utils/dates';
 import { createLabOrder, getLabSuppliers } from '../../api/sales';
 import { useToast } from '../../components/ui/Toast';
 import { useSettings } from '../../contexts/SettingsContext';
@@ -150,6 +154,7 @@ export default function OrdenTrabajoPage() {
     const [loadingConsulta, setLoadingConsulta] = useState(false);
     const [noConsulta, setNoConsulta] = useState(false);
     const [showPdf, setShowPdf] = useState(false);
+    const [showRecibo, setShowRecibo] = useState(false);
     const [saving, setSaving] = useState(false);
     const [savedOrder, setSavedOrder] = useState(null);
     const { addToast } = useToast();
@@ -161,66 +166,81 @@ export default function OrdenTrabajoPage() {
         rx_od: '', rx_oi: '', add_od: '', add_oi: '', avcc_od: '', avcc_oi: '',
         dnp: '', especif: '', lab: '', alt: '', armazon: '',
         dr: '', fac: '', rc: '', entrega: '', nota: '',
-        valor: '', abono: '', saldo: '', forma_pago: '',
+        valor: '', abono: '', saldo: '', forma_pago: '', recibo_detalle: '',
         cliente: '', telefono: '',
     });
 
-    const handlePatientSelect = useCallback(async (patient) => {
+    /** Vuelca la RX final, AV, DNP, doctor y lunas de una consulta en la orden. */
+    const applyConsultation = useCallback((c) => {
+        setConsulta(c);
+        const fmtRx = (esf, cil, eje) => {
+            const parts = [];
+            if (esf != null && esf !== '') parts.push(parseFloat(esf) >= 0 ? `+${parseFloat(esf).toFixed(2)}` : parseFloat(esf).toFixed(2));
+            if (cil != null && cil !== '') parts.push(parseFloat(cil) >= 0 ? `+${parseFloat(cil).toFixed(2)}` : parseFloat(cil).toFixed(2));
+            if (eje != null && eje !== '') parts.push(`x${eje}°`);
+            return parts.join(' ');
+        };
+        const fmtAdd = (v) => v ? (parseFloat(v) >= 0 ? `+${parseFloat(v).toFixed(2)}` : parseFloat(v).toFixed(2)) : '';
+        const dnp = [c.rx_final_dnp_od, c.rx_final_dnp_oi].filter(Boolean).join('/');
+
+        setOrden(prev => ({
+            ...prev,
+            rx_od: fmtRx(c.rx_final_esfera_od, c.rx_final_cilindro_od, c.rx_final_eje_od),
+            rx_oi: fmtRx(c.rx_final_esfera_oi, c.rx_final_cilindro_oi, c.rx_final_eje_oi),
+            add_od: fmtAdd(c.rx_final_add_od),
+            add_oi: fmtAdd(c.rx_final_add_oi),
+            avcc_od: c.avcc_od || '',
+            avcc_oi: c.avcc_oi || '',
+            dnp,
+            dr: c.optometrista?.name || '',
+        }));
+
+        if (c.luna_material || c.luna_espesor || c.luna_proteccion) {
+            const mat = (c.luna_material || '').toLowerCase();
+            const esp = (c.luna_espesor || '').toLowerCase();
+            const prot = (c.luna_proteccion || '').toLowerCase();
+            setSpecs(prev => ({
+                ...prev,
+                cristal: mat.includes('cristal'),
+                cr39: mat.includes('cr') || mat.includes('39'),
+                poly: mat.includes('poli') || mat.includes('poly'),
+                phoenix: mat.includes('phoenix'),
+                fotocromático: prot.includes('fotocrom'),
+                antirreflejo: prot.includes('antirreflejo') || prot.includes('ar'),
+                uv: prot.includes('uv'),
+                monofocal: esp.includes('monofocal'),
+                bifocal: esp.includes('bifocal'),
+                progresivos: esp.includes('progresivo'),
+            }));
+        }
+    }, []);
+
+    /**
+     * `linkedConsultation`: la consulta elegida desde el dashboard o la historia.
+     * Sin ella se usa la ultima completada del paciente.
+     */
+    const handlePatientSelect = useCallback(async (patient, linkedConsultation = null) => {
         setPaciente(patient);
         setConsulta(null);
         setNoConsulta(false);
-        setLoadingConsulta(true);
         setOrden(prev => ({
             ...prev,
             cliente: patient.nombre_completo || patient.nombre,
             telefono: patient.telefono || '',
         }));
 
+        if (linkedConsultation) {
+            applyConsultation(linkedConsultation);
+            setLoadingConsulta(false);
+            return;
+        }
+
+        setLoadingConsulta(true);
         try {
             const res = await client.get(`/patients/${patient.id}/last-consultation`);
             const c = res.data?.data;
             if (c) {
-                setConsulta(c);
-                const fmtRx = (esf, cil, eje) => {
-                    const parts = [];
-                    if (esf != null && esf !== '') parts.push(parseFloat(esf) >= 0 ? `+${parseFloat(esf).toFixed(2)}` : parseFloat(esf).toFixed(2));
-                    if (cil != null && cil !== '') parts.push(parseFloat(cil) >= 0 ? `+${parseFloat(cil).toFixed(2)}` : parseFloat(cil).toFixed(2));
-                    if (eje != null && eje !== '') parts.push(`x${eje}°`);
-                    return parts.join(' ');
-                };
-                const fmtAdd = (v) => v ? (parseFloat(v) >= 0 ? `+${parseFloat(v).toFixed(2)}` : parseFloat(v).toFixed(2)) : '';
-                const dnp = [c.rx_final_dnp_od, c.rx_final_dnp_oi].filter(Boolean).join('/');
-
-                setOrden(prev => ({
-                    ...prev,
-                    rx_od: fmtRx(c.rx_final_esfera_od, c.rx_final_cilindro_od, c.rx_final_eje_od),
-                    rx_oi: fmtRx(c.rx_final_esfera_oi, c.rx_final_cilindro_oi, c.rx_final_eje_oi),
-                    add_od: fmtAdd(c.rx_final_add_od),
-                    add_oi: fmtAdd(c.rx_final_add_oi),
-                    avcc_od: c.avcc_od || '',
-                    avcc_oi: c.avcc_oi || '',
-                    dnp,
-                    dr: c.optometrista?.name || '',
-                }));
-
-                if (c.luna_material || c.luna_espesor || c.luna_proteccion) {
-                    const mat = (c.luna_material || '').toLowerCase();
-                    const esp = (c.luna_espesor || '').toLowerCase();
-                    const prot = (c.luna_proteccion || '').toLowerCase();
-                    setSpecs(prev => ({
-                        ...prev,
-                        cristal: mat.includes('cristal'),
-                        cr39: mat.includes('cr') || mat.includes('39'),
-                        poly: mat.includes('poli') || mat.includes('poly'),
-                        phoenix: mat.includes('phoenix'),
-                        fotocromático: prot.includes('fotocrom'),
-                        antirreflejo: prot.includes('antirreflejo') || prot.includes('ar'),
-                        uv: prot.includes('uv'),
-                        monofocal: esp.includes('monofocal'),
-                        bifocal: esp.includes('bifocal'),
-                        progresivos: esp.includes('progresivo'),
-                    }));
-                }
+                applyConsultation(c);
             } else {
                 setNoConsulta(true);
             }
@@ -229,14 +249,87 @@ export default function OrdenTrabajoPage() {
         } finally {
             setLoadingConsulta(false);
         }
-    }, []);
+    }, [applyConsultation]);
+
+    // Llegada desde la tarjeta del dashboard, la historia o la ficha ("Orden de trabajo"):
+    // paciente y consulta ya elegidos, sin volver a buscarlos ni copiar la RX a mano.
+    const [searchParams] = useSearchParams();
+    const linkedPatientId = Number(searchParams.get('paciente')) || null;
+    const linkedConsultationId = Number(searchParams.get('consulta')) || null;
+
+    useEffect(() => {
+        if (!linkedPatientId) return undefined;
+        let cancelled = false;
+
+        (async () => {
+            setLoadingConsulta(true);
+            let linked = null;
+            if (linkedConsultationId) {
+                try {
+                    const c = getPayload(await client.get(`/consultations/${linkedConsultationId}`));
+                    // Solo una consulta completada de ese paciente; si no, la ultima completada.
+                    if (c?.patient_id === linkedPatientId && c.estado === 'completada') linked = c;
+                } catch {
+                    linked = null;
+                }
+            }
+            try {
+                const patient = linked?.patient ?? getPayload(await client.get(`/patients/${linkedPatientId}`));
+                if (!cancelled && patient?.id) handlePatientSelect(patient, linked);
+            } catch {
+                if (!cancelled) {
+                    setLoadingConsulta(false);
+                    addToast('No se pudo cargar el paciente de la consulta. Búsquelo en el campo de arriba.', 'error');
+                }
+            }
+        })();
+
+        return () => { cancelled = true; };
+    }, [linkedPatientId, linkedConsultationId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // "COMP" y otras notas de texto de la RX final: la orden no las imprime, pero se muestran
+    // para que Recepcion no vea un ojo vacio sin explicacion.
+    const rxNotes = Object.entries(consulta?.medidas_notas ?? {})
+        .filter(([key, value]) => key.startsWith('rx_final_') && value)
+        .map(([key, value]) => {
+            const [, , field, eye] = key.split('_');
+            return `${eye?.toUpperCase()} ${field}: ${value}`;
+        });
 
     const handleSpecChange = (name, value) => {
         setSpecs(prev => ({ ...prev, [name]: value }));
     };
 
+    // El saldo se calcula solo (valor - abono) hasta que Recepcion lo escriba a mano.
+    const saldoManual = useRef(false);
+
     const handleOrdenChange = (name, value) => {
-        setOrden(prev => ({ ...prev, [name]: value }));
+        if (name === 'saldo') saldoManual.current = value !== '';
+        setOrden(prev => {
+            const next = { ...prev, [name]: value };
+            if ((name === 'valor' || name === 'abono') && !saldoManual.current) {
+                const valor = Number(next.valor);
+                const abono = Number(next.abono || 0);
+                next.saldo = next.valor !== '' && Number.isFinite(valor) && Number.isFinite(abono)
+                    ? (valor - abono).toFixed(2)
+                    : '';
+            }
+            return next;
+        });
+    };
+
+    /** Detalle del recibo: lo escrito por Recepcion o, si esta vacio, armazon y lunas de la orden. */
+    const reciboDetalle = () => {
+        if (String(orden.recibo_detalle ?? '').trim()) return orden.recibo_detalle;
+        const lunas = [
+            labelsFrom(specs, MATERIAL_LABELS).join(' + '),
+            labelsFrom(specs, DESIGN_LABELS).join(' + '),
+            labelsFrom(specs, TREATMENT_LABELS).join(' + '),
+        ].filter(Boolean).join(' · ');
+        return [
+            orden.armazon ? `Armazón: ${orden.armazon}` : '',
+            lunas ? `Lunas: ${lunas}` : '',
+        ].filter(Boolean).join('\n');
     };
 
     /**
@@ -298,6 +391,7 @@ export default function OrdenTrabajoPage() {
                 orden.abono ? `Abono: ${orden.abono}` : '',
                 orden.saldo ? `Saldo: ${orden.saldo}` : '',
                 orden.forma_pago ? `Forma de pago: ${orden.forma_pago}` : '',
+                reciboDetalle() ? `Detalle recibo: ${reciboDetalle().replace(/\n/g, ' / ')}` : '',
             ].filter(Boolean).join('\n');
 
             const res = await createLabOrder({
@@ -350,19 +444,24 @@ export default function OrdenTrabajoPage() {
                     <span className="w-6 h-6 bg-[#1a2a4a] text-white rounded-full flex items-center justify-center text-xs font-bold">1</span>
                     Seleccionar paciente
                 </h2>
-                <PatientAutocomplete onSelect={handlePatientSelect} />
+                <PatientAutocomplete value={paciente} onSelect={(patient) => handlePatientSelect(patient)} />
 
                 {loadingConsulta && (
                     <div className="flex items-center gap-2 mt-3 text-sm text-gray-500">
                         <RefreshCw size={14} className="animate-spin" />
-                        Cargando última consulta...
+                        {linkedConsultationId ? 'Cargando la consulta...' : 'Cargando última consulta...'}
                     </div>
                 )}
 
                 {paciente && !loadingConsulta && consulta && (
-                    <div className="flex items-center gap-2 mt-3 text-sm text-green-700 bg-green-50 px-3 py-2 rounded-lg">
-                        <CheckCircle size={16} />
-                        Datos cargados de la consulta del {consulta.fecha_consulta || '—'}
+                    <div className="mt-3 rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700">
+                        <div className="flex items-center gap-2">
+                            <CheckCircle size={16} className="flex-shrink-0" />
+                            Datos cargados de la consulta #{consulta.numero_consulta ?? consulta.id} del {toDisplayDate(consulta.fecha_consulta, '—')}
+                        </div>
+                        {rxNotes.length > 0 && (
+                            <p className="mt-1 pl-6 text-green-800">Notas de la RX final: {rxNotes.join(' · ')}</p>
+                        )}
                     </div>
                 )}
 
@@ -515,6 +614,22 @@ export default function OrdenTrabajoPage() {
                     <Field label="SALDO ($)" name="saldo" value={orden.saldo} onChange={handleOrdenChange} type="number" inputMode="decimal" placeholder="0.00" nextFieldId="forma_pago" />
                     <Field label="Forma de Pago" name="forma_pago" value={orden.forma_pago} onChange={handleOrdenChange} placeholder="EFECTIVO / VISA" />
                 </div>
+                <div className="mt-4">
+                    <label htmlFor="recibo_detalle" className="mb-1 block text-xs font-medium text-gray-600">
+                        Detalle de la compra (recibo)
+                    </label>
+                    <textarea
+                        id="recibo_detalle"
+                        value={orden.recibo_detalle || ''}
+                        onChange={e => handleOrdenChange('recibo_detalle', e.target.value)}
+                        rows={3}
+                        placeholder={reciboDetalle() || 'Una línea por producto: armazón, lunas, estuche...'}
+                        className="w-full resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]"
+                    />
+                    <p className="mt-1 text-xs text-gray-500">
+                        Si lo deja vacío, el recibo lleva el armazón y las lunas marcadas arriba.
+                    </p>
+                </div>
             </div>
 
             <div className="mobile-sticky-actions -mx-4 px-4 py-4 md:static md:mx-0 md:px-0 md:py-0 md:bg-transparent md:border-0 md:backdrop-blur-0 md:shadow-none">
@@ -525,6 +640,14 @@ export default function OrdenTrabajoPage() {
                     >
                         <Eye size={18} />
                         Vista Previa e Imprimir
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setShowRecibo(true)}
+                        className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#1a2a4a] px-6 py-3 text-base font-semibold text-[#1a2a4a] transition-colors hover:bg-[#1a2a4a]/5 md:w-auto"
+                    >
+                        <Receipt size={18} />
+                        Imprimir recibo
                     </button>
                     <button
                         onClick={handleSave}
@@ -545,6 +668,16 @@ export default function OrdenTrabajoPage() {
                     consulta={consulta}
                     settings={settings}
                     onClose={() => setShowPdf(false)}
+                />
+            )}
+
+            {showRecibo && (
+                <ReciboPdf
+                    orden={orden}
+                    paciente={paciente}
+                    detalle={reciboDetalle()}
+                    settings={settings}
+                    onClose={() => setShowRecibo(false)}
                 />
             )}
         </div>

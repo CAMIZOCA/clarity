@@ -1,8 +1,8 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { FileText, ShoppingCart } from 'lucide-react';
+import { ClipboardList, FileText, ShoppingCart } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import { consultationUrl } from '../../utils/consultationLinks';
+import { consultationUrl, workOrderUrl } from '../../utils/consultationLinks';
 
 const STYLES = {
     light: {
@@ -18,7 +18,10 @@ const STYLES = {
     },
 };
 
-/** "Abrir historia" e "Iniciar venta" (ligada a la consulta) para una consulta del resumen. */
+/**
+ * "Abrir historia", "Iniciar venta" y "Orden de trabajo" (ligadas a la consulta) para una
+ * consulta del resumen. Para Recepcion, sin ventas, la orden es la accion principal.
+ */
 export default function ConsultationActions({ item, onDark = false }) {
     const { can } = useAuth();
     const styles = STYLES[onDark ? 'dark' : 'light'];
@@ -45,6 +48,19 @@ export default function ConsultationActions({ item, onDark = false }) {
             {item.sale_id && (
                 <span className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${styles.sold}`}>
                     <ShoppingCart size={16} /> Venta iniciada
+                </span>
+            )}
+            {can('lab_orders.create') && !item.lab_order_id && (
+                <Link
+                    to={workOrderUrl(item.patient.id, item.id)}
+                    className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${can('sales.create') ? styles.history : styles.sell}`}
+                >
+                    <ClipboardList size={16} /> Orden de trabajo
+                </Link>
+            )}
+            {item.lab_order_id && (
+                <span className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${styles.sold}`}>
+                    <ClipboardList size={16} /> Orden creada
                 </span>
             )}
         </div>

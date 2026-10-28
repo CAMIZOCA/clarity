@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Enums\Permission;
 use App\Models\Consultation;
 use App\Models\ConsultationDiagnosis;
+use App\Models\LabOrder;
 use App\Models\Patient;
 use App\Models\Sale;
 use App\Models\User;
@@ -195,6 +196,7 @@ class ReceptionFeedTest extends TestCase
         $this->assertSame('Lunas blue cut', $item['sale_items'][0]['descripcion']);
         $this->assertSame('Usa pantallas 8 horas', $item['observaciones']);
         $this->assertNull($item['sale_id']);
+        $this->assertNull($item['lab_order_id']);
     }
 
     public function test_feed_links_the_open_sale_of_a_consultation(): void
@@ -210,6 +212,36 @@ class ReceptionFeedTest extends TestCase
         $item = $this->getJson('/api/reception/consultations')->json('days.0.consultations.0');
 
         $this->assertSame($sale->id, $item['sale_id']);
+    }
+
+    /**
+     * Recepcion hace la orden de trabajo desde la tarjeta de la consulta; la
+     * tarjeta debe saber que ya existe para no repetirla. Una cancelada no cuenta.
+     */
+    public function test_feed_links_the_lab_order_created_from_the_consultation(): void
+    {
+        $consultation = $this->consultation([], '2026-10-13 18:00:00');
+        $reception = $this->userWith([
+            Permission::CONSULTATIONS_HANDOFF->value,
+            Permission::LAB_ORDERS_CREATE->value,
+        ]);
+        Sanctum::actingAs($reception);
+
+        $this->assertNull($this->getJson('/api/reception/consultations')->json('days.0.consultations.0.lab_order_id'));
+
+        $orderId = $this->postJson('/api/lab-orders', [
+            'patient_id' => $this->patient->id,
+            'consultation_id' => $consultation->id,
+            'od_sphere' => -1.25,
+            'oi_sphere' => -1.00,
+        ])->assertCreated()->json('data.id');
+
+        $this->assertSame($consultation->id, LabOrder::findOrFail($orderId)->consultation_id);
+        $this->assertSame($orderId, $this->getJson('/api/reception/consultations')->json('days.0.consultations.0.lab_order_id'));
+
+        LabOrder::whereKey($orderId)->update(['status' => 'cancelled']);
+
+        $this->assertNull($this->getJson('/api/reception/consultations')->json('days.0.consultations.0.lab_order_id'));
     }
 
     public function test_dashboard_counts_only_completed_consultations_closed_today(): void

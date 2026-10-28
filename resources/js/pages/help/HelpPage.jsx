@@ -156,6 +156,10 @@ const sections = [
         summary:
             'Este modulo te ayuda a dejar por escrito lo que debe elaborarse, ajustarse o entregarse al paciente.',
         bullets: [
+            'Al terminar la consulta, pulsa "Orden de trabajo" en la tarjeta del panel principal (o en la historia del paciente): el paciente, la RX final, la ADD, la AV y la DNP ya vienen cargados de esa consulta. Solo agrega armazon, laboratorio y valores.',
+            'Cuando la orden ya se guardo, la tarjeta dice "Orden creada" para no repetirla.',
+            'El saldo se calcula solo (valor menos abono); si lo escribes a mano, se respeta.',
+            '"Imprimir recibo" entrega al cliente la nota de venta (sin valor tributario) con el mismo numero de la orden, el detalle de la compra y los valores. Sale en dos mitades: una para el cliente y otra para la optica. Si dejas vacio el detalle, lleva el armazon y las lunas marcadas.',
             'Crear una orden ligada al paciente cuando haga falta.',
             'Revisar datos de trabajo, observaciones y estado.',
             'Usarla como apoyo para control interno o produccion.',

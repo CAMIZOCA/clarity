@@ -380,7 +380,14 @@ consultas importadas (a veces notas clinicas) y cada guardado lo dejaba en `null
   a `completada`: guardar cambios o autoguardar no la mueve, reabrir la anula, y no esta en
   `$fillable`/`extraFields()` para que el formulario no pueda enviarla. Las completadas sin ella
   (importadas) cuentan por `fecha_consulta` y no se destacan. "Iniciar venta" abre
-  `/pos?paciente=ID&consulta=ID` y la venta queda con `consultation_id`.
+  `/pos?paciente=ID&consulta=ID` y la venta queda con `consultation_id`. "Orden de trabajo"
+  (`lab_orders.create`, tambien en `/consulta/:id/ver` y en la ficha del paciente; solo consultas
+  completadas, `utils/consultationLinks.js`) abre `/ordenes-trabajo?paciente=ID&consulta=ID`, que
+  carga la RX final de **esa** consulta en vez de la ultima completada. El feed trae `lab_order_id`
+  (orden no cancelada) y la tarjeta dice "Orden creada" para no repetirla. El **recibo** (nota de
+  venta para retirar, sin valor tributario) es `components/pdf/ReciboPdf.jsx`, impreso desde
+  `OrdenTrabajoPage` con el mismo numero de la orden: **no** es una venta del POS ni toca `sales`,
+  inventario o Contifico. Su detalle se guarda solo como texto en `internal_notes` de la orden.
 - **Menu y rutas por permiso**: `MENU_ITEM_PERMISSIONS` (`data/menuOptions.js`) da el permiso de
   cada item; `Sidebar.jsx` lo oculta y `router/index.jsx` envuelve la ruta en `RequirePermission`
   ("No tiene acceso"). El ajuste global `menu_visible_*` sigue decidiendo que se ofrece; el permiso,

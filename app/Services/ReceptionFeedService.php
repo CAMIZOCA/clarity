@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Consultation;
+use App\Models\LabOrder;
 use App\Models\Sale;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -50,9 +51,14 @@ class ReceptionFeedService
 
         $consultations = $this->query($dates->last(), $dates->first())->get();
         $salesByConsultation = $this->salesByConsultation($consultations->pluck('id'));
+        $labOrdersByConsultation = $this->labOrdersByConsultation($consultations->pluck('id'));
 
         $byDay = $consultations
-            ->map(fn (Consultation $c) => $this->summarize($c, $salesByConsultation[$c->id] ?? null))
+            ->map(fn (Consultation $c) => $this->summarize(
+                $c,
+                $salesByConsultation[$c->id] ?? null,
+                $labOrdersByConsultation[$c->id] ?? null,
+            ))
             ->groupBy('day');
 
         return [
@@ -112,7 +118,26 @@ class ReceptionFeedService
             ->pluck('id', 'consultation_id');
     }
 
-    private function summarize(Consultation $c, ?int $saleId): array
+    /**
+     * consultation_id => id de la orden de trabajo vigente mas reciente.
+     *
+     * Recepcion hace la orden desde la tarjeta de la consulta; con esto la
+     * tarjeta dice "Orden creada" y no se hacen dos de la misma consulta.
+     */
+    private function labOrdersByConsultation(Collection $consultationIds): Collection
+    {
+        if ($consultationIds->isEmpty()) {
+            return collect();
+        }
+
+        return LabOrder::query()
+            ->whereIn('consultation_id', $consultationIds)
+            ->where('status', '!=', 'cancelled')
+            ->orderBy('id')
+            ->pluck('id', 'consultation_id');
+    }
+
+    private function summarize(Consultation $c, ?int $saleId, ?int $labOrderId = null): array
     {
         $closedAt = $c->completed_at instanceof Carbon ? $c->completed_at : null;
         $day = ($closedAt ?? $c->fecha_consulta)?->toDateString();
@@ -127,6 +152,7 @@ class ReceptionFeedService
             // solo se arma con consultas que si la tienen.
             'closed_at' => $closedAt?->toIso8601String(),
             'sale_id' => $saleId,
+            'lab_order_id' => $labOrderId,
             'patient' => [
                 'id' => $c->patient?->id,
                 'nombre_completo' => $c->patient?->nombre_completo,
