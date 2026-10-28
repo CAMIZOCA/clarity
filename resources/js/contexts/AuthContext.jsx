@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import client, { initCsrf, webClient } from '../api/client';
 import { invalidateAll } from '../api/cache';
 import { getPayload } from '../api/response';
+import { isSessionExpired, markSessionRestored } from '../utils/connectionDiagnosis';
 
 const AuthContext = createContext(null);
 
@@ -39,6 +40,8 @@ export function AuthProvider({ children }) {
         console.groupEnd();
 
         setUser(res.data.user);
+        // Si venia de una sesion vencida, los avisos de error vuelven a mostrarse.
+        if (isSessionExpired()) markSessionRestored();
         return res.data.user;
     };
 

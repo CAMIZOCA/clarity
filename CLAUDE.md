@@ -437,6 +437,17 @@ consultas importadas (a veces notas clinicas) y cada guardado lo dejaba en `null
   Un 401/402/403/429 pausa las consultas hasta una hora (`ecuadorapi:paused` en cache) para no
   sumar espera a cada alta. Solo consulta cedulas validas y sin registrar, y no se loguea la
   cedula ni el mensaje de la excepcion (trae la URL con la cedula).
+- **Errores de carga y sesion vencida**: el interceptor de `api/client.js` guarda el ultimo fallo
+  (`api/lastError.js`, solo metodo/ruta/codigo). Un 401 (o un 419 ya reintentado) fuera de `/me`,
+  `/login` y `/logout` abre `SessionExpiredModal`, que vuelve a entrar **sin salir de la pantalla**
+  (mandar a `/login` desmontaba la consulta a medio llenar); mientras esta abierto, `addToast` no
+  muestra errores. Todo aviso `error` sin accion que sigue a un fallo de red/sesion/servidor recibe
+  el boton "Revisar conexion" (`DiagnosisModal`, `utils/connectionDiagnosis.js`), que consulta
+  `GET /session-check` (publico, sin datos del usuario, network-only en `sw.js`) y ofrece la
+  solucion: reintentar, iniciar sesion, actualizar o copiar el detalle para soporte. Los avisos
+  identicos se agrupan con contador en vez de apilarse. Un 5xx o una peticion sin respuesta lanza
+  el diagnostico solo (max. cada 20 s) y `ConnectionBanner` avisa "servidor no disponible" hasta
+  que vuelva.
 - **Servicios**: los controladores delegan en `app/Services/`. La logica de negocio no va en el controlador.
 - **Permisos**: Spatie. Roles en `app/Enums/Role.php`, permisos en `app/Enums/Permission.php`.
   `user.roles` es un array de **strings** (`['admin']`), no de objetos.
