@@ -447,7 +447,9 @@ consultas importadas (a veces notas clinicas) y cada guardado lo dejaba en `null
   solucion: reintentar, iniciar sesion, actualizar o copiar el detalle para soporte. Los avisos
   identicos se agrupan con contador en vez de apilarse. Un 5xx o una peticion sin respuesta lanza
   el diagnostico solo (max. cada 20 s) y `ConnectionBanner` avisa "servidor no disponible" hasta
-  que vuelva.
+  que vuelva. **Una ruta web que el SPA pida sola (foco, intervalo) no debe abrir sesion**:
+  `/app-version.json` lleva `withoutMiddleware(StartSession...)` porque, si respondia despues de un
+  login, reenviaba la cookie de sesion vieja y el usuario quedaba "dentro" con 401 en todo `/api`.
 - **Servicios**: los controladores delegan en `app/Services/`. La logica de negocio no va en el controlador.
 - **Permisos**: Spatie. Roles en `app/Enums/Role.php`, permisos en `app/Enums/Permission.php`.
   `user.roles` es un array de **strings** (`['admin']`), no de objetos.
