@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
-import { AlertTriangle, Printer, Eye } from 'lucide-react';
+import { Link, useParams } from 'react-router-dom';
+import { AlertTriangle, ClipboardList, Printer, Eye } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
+import { canStartWorkOrder, workOrderUrl } from '../../utils/consultationLinks';
 import client from '../../api/client';
 import Button from '../../components/ui/Button';
 import Breadcrumbs from '../../components/ui/Breadcrumbs';
@@ -138,6 +140,7 @@ const hasValues = (rows) => rows.some((row) => Object.values(row.values).some((v
 export default function ConsultationViewPage() {
     const { consultationId } = useParams();
     const { addToast } = useToast();
+    const { can } = useAuth();
     const [consultation, setConsultation] = useState(null);
     const [loadError, setLoadError] = useState(null);
     const [pdfData, setPdfData] = useState(null);
@@ -277,9 +280,18 @@ export default function ConsultationViewPage() {
                         </span>
                     </p>
                 </div>
-                <Button variant="secondary" onClick={handlePrint}>
-                    <Printer size={18} /> Imprimir
-                </Button>
+                <div className="flex flex-wrap gap-2">
+                    {canStartWorkOrder(can, c) && c.patient_id && (
+                        <Link to={workOrderUrl(c.patient_id, c.id)}>
+                            <Button>
+                                <ClipboardList size={18} /> Orden de trabajo
+                            </Button>
+                        </Link>
+                    )}
+                    <Button variant="secondary" onClick={handlePrint}>
+                        <Printer size={18} /> Imprimir
+                    </Button>
+                </div>
             </div>
 
             <div className="bg-[#1a2a4a] rounded-2xl p-5 mb-6 text-white">
