@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 import { CheckCircle, XCircle, AlertTriangle, Info, X } from 'lucide-react';
 import { prefersReducedMotion } from '../../utils/motion';
+import { hasRecentConnectionFailure } from '../../api/lastError';
+import { isSessionExpired, openDiagnosis } from '../../utils/connectionDiagnosis';
 
 const ToastContext = createContext(null);
 
@@ -70,17 +72,33 @@ function playErrorSound() {
  */
 let externalAddToast = null;
 
-export function notifyToast(message, type = 'info', duration = null) {
-    externalAddToast?.(message, type, duration);
+export function notifyToast(message, type = 'info', duration = null, action = null, title = null) {
+    return externalAddToast?.(message, type, duration, action, title) ?? null;
 }
 
 function ToastItem({ toast, onDismiss, onExited }) {
-    const { id, type, title, message, action, duration, leaving } = toast;
+    const { id, type, title, message, action, duration, leaving, count = 1, bump = 0 } = toast;
     const { Icon } = TOAST_TYPES[type];
     const cardRef = useRef(null);
     const timerRef = useRef(null);
     const remainingRef = useRef(duration);
     const startedAtRef = useRef(0);
+    const progressRef = useRef(null);
+
+    // Un aviso repetido reinicia su cuenta y la barra de progreso.
+    useEffect(() => {
+        if (bump === 0 || leaving) return;
+        remainingRef.current = duration;
+        startedAtRef.current = Date.now();
+        clearTimeout(timerRef.current);
+        timerRef.current = setTimeout(() => onDismiss(id), duration);
+        const bar = progressRef.current;
+        if (bar) {
+            bar.style.animation = 'none';
+            void bar.offsetHeight;
+            bar.style.animation = '';
+        }
+    }, [bump]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const startTimer = useCallback(() => {
         clearTimeout(timerRef.current);
@@ -121,7 +139,10 @@ function ToastItem({ toast, onDismiss, onExited }) {
 
     const body = (
         <>
-            <span className="toast-title">{title}</span>
+            <span className="toast-title">
+                {title}
+                {count > 1 && <span className="toast-count" aria-label={`${count} veces`}>×{count}</span>}
+            </span>
             <span className="toast-message">{message}</span>
         </>
     );
@@ -158,7 +179,7 @@ function ToastItem({ toast, onDismiss, onExited }) {
                     <X size={14} />
                 </button>
             </div>
-            <span className="toast-progress" style={{ animationDuration: `${duration}ms` }} />
+            <span ref={progressRef} className="toast-progress" style={{ animationDuration: `${duration}ms` }} />
         </div>
     );
 }
@@ -178,20 +199,40 @@ export function ToastProvider({ children }) {
     // `action` ({ label, onClick }) vuelve el aviso clicable: lo usa el formulario
     // de consulta para llevar al campo que provoco el error.
     const addToast = useCallback((message, type = 'info', duration = null, action = null, title = null) => {
-        const id = ++toastId;
         const kind = TOAST_TYPES[type] ? type : 'info';
-        const toast = {
-            id,
-            message,
-            type: kind,
-            action,
-            title: title ?? TOAST_TYPES[kind].title,
-            duration: duration ?? DEFAULT_DURATION[kind],
-            leaving: false,
-        };
+
+        // Con la sesion vencida todo falla por lo mismo, y el modal ya lo explica.
+        if (kind === 'error' && isSessionExpired()) {
+            return null;
+        }
+
+        // Un error de carga recien ocurrido lleva a "Revisar conexion" si la pantalla no puso otra accion.
+        const resolvedAction = action ?? (kind === 'error' && hasRecentConnectionFailure()
+            ? { label: 'Revisar conexión', onClick: openDiagnosis }
+            : null);
+        const resolvedTitle = title ?? TOAST_TYPES[kind].title;
+        let id = ++toastId;
 
         // El mas nuevo va arriba; los que pasan del limite salen empezando por el mas antiguo.
+        // Un aviso identico al visible no se apila (antes, uno por tecla en la busqueda): suma al contador.
         setToasts(prev => {
+            const same = prev.find(t => !t.leaving && t.type === kind && t.message === message && t.title === resolvedTitle);
+            if (same) {
+                id = same.id;
+                return prev.map(t => (t.id === same.id ? { ...t, count: t.count + 1, bump: t.bump + 1, action: t.action ?? resolvedAction } : t));
+            }
+
+            const toast = {
+                id,
+                message,
+                type: kind,
+                action: resolvedAction,
+                title: resolvedTitle,
+                duration: duration ?? DEFAULT_DURATION[kind],
+                leaving: false,
+                count: 1,
+                bump: 0,
+            };
             const next = [toast, ...prev];
             const overflow = new Set(next.filter(t => !t.leaving).slice(MAX_VISIBLE).map(t => t.id));
             return overflow.size ? next.map(t => (overflow.has(t.id) ? { ...t, leaving: true } : t)) : next;

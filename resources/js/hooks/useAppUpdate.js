@@ -8,9 +8,9 @@ const EDITING_PATHS = [/^\/consulta/, /^\/pacientes\/nuevo/, /\/editar$/, /\/nue
 
 const currentBuild = () => document.querySelector('meta[name="app-build"]')?.content || 'dev';
 
-const isEditing = () => EDITING_PATHS.some((rule) => rule.test(window.location.pathname));
+export const isEditing = () => EDITING_PATHS.some((rule) => rule.test(window.location.pathname));
 
-async function clearCaches() {
+export async function clearCaches() {
     try {
         const registration = await navigator.serviceWorker?.getRegistration('/sw.js');
         registration?.waiting?.postMessage({ type: 'SKIP_WAITING' });

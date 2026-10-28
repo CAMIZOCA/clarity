@@ -9,6 +9,7 @@ import { useToast } from '../../components/ui/Toast';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { toDisplayDate } from '../../utils/dates';
+import { SESSION_RESTORED_EVENT } from '../../utils/connectionDiagnosis';
 
 export default function PatientListPage() {
     const [patients, setPatients] = useState([]);
@@ -39,6 +40,12 @@ export default function PatientListPage() {
     useEffect(() => {
         const t = setTimeout(fetchPatients, 300);
         return () => clearTimeout(t);
+    }, [fetchPatients]);
+
+    // Tras volver a entrar desde el modal de sesion vencida, repetir la busqueda que fallo.
+    useEffect(() => {
+        window.addEventListener(SESSION_RESTORED_EVENT, fetchPatients);
+        return () => window.removeEventListener(SESSION_RESTORED_EVENT, fetchPatients);
     }, [fetchPatients]);
 
     const askDelete = (p) => { setToDelete(p); setConfirmOpen(true); };

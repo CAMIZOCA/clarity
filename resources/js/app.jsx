@@ -9,6 +9,8 @@ import { BranchProvider } from './contexts/BranchContext';
 import PwaManager from './components/pwa/PwaManager';
 import UpdateModal from './components/pwa/UpdateModal';
 import MobileLaunchSplash from './components/pwa/MobileLaunchSplash';
+import DiagnosisModal from './components/ui/DiagnosisModal';
+import SessionExpiredModal from './components/auth/SessionExpiredModal';
 import { router } from './router/index';
 
 createRoot(document.getElementById('app')).render(
@@ -21,6 +23,8 @@ createRoot(document.getElementById('app')).render(
                         <MobileLaunchSplash />
                         <PwaManager />
                         <UpdateModal />
+                        <DiagnosisModal />
+                        <SessionExpiredModal />
                     </ToastProvider>
                 </BranchProvider>
             </SettingsProvider>

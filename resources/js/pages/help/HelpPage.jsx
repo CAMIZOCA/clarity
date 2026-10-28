@@ -19,6 +19,7 @@ import {
     Stethoscope,
     User,
     Users,
+    WifiOff,
 } from 'lucide-react';
 
 const sections = [
@@ -250,6 +251,21 @@ const sections = [
             'Cambiar nombre o correo electronico.',
             'Actualizar la contrasena de acceso.',
             'Mantener tu cuenta personal al dia.',
+        ],
+    },
+    {
+        icon: WifiOff,
+        title: 'Si aparece un error al cargar',
+        color: 'text-amber-600',
+        summary:
+            'Si una pantalla dice "Error al cargar" o no muestra datos, el sistema puede revisar solo que pasa y decirte como resolverlo.',
+        bullets: [
+            'Pulsa "Revisar conexion" en el aviso rojo (o en la franja amarilla de arriba). En unos segundos revisa internet, servidor, base de datos, cookies, sesion y version.',
+            'Sin internet: revisa el Wi-Fi del equipo y pulsa "Reintentar".',
+            'Sesion cerrada: aparece una ventana para volver a ingresar la contrasena. Lo que estabas escribiendo no se pierde.',
+            'Cookies bloqueadas (comun en iPad): en Ajustes > Safari desactiva "Bloquear todas las cookies" y no uses pestanas de incognito.',
+            'Version nueva: pulsa "Actualizar".',
+            'Servidor o base de datos sin responder: no es un problema de tu equipo. Pulsa "Copiar detalle" y envialo al administrador.',
         ],
     },
 ];

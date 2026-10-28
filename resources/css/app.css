@@ -239,6 +239,17 @@ textarea {
     overflow-wrap: anywhere;
 }
 
+/* Aviso repetido: se agrupa en uno con contador en vez de apilar tarjetas iguales. */
+.toast-count {
+    margin-left: 6px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.14);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+}
+
 .toast-action {
     margin-top: 4px;
     color: var(--toast-accent);

@@ -1,5 +1,12 @@
 import axios from 'axios';
 import { notifyToast } from '../components/ui/Toast';
+import { recordLastError } from './lastError';
+import {
+    SERVER_STATUS_EVENT,
+    diagnose,
+    markSessionExpired,
+    openDiagnosis,
+} from '../utils/connectionDiagnosis';
 
 const debugEnabled = import.meta.env.DEV || window.location.hostname.endsWith('.test');
 
@@ -73,12 +80,64 @@ function noResponseMessage(config, code) {
     return `No se recibió confirmación al guardar ${what}. ${reason} Revise la conexión y confirme si el cambio quedó guardado antes de repetirlo.`;
 }
 
+/**
+ * Rutas cuyo 401 es la respuesta esperada (el arranque sin sesion, el login
+ * fallido): no son una sesion que vencio.
+ */
+const AUTH_PATHS = ['/me', '/login', '/logout', '/sanctum/csrf-cookie'];
+
+/**
+ * Un 401 (o un 419 que ya se reintento con CSRF nuevo) en medio del trabajo es
+ * una sesion vencida o una cookie que el navegador no envia. Antes no hacia
+ * nada: cada carga fallaba con "Error al cargar ..." y la pantalla seguia
+ * abierta. Ahora abre `SessionExpiredModal`, que permite volver a entrar sin
+ * perder lo escrito.
+ */
+function detectExpiredSession(error) {
+    const status = error.response?.status;
+    const config = error.config || {};
+    const expired = status === 401 || (status === 419 && config._retriedAfterCsrf);
+
+    if (!expired || AUTH_PATHS.includes(config.url) || window.location.pathname === '/login') return;
+
+    markSessionExpired();
+}
+
+/**
+ * Ante un 5xx o una peticion sin respuesta, revisa en segundo plano que pasa
+ * (como mucho una vez cada 20 s) y avisa la causa concreta con su boton.
+ */
+let lastAutoDiagnosisAt = 0;
+
+async function autoDiagnose() {
+    const now = Date.now();
+    if (now - lastAutoDiagnosisAt < NETWORK_TOAST_COOLDOWN_MS) return;
+    lastAutoDiagnosisAt = now;
+
+    const { problem } = await diagnose();
+    const down = ['offline', 'server_down', 'server_error', 'database'].includes(problem);
+    window.dispatchEvent(new CustomEvent(SERVER_STATUS_EVENT, { detail: { down: down && problem !== 'offline' } }));
+
+    const solve = { label: 'Ver cómo resolverlo', onClick: openDiagnosis };
+    if (problem === 'session') {
+        markSessionExpired();
+    } else if (problem === 'outdated') {
+        notifyToast('Este equipo tiene una versión anterior del sistema.', 'warning', 12000, solve, 'Versión nueva');
+    } else if (problem === 'cookies') {
+        notifyToast('El navegador no está guardando la sesión.', 'warning', 12000, solve, 'Cookies bloqueadas');
+    } else if (problem === 'database') {
+        notifyToast('La base de datos no está disponible. Avise al administrador.', 'error', null, solve);
+    }
+}
+
 function notifyServerError(error) {
     const status = error.response?.status;
 
     if (error.config?.skipErrorToast) return;
     if (error.code === 'ERR_CANCELED' || axios.isCancel?.(error)) return;
     if (status && status < 500) return;
+
+    autoDiagnose();
     // Sin red ya avisa ConnectionBanner; no dupliquemos la senal.
     if (!status && navigator.onLine === false) return;
 
@@ -188,6 +247,10 @@ function attachDebugInterceptors(instance, name) {
                     .filter((entry) => entry.startsWith('XSRF-TOKEN=') || entry.includes('session'))
                     .map((entry) => entry.split('=')[0]),
             });
+            if (error.code !== 'ERR_CANCELED') {
+                recordLastError(error);
+            }
+            detectExpiredSession(error);
             notifyServerError(error);
             return Promise.reject(error);
         }
