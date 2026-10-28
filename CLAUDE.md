@@ -448,7 +448,9 @@ consultas importadas (a veces notas clinicas) y cada guardado lo dejaba en `null
   (`api/lastError.js`, solo metodo/ruta/codigo). Un 401 (o un 419 ya reintentado) fuera de `/me`,
   `/login` y `/logout` abre `SessionExpiredModal`, que vuelve a entrar **sin salir de la pantalla**
   (mandar a `/login` desmontaba la consulta a medio llenar); mientras esta abierto, `addToast` no
-  muestra errores. Todo aviso `error` sin accion que sigue a un fallo de red/sesion/servidor recibe
+  muestra errores. El modal se cierra y limpia cada vez que cambia `user.id` e ignora el 401 sin
+  usuario: un 401 que llegaba mientras se pulsaba "Salir" lo dejaba abierto y pedia la contrasena
+  otra vez justo despues del siguiente login correcto. Todo aviso `error` sin accion que sigue a un fallo de red/sesion/servidor recibe
   el boton "Revisar conexion" (`DiagnosisModal`, `utils/connectionDiagnosis.js`), que consulta
   `GET /session-check` (publico, sin datos del usuario, network-only en `sw.js`) y ofrece la
   solucion: reintentar, iniciar sesion, actualizar o copiar el detalle para soporte. Los avisos

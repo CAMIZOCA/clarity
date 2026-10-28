@@ -26,9 +26,14 @@ export default function SessionExpiredModal() {
     const [error, setError] = useState('');
     const [cookiesBlocked, setCookiesBlocked] = useState(false);
     const passwordRef = useRef(null);
+    const userId = user?.id ?? null;
+    const userIdRef = useRef(userId);
+    userIdRef.current = userId;
 
     useEffect(() => {
         const onExpired = () => {
+            // Sin nadie dentro (ya se cerro sesion) un 401 es lo esperado, no una sesion vencida.
+            if (!userIdRef.current) return;
             setOpen(true);
             setPassword('');
             setError('');
@@ -37,6 +42,18 @@ export default function SessionExpiredModal() {
         window.addEventListener(SESSION_EXPIRED_EVENT, onExpired);
         return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onExpired);
     }, []);
+
+    // Al salir o al entrar con otro usuario, nada de la sesion anterior sigue abierto. Antes
+    // un 401 que llegaba mientras se pulsaba "Salir" dejaba el modal abierto, y aparecia
+    // "Su sesion se cerro" justo despues del siguiente login correcto.
+    useEffect(() => {
+        setOpen(false);
+        setEmail('');
+        setPassword('');
+        setError('');
+        setCookiesBlocked(false);
+        if (!userId) markSessionRestored();
+    }, [userId]);
 
     useEffect(() => {
         if (open) {
