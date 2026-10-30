@@ -355,6 +355,10 @@ dato despues de otro, salir a destiempo).
   existia. Viaja como `document_type` (no se guarda) y `tipo` en el lookup; regla
   `App\Rules\ValidPatientDocument`. "Otro" admite 5-15 letras o numeros **sin guion**, para que
   un codigo `HIST-`/`IMPORT-` siga obligando a poner el documento real.
+- **Validacion por tipo, sin detener el registro**: `ValidEcuadorCedula` distingue cedula, RUC
+  natural, publico y de sociedad por el tercer digito, acepta el 6 en 10 digitos y dice el motivo de
+  cada rechazo. Un documento solo de digitos se puede confirmar con un check (`document_confirmed`,
+  `confirmable` en el lookup).
 - **La barrera de duplicados tambien esta en el servidor**: `Store/UpdatePatientRequest` rechazan
   la variante de un documento ya registrado (RUC, sin cero inicial) con
   `PatientService::duplicateDocumentMessage()`. Antes solo lo comprobaba el formulario, y con

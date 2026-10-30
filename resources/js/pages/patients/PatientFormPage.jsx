@@ -26,7 +26,7 @@ import {
  * ahi: el resto del formulario no se habilita hasta saber que el paciente no
  * existe, para no registrar dos veces a la misma persona.
  */
-const DOC_IDLE = { status: 'idle', cedula: '', paciente: null, relacionados: [], mensaje: null };
+const DOC_IDLE = { status: 'idle', cedula: '', paciente: null, relacionados: [], mensaje: null, confirmable: false };
 
 // Estados en los que se puede seguir con el alta. Sin conexion no bloquea: el
 // servidor repite la comprobacion al guardar.
@@ -113,7 +113,7 @@ function DocumentStatus({ isEdit, docType, doc, identity, onRetry }) {
             );
         case 'invalida':
             return (
-                <p className={`${base} bg-red-50 text-red-700`}>
+                <p className={`${base} ${doc.confirmable ? 'bg-amber-50 text-amber-900' : 'bg-red-50 text-red-700'}`}>
                     <AlertTriangle size={18} className="flex-shrink-0" /> {isOther ? 'Revise el documento.' : 'Revise la cédula.'}
                 </p>
             );
@@ -185,6 +185,8 @@ function PatientForm({ id }) {
     const [confirmRestore, setConfirmRestore] = useState(false);
     const [docType, setDocType] = useState(() => (isEdit ? DOC_CEDULA : documentTypeOf(presetRaw)));
     const [doc, setDoc] = useState(DOC_IDLE);
+    // Documento que quien registra reviso y decidio usar pese al aviso.
+    const [confirmedDoc, setConfirmedDoc] = useState('');
     const [similares, setSimilares] = useState([]);
     const [sharedEmail, setSharedEmail] = useState([]);
     // Autocompletado desde el Registro Civil: 'idle' | 'loading' | 'filled'.
@@ -223,7 +225,9 @@ function PatientForm({ id }) {
     const antecedentesAdv = useAdvancedToggle('paciente:antecedentes');
     const showAntecedentes = !isAdvanced('paciente:antecedentes') || antecedentesAdv.open;
 
-    const unlocked = isEdit ? loadState === 'ready' : DOC_UNLOCKED.includes(doc.status);
+    // Un aviso de la cedula no detiene el registro: el usuario decide si corrige o sigue.
+    const confirmed = doc.status === 'invalida' && doc.confirmable && confirmedDoc === doc.cedula;
+    const unlocked = isEdit ? loadState === 'ready' : DOC_UNLOCKED.includes(doc.status) || confirmed;
 
     /**
      * Hay algo escrito que se perderia al salir. En el alta no cuenta lo que
@@ -441,7 +445,7 @@ function PatientForm({ id }) {
 
             if (inherited) {
                 setDoc(estado === 'invalida'
-                    ? { ...DOC_IDLE, status: 'invalida', cedula, mensaje: data.mensaje ?? null }
+                    ? { ...DOC_IDLE, status: 'invalida', cedula, mensaje: data.mensaje ?? null, confirmable: data.confirmable ?? false }
                     : { ...DOC_IDLE, status: 'sin_cambio', cedula });
                 return;
             }
@@ -458,6 +462,7 @@ function PatientForm({ id }) {
                 paciente: data.paciente ?? null,
                 relacionados: data.relacionados ?? [],
                 mensaje: data.mensaje ?? null,
+                confirmable: data.confirmable ?? false,
             });
 
             // Sin await: el formulario ya esta habilitado y los datos llegan
@@ -495,8 +500,18 @@ function PatientForm({ id }) {
             matchRef.current?.focus();
         } else if (doc.paciente) {
             matchRef.current?.querySelector('button:not(:disabled)')?.focus();
+        } else if (doc.confirmable) {
+            document.getElementById('cedula_confirmada')?.focus();
         }
     }, [doc]);
+
+    // Al confirmar, el formulario acaba de habilitarse: se sigue por Nombre.
+    useEffect(() => {
+        if (isEdit || !confirmed) return;
+
+        const nombre = document.getElementById('nombre');
+        if (nombre) focusField(nombre);
+    }, [isEdit, confirmed]);
 
     useEffect(() => () => clearTimeout(debounceTimer.current), []);
 
@@ -589,6 +604,7 @@ function PatientForm({ id }) {
             // perder lo ya escrito en los demas campos.
             requestedCedula.current = '';
             setDoc(DOC_IDLE);
+            setConfirmedDoc('');
             clearAutofilled();
         }
 
@@ -634,6 +650,7 @@ function PatientForm({ id }) {
         clearTimeout(debounceTimer.current);
         requestedCedula.current = '';
         setDoc(DOC_IDLE);
+        setConfirmedDoc('');
         clearAutofilled();
         clearErrors('cedula');
 
@@ -706,7 +723,7 @@ function PatientForm({ id }) {
     const onSubmit = async (data) => {
         if (!unlocked) return;
 
-        const payload = { ...data, document_type: docTypeRef.current };
+        const payload = { ...data, document_type: docTypeRef.current, document_confirmed: confirmed };
 
         setLoading(true);
         try {
@@ -736,7 +753,7 @@ function PatientForm({ id }) {
 
     const isOther = docType === DOC_OTHER;
     const cedulaError = errors.cedula?.message
-        ?? (doc.status === 'invalida' ? doc.mensaje : null)
+        ?? (doc.status === 'invalida' && !doc.confirmable ? doc.mensaje : null)
         ?? (!isOther && hasLetters(cedulaValue) ? LETTERS_IN_CEDULA : null)
         ?? (isEdit && doc.paciente ? `Pertenece a ${doc.paciente.nombre_completo}.` : null);
     const cedulaChanged = isEdit && doc.cedula !== '' && doc.status === 'nuevo';
@@ -747,7 +764,7 @@ function PatientForm({ id }) {
     const birthFix = isEdit && birthValue === loadedBirth.current ? centuryCorrection(birthValue) : null;
 
     const pendingFixes = isEdit && loadState === 'ready'
-        ? FIELD_ORDER.filter((name) => errors[name] || (name === 'cedula' && doc.status === 'invalida'))
+        ? FIELD_ORDER.filter((name) => errors[name] || (name === 'cedula' && doc.status === 'invalida' && !confirmed))
         : [];
 
     return (
@@ -854,6 +871,22 @@ function PatientForm({ id }) {
                             />
                         </div>
                     </div>
+
+                    {doc.status === 'invalida' && doc.confirmable && (
+                        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                            <p className="font-semibold text-amber-900">{doc.mensaje}</p>
+                            <label htmlFor="cedula_confirmada" className="mt-2 flex min-h-11 cursor-pointer items-center gap-3 text-sm text-amber-900">
+                                <input
+                                    id="cedula_confirmada"
+                                    type="checkbox"
+                                    className="h-5 w-5 flex-shrink-0"
+                                    checked={confirmed}
+                                    onChange={(event) => setConfirmedDoc(event.target.checked ? doc.cedula : '')}
+                                />
+                                La revisé y está correcta. ¿Seguro que desea continuar?
+                            </label>
+                        </div>
+                    )}
                 </div>
 
                 {doc.paciente && (

@@ -427,6 +427,12 @@ consultas importadas (a veces notas clinicas) y cada guardado lo dejaba en `null
   cedula: una letra ya **no** convierte el documento en pasaporte (una cedula mal tecleada se
   registraba sin digito verificador). "Otro" no admite guion a proposito, para que un `HIST-00123`
   siga sin pasar por documento valido.
+- **La validacion de la cedula no detiene el registro**: `ValidEcuadorCedula` valida segun el tipo
+  (10 digitos: tercer digito 0-6 con modulo 10, el 6 tambien es de personas; 13: RUC natural,
+  publico o sociedad, estos dos con modulo 11) y cada rechazo dice el motivo. Si el documento es
+  solo de digitos, el lookup responde `confirmable` y el formulario ofrece un check que envia
+  `document_confirmed` (no se guarda; se vuelve a pedir al editar). Letras, mas de 20 digitos y
+  duplicados siguen bloqueando.
 - **Validar un paciente en dos sitios**: `resources/js/utils/patientValidation.js` adelanta al
   salir del campo lo que deciden `ValidPatientDocument`, `ValidEcuadorPhone` y
   `Store/UpdatePatientRequest`. Una regla que cambie en el servidor cambia tambien ahi.

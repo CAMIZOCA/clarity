@@ -77,7 +77,7 @@ class PatientController extends Controller
 
         $data = $cedula !== ''
             ? $this->patientService->lookupByDocument($cedula, $exclude, $tipo)
-            : ['cedula' => '', 'estado' => null, 'mensaje' => null, 'paciente' => null, 'relacionados' => []];
+            : ['cedula' => '', 'estado' => null, 'mensaje' => null, 'confirmable' => false, 'paciente' => null, 'relacionados' => []];
 
         $data['similares'] = $nombre.$apellido !== ''
             ? $this->patientService->findSimilarByName($nombre, $apellido, $exclude)
@@ -124,7 +124,7 @@ class PatientController extends Controller
 
     public function store(StorePatientRequest $request): JsonResponse
     {
-        $patient = $this->patientService->create($request->safe()->except('document_type'), $request->user()->id);
+        $patient = $this->patientService->create($request->safe()->except('document_type', 'document_confirmed'), $request->user()->id);
 
         return (new PatientResource($patient))
             ->response()
@@ -140,7 +140,7 @@ class PatientController extends Controller
 
     public function update(UpdatePatientRequest $request, Patient $patient): JsonResponse
     {
-        $patient = $this->patientService->update($patient, $request->safe()->except('document_type'));
+        $patient = $this->patientService->update($patient, $request->safe()->except('document_type', 'document_confirmed'));
 
         return (new PatientResource($patient))->response();
     }

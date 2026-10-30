@@ -173,10 +173,29 @@ class PatientLookupTest extends TestCase
         // Digito verificador incorrecto.
         $this->lookup(['cedula' => '1710034066'])
             ->assertJsonPath('data.estado', 'invalida')
-            ->assertJsonPath('data.mensaje', 'La cédula ingresada no es válida.');
+            ->assertJsonPath('data.mensaje', 'El dígito verificador no coincide: suele ser un error de tecleo.');
 
         $this->lookup(['cedula' => '12345'])
             ->assertJsonPath('data.estado', 'invalida');
+    }
+
+    /** Solo de digitos se puede confirmar; con letras el camino es otro tipo de documento. */
+    public function test_only_a_document_of_digits_can_be_confirmed(): void
+    {
+        $this->actingWith();
+
+        $this->lookup(['cedula' => '1710034066'])->assertJsonPath('data.confirmable', true);
+        $this->lookup(['cedula' => '17100340Q5'])->assertJsonPath('data.confirmable', false);
+        $this->lookup(['cedula' => 'HIST-99999', 'tipo' => 'otro'])->assertJsonPath('data.confirmable', false);
+    }
+
+    public function test_an_identification_with_third_digit_six_is_available(): void
+    {
+        $this->actingWith();
+
+        $this->lookup(['cedula' => '1761723178'])
+            ->assertJsonPath('data.estado', 'nuevo')
+            ->assertJsonPath('data.confirmable', false);
     }
 
     /** Un dato heredado invalido sigue encontrando a su paciente. */
