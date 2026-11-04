@@ -15,7 +15,8 @@ use Illuminate\Validation\Validator;
  * A diferencia de la consulta (`UpdateConsultationRequest`), aqui un dato
  * heredado invalido **si** bloquea el guardado aunque no se haya tocado: la
  * optica decidio que cada edicion de un paciente importado sirva para limpiar
- * su ficha. El formulario lo avisa al abrir, no al guardar.
+ * su ficha. El formulario lo avisa al abrir, no al guardar. La excepcion es una
+ * identificacion solo de digitos, que se puede confirmar (`document_confirmed`).
  */
 class UpdatePatientRequest extends FormRequest
 {
@@ -35,10 +36,12 @@ class UpdatePatientRequest extends FormRequest
             'fecha_registro' => ['nullable', 'date', 'before_or_equal:today'],
             // No se guarda: solo decide con que regla se valida `cedula`.
             'document_type' => ['nullable', Rule::in(ValidPatientDocument::TYPES)],
+            // No se guarda: quien edita vio el aviso y decidio continuar.
+            'document_confirmed' => ['nullable', 'boolean'],
             // `cedula` y `fecha_nacimiento` son NOT NULL: con `nullable`, vaciarlas
             // llegaba al UPDATE y respondia 500 en vez de 422.
             // Sin `whereNull('deleted_at')`: el indice unico de la BD tambien cuenta a los eliminados.
-            'cedula' => ['sometimes', 'required', 'string', new ValidPatientDocument($this->documentType()), Rule::unique('patients', 'cedula')->ignore($patientId)],
+            'cedula' => ['sometimes', 'required', 'string', new ValidPatientDocument($this->documentType(), $this->boolean('document_confirmed')), Rule::unique('patients', 'cedula')->ignore($patientId)],
             'codigo_interno' => ['nullable', 'string', 'max:50', Rule::unique('patients', 'codigo_interno')->ignore($patientId)],
             'fecha_nacimiento' => ['sometimes', 'required', 'date', 'before:today', 'after:1900-01-01'],
             // `max` = VARCHAR(20) de la columna: SQLite no lo impone y MariaDB si.

@@ -80,6 +80,45 @@ class PatientValidationTest extends TestCase
         $this->assertDatabaseHas('patients', ['cedula' => self::CEDULA]);
     }
 
+    /** Una identificacion que no cuadra no detiene el registro: lo decide quien registra. */
+    public function test_a_confirmed_document_of_digits_is_registered(): void
+    {
+        $this->postJson('/api/patients', $this->payload(['cedula' => '1710034066']))
+            ->assertStatus(422)
+            ->assertJsonPath('errors.cedula.0', 'El dígito verificador no coincide: suele ser un error de tecleo.');
+
+        $this->postJson('/api/patients', $this->payload(['cedula' => '1710034066', 'document_confirmed' => true]))
+            ->assertCreated();
+
+        $this->assertDatabaseHas('patients', ['cedula' => '1710034066']);
+    }
+
+    public function test_a_confirmed_document_can_be_saved_when_editing(): void
+    {
+        $patient = $this->legacyPatient();
+
+        $this->putJson("/api/patients/{$patient->id}", $this->payload(['cedula' => '1710034066']))
+            ->assertStatus(422);
+
+        $this->putJson("/api/patients/{$patient->id}", $this->payload(['cedula' => '1710034066', 'document_confirmed' => true]))
+            ->assertOk();
+
+        $this->assertSame('1710034066', $patient->fresh()->cedula);
+    }
+
+    public function test_confirming_does_not_excuse_letters_excess_length_or_a_duplicate(): void
+    {
+        $this->legacyPatient();
+
+        foreach (['17100340Q5', str_repeat('1', 21), self::CEDULA] as $cedula) {
+            $this->postJson('/api/patients', $this->payload(['cedula' => $cedula, 'document_confirmed' => true]))
+                ->assertStatus(422)
+                ->assertJsonValidationErrors('cedula');
+        }
+
+        $this->assertSame(1, Patient::count());
+    }
+
     /** Antes "17100340Q5" se guardaba como pasaporte, sin digito verificador. */
     public function test_a_cedula_with_a_letter_is_rejected_unless_declared_as_other_document(): void
     {

@@ -26,10 +26,12 @@ class StorePatientRequest extends FormRequest
             'fecha_registro' => ['nullable', 'date', 'before_or_equal:today'],
             // No se guarda: solo decide con que regla se valida `cedula`.
             'document_type' => ['nullable', Rule::in(ValidPatientDocument::TYPES)],
+            // No se guarda: quien registra vio el aviso y decidio continuar.
+            'document_confirmed' => ['nullable', 'boolean'],
             // `cedula` y `fecha_nacimiento` son NOT NULL: sin `required`, un alta
             // sin ellas llegaba al INSERT y respondia 500 en vez de 422. El unique
             // incluye a los eliminados porque el indice de la BD tambien.
-            'cedula' => ['required', 'string', new ValidPatientDocument($this->documentType()), Rule::unique('patients', 'cedula')],
+            'cedula' => ['required', 'string', new ValidPatientDocument($this->documentType(), $this->boolean('document_confirmed')), Rule::unique('patients', 'cedula')],
             'codigo_interno' => ['nullable', 'string', 'max:50', Rule::unique('patients', 'codigo_interno')],
             'fecha_nacimiento' => ['required', 'date', 'before:today', 'after:1900-01-01'],
             // `max` = VARCHAR(20) de la columna: SQLite no lo impone y MariaDB si.

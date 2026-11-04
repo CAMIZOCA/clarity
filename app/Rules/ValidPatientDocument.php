@@ -12,6 +12,10 @@ use Illuminate\Contracts\Validation\ValidationRule;
  * error de tecleo ("17100340q5") se guardaba sin digito verificador y sin
  * encontrar al paciente que ya existia con la cedula correcta. Ahora el
  * pasaporte hay que elegirlo a proposito.
+ *
+ * Una identificacion solo de digitos que no cuadra no detiene el registro: el
+ * formulario muestra el motivo y quien registra puede confirmarla. Con letras
+ * no se confirma: el camino es elegir "Pasaporte u otro documento".
  */
 class ValidPatientDocument implements ValidationRule
 {
@@ -23,7 +27,10 @@ class ValidPatientDocument implements ValidationRule
 
     public const TYPES = [self::TYPE_CEDULA, self::TYPE_OTHER];
 
-    public function __construct(private string $type = self::TYPE_CEDULA) {}
+    public function __construct(
+        private string $type = self::TYPE_CEDULA,
+        private bool $confirmed = false
+    ) {}
 
     /** Tipo que corresponde a un documento ya guardado: con letras no es una cedula. */
     public static function typeOf(?string $document): string
@@ -45,6 +52,12 @@ class ValidPatientDocument implements ValidationRule
             : $document;
     }
 
+    /** Se puede registrar pese al aviso. 20 es el VARCHAR de `patients.cedula`. */
+    public static function canConfirm(string $document, string $type): bool
+    {
+        return $type === self::TYPE_CEDULA && preg_match('/^\d{1,20}$/', $document) === 1;
+    }
+
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
         if (empty($value)) {
@@ -52,6 +65,10 @@ class ValidPatientDocument implements ValidationRule
         }
 
         $value = trim((string) $value);
+
+        if ($this->confirmed && self::canConfirm($value, $this->type)) {
+            return;
+        }
 
         if ($this->type === self::TYPE_OTHER) {
             if (! preg_match('/^[A-Z0-9]{5,15}$/i', $value)) {

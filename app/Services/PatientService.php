@@ -206,7 +206,10 @@ class PatientService extends BaseService
      * `$type` es el tipo de documento que eligio quien registra (ver
      * ValidPatientDocument): decide con que regla se da por invalido.
      *
-     * @return array{cedula: string, estado: string, mensaje: ?string, paciente: ?array<string, mixed>, relacionados: list<array<string, mixed>>}
+     * `confirmable` indica que un documento invalido se puede registrar igual si
+     * quien registra lo confirma.
+     *
+     * @return array{cedula: string, estado: string, mensaje: ?string, confirmable: bool, paciente: ?array<string, mixed>, relacionados: list<array<string, mixed>>}
      */
     public function lookupByDocument(string $document, ?int $excludeId = null, string $type = ValidPatientDocument::TYPE_CEDULA): array
     {
@@ -218,6 +221,7 @@ class PatientService extends BaseService
             'cedula' => $document,
             'estado' => self::DOCUMENT_NEW,
             'mensaje' => null,
+            'confirmable' => false,
             'paciente' => $match ? $this->lookupSummary($match) : null,
             'relacionados' => $this->relatedDocuments($document, $matches->modelKeys(), $excludeId),
         ];
@@ -231,6 +235,7 @@ class PatientService extends BaseService
         if ($error = self::documentFormatError($document, $type)) {
             $result['estado'] = self::DOCUMENT_INVALID;
             $result['mensaje'] = $error;
+            $result['confirmable'] = ValidPatientDocument::canConfirm($document, $type);
         }
 
         return $result;
