@@ -24,6 +24,9 @@ const REQUIRED_FIELD_OPTIONS = [
     { key: 'doctor_license', label: 'Registro SENESCYT del médico' },
 ];
 
+/** Campos SMTP que solo se envian si se escribieron a mano (ver typedCredentials). */
+const SMTP_CREDENTIAL_KEYS = ['mail_username', 'mail_password', 'mail_from_address'];
+
 function Tab({ active, onClick, icon: Icon, label }) {
     return (
         <button onClick={onClick}
@@ -40,6 +43,33 @@ export default function SettingsPage() {
     const [saving, setSaving] = useState(false);
     const [uploadingLogo, setUploadingLogo] = useState(false);
     const fileRef = useRef(null);
+
+    /**
+     * Credenciales SMTP que la persona escribio o pego de verdad. El gestor de
+     * contraseñas del navegador rellenaba "Usuario" con el login del sistema
+     * (admin@clinica.com) al abrir la pantalla, y guardar cualquier pestaña
+     * rompia el envio de correo. El autocompletado no dispara teclas, asi que
+     * lo que no se toco a mano no se envia y el servidor conserva lo guardado.
+     */
+    const typedCredentials = useRef(new Set());
+    const markTyped = (key) => () => typedCredentials.current.add(key);
+    const credentialProps = (key) => ({
+        onKeyDown: markTyped(key),
+        onPaste: markTyped(key),
+        onDrop: markTyped(key),
+        // Pedir a los gestores (LastPass, 1Password, Bitwarden, Dashlane) que no lo rellenen.
+        'data-lpignore': 'true',
+        'data-1p-ignore': 'true',
+        'data-bwignore': 'true',
+        'data-form-type': 'other',
+    });
+    const settingsPayload = () => {
+        const payload = { ...form };
+        SMTP_CREDENTIAL_KEYS.forEach(key => {
+            if (!typedCredentials.current.has(key)) delete payload[key];
+        });
+        return payload;
+    };
 
     const [testEmail, setTestEmail] = useState('');
     const [testingMail, setTestingMail] = useState(false);
@@ -154,7 +184,8 @@ export default function SettingsPage() {
     const handleSave = async ({ silent = false } = {}) => {
         setSaving(true);
         try {
-            await client.post('/settings', form);
+            await client.post('/settings', settingsPayload());
+            typedCredentials.current.clear();
             refresh();
             if (!silent) addToast('Configuración guardada', 'success');
         } catch (err) {
@@ -169,7 +200,8 @@ export default function SettingsPage() {
         setTestingMail(true);
         try {
             // Guardar primero la config SMTP actual para que la prueba use los valores del form.
-            await client.post('/settings', form);
+            await client.post('/settings', settingsPayload());
+            typedCredentials.current.clear();
             refresh();
             await client.post('/certificates/test-email', { recipient: testEmail });
             addToast('Correo de prueba enviado', 'success');
@@ -439,21 +471,27 @@ export default function SettingsPage() {
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Usuario</label>
-                            <input type="text" value={form.mail_username} onChange={e => set('mail_username', e.target.value)} placeholder="correo@gmail.com"
-                                autoComplete="off"
+                            <input type="text" value={form.mail_username} onChange={e => set('mail_username', e.target.value)} placeholder="cuenta@su-dominio.com"
+                                name="smtp-account" autoComplete="off" {...credentialProps('mail_username')}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]" />
+                            {settings.mail_username && form.mail_username !== settings.mail_username && (
+                                <p className="text-xs text-amber-600 mt-1">
+                                    Guardado: {settings.mail_username}. Solo cambia si lo escribe a mano.
+                                </p>
+                            )}
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>
                             <input type="password" value={form.mail_password} onChange={e => set('mail_password', e.target.value)}
-                                autoComplete="new-password"
+                                name="smtp-secret" autoComplete="new-password" {...credentialProps('mail_password')}
                                 placeholder={settings.mail_password === '__stored__' ? '•••••••• (guardada)' : 'Contraseña de aplicación'}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]" />
                             <p className="text-xs text-gray-400 mt-1">Déjala vacía para conservar la contraseña actual.</p>
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Remitente (correo)</label>
-                            <input type="email" value={form.mail_from_address} onChange={e => set('mail_from_address', e.target.value)} placeholder="correo@gmail.com"
+                            <input type="email" value={form.mail_from_address} onChange={e => set('mail_from_address', e.target.value)} placeholder="cuenta@su-dominio.com"
+                                name="smtp-from" autoComplete="off" {...credentialProps('mail_from_address')}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]" />
                         </div>
                         <div>
