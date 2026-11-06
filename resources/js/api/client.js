@@ -4,6 +4,7 @@ import { recordLastError } from './lastError';
 import {
     SERVER_STATUS_EVENT,
     diagnose,
+    isGatewayStatus,
     markSessionExpired,
     openDiagnosis,
 } from '../utils/connectionDiagnosis';
@@ -66,18 +67,20 @@ function describeRequest(config = {}) {
 const NETWORK_TOAST_COOLDOWN_MS = 20_000;
 let lastNetworkToastAt = 0;
 
-function noResponseMessage(config, code) {
+/**
+ * Un 502-504 o 520-530 (`isGatewayStatus`) no viene de la aplicacion sino de
+ * Cloudflare/el proxy: el servidor de la optica no fue alcanzable. Un 530 se
+ * mostraba como "Error del servidor (530)" y parecia una averia; es un corte de
+ * conexion y se avisa igual que una peticion sin respuesta.
+ */
+function noResponseMessage(config) {
     const { what, isRead } = describeRequest(config);
-    const timedOut = code === 'ECONNABORTED' || code === 'ETIMEDOUT';
-    const reason = timedOut
-        ? 'El servidor tardó demasiado en responder.'
-        : 'El servidor no respondió.';
 
     if (isRead) {
-        return `No se pudieron cargar ${what}. ${reason} Revise la conexión de red y que el servidor esté encendido; luego vuelva a intentar.`;
+        return 'Se interrumpió por un momento la conexión con el servidor. La información guardada no se ve afectada; si falta algún dato en pantalla, vuelva a abrirla cuando se restablezca.';
     }
 
-    return `No se recibió confirmación al guardar ${what}. ${reason} Revise la conexión y confirme si el cambio quedó guardado antes de repetirlo.`;
+    return `No se recibió confirmación al guardar ${what} porque se interrumpió la conexión. Cuando vuelva, confirme si el cambio quedó guardado antes de repetirlo.`;
 }
 
 /**
@@ -141,7 +144,7 @@ function notifyServerError(error) {
     // Sin red ya avisa ConnectionBanner; no dupliquemos la senal.
     if (!status && navigator.onLine === false) return;
 
-    if (status) {
+    if (status && !isGatewayStatus(status)) {
         const { what, isRead } = describeRequest(error.config);
         notifyToast(
             isRead
@@ -156,7 +159,15 @@ function notifyServerError(error) {
     if (now - lastNetworkToastAt < NETWORK_TOAST_COOLDOWN_MS) return;
     lastNetworkToastAt = now;
 
-    notifyToast(noResponseMessage(error.config, error.code), 'error');
+    // Una lectura perdida se repite sola al volver; solo una escritura merece la alarma.
+    const { isRead } = describeRequest(error.config);
+    notifyToast(
+        noResponseMessage(error.config),
+        isRead ? 'warning' : 'error',
+        undefined,
+        undefined,
+        isRead ? 'Conexión interrumpida' : undefined
+    );
 }
 
 const client = axios.create({

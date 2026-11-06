@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { ServerCrash, WifiOff } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
+import { isEditing } from '../../hooks/useAppUpdate';
 import { motionTransition, SPRING_MOVE } from '../../utils/motion';
 import { SERVER_STATUS_EVENT, fetchSessionCheck, openDiagnosis } from '../../utils/connectionDiagnosis';
 
@@ -19,6 +21,7 @@ const SERVER_RECHECK_MS = 15_000;
 export default function ConnectionBanner() {
     const online = useOnlineStatus();
     const [serverDown, setServerDown] = useState(false);
+    const { pathname } = useLocation();
 
     useEffect(() => {
         const onStatus = (event) => setServerDown(Boolean(event.detail?.down));
@@ -35,10 +38,17 @@ export default function ConnectionBanner() {
         return () => window.clearInterval(timer);
     }, [serverDown, online]);
 
+    // La advertencia de no cerrar solo tiene sentido donde se escribe; en una ficha
+    // de lectura asustaba sin motivo. `pathname` hace que se recalcule al navegar.
+    const editing = isEditing(pathname) && !pathname.endsWith('/ver');
+    const tail = editing
+        ? 'Lo que escriba aún no se guarda; no cierre esta ventana.'
+        : 'La información guardada no se ve afectada; se restablecerá sola.';
+
     const banner = !online
-        ? { key: 'offline', Icon: WifiOff, text: 'Sin conexión. Los cambios no se están guardando; no cierre esta ventana.' }
+        ? { key: 'offline', Icon: WifiOff, text: `Este equipo no tiene internet. ${tail}` }
         : serverDown
-            ? { key: 'server', Icon: ServerCrash, text: 'No hay comunicación con el servidor. Los cambios no se están guardando; no cierre esta ventana.' }
+            ? { key: 'server', Icon: ServerCrash, text: `Conexión con el servidor interrumpida. ${tail}` }
             : null;
 
     return (

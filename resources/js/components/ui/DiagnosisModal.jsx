@@ -21,10 +21,10 @@ const PROBLEMS = {
         action: 'retry',
     },
     server_down: {
-        title: 'El servidor no responde',
+        title: 'No hay conexión con el servidor',
         steps: [
-            'Revise que otras páginas carguen en este equipo.',
-            'Si otras páginas sí cargan, el sistema puede estar reiniciándose: espere un minuto y reintente.',
+            'La información ya guardada no se ve afectada.',
+            'Suele ser un corte breve de internet en la óptica o un reinicio del sistema: espere un minuto y reintente.',
             'Si sigue igual, copie el detalle y envíelo al administrador.',
         ],
         action: 'retry',
