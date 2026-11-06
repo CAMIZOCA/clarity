@@ -3,16 +3,19 @@
 namespace App\Services;
 
 use App\Models\Setting;
+use Illuminate\Contracts\Mail\Mailable;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Mail;
 
 class MailConfigService
 {
     /**
      * Aplicar en runtime la configuración SMTP guardada en Settings.
-     * Sobrescribe la config de `mail` para el envío actual (ej. Gmail SMTP).
+     * Sobrescribe la config de `mail` para el envío actual.
      *
-     * Gmail: host smtp.gmail.com, port 465 (ssl) o 587 (tls),
-     * username = correo Gmail, password = App Password de Google.
+     * cPanel (opticaandina.com.ec): host mail.<dominio>, port 465 (ssl),
+     * username = la cuenta completa (notificaciones@...).
+     * Gmail: host smtp.gmail.com, port 465 (ssl) o 587 (tls), password = App Password.
      */
     public static function apply(): void
     {
@@ -41,6 +44,10 @@ class MailConfigService
 
         Config::set('mail.from.address', $fromAddress);
         Config::set('mail.from.name', $fromName);
+
+        // El MailManager guarda el mailer ya resuelto: sin esto, un proceso largo
+        // (cola, scheduler) seguiria con la configuracion anterior.
+        Mail::purge('smtp');
     }
 
     /**
@@ -49,5 +56,32 @@ class MailConfigService
     public static function isConfigured(): bool
     {
         return filled(Setting::get('mail_host'));
+    }
+
+    /**
+     * Unico punto de envio de correo del sistema: aplica el SMTP guardado y envia
+     * en el momento (sin cola), para que quien pulsa el boton vea el resultado.
+     *
+     * @throws \Throwable si el servidor SMTP rechaza el envio
+     */
+    public static function send(string $to, Mailable $mailable): void
+    {
+        self::apply();
+        Mail::to($to)->send($mailable);
+    }
+
+    /**
+     * Mensaje de error apto para mostrar y guardar: nunca incluye la contraseña.
+     */
+    public static function sanitize(\Throwable|string $error): string
+    {
+        $message = $error instanceof \Throwable ? $error->getMessage() : $error;
+
+        $password = Setting::get('mail_password');
+        if (filled($password)) {
+            $message = str_replace($password, '***', $message);
+        }
+
+        return mb_substr(trim($message), 0, 480);
     }
 }

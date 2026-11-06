@@ -83,6 +83,9 @@ class SettingController extends Controller
             'mail_encryption' => ['sometimes', 'nullable', Rule::in(['tls', 'ssl', ''])],
             'mail_from_address' => 'sometimes|nullable|email|max:150',
             'mail_from_name' => 'sometimes|nullable|string|max:150',
+            // Recordatorio de cita por correo (AppointmentReminderService)
+            'appointment_email_reminders_enabled' => 'sometimes|boolean',
+            'appointment_reminder_hours' => 'sometimes|integer|min:1|max:168',
             // Se guarda cifrada; ver OpenAiService::storeApiKey().
             'openai_api_key' => 'sometimes|nullable|string|max:255',
             'required_fields' => 'sometimes|array',

@@ -167,6 +167,53 @@ class CertificateTest extends TestCase
         $this->assertSame($doctor->id, $certificate->certifying_doctor_id);
     }
 
+    /**
+     * La vista usaba <x-mail::message> cargada con `view:`; Mail::fake() no
+     * renderiza, asi que el fallo solo aparecia con un SMTP real.
+     */
+    public function test_certificate_mail_renders_with_clinic_layout(): void
+    {
+        Setting::set('clinic_name', 'Óptica Andina');
+        Setting::set('clinic_phone', '02 222 3333');
+        $consultation = $this->makeConsultation();
+        Storage::disk('public')->put('certificates/c.pdf', '%PDF-1.4 prueba');
+
+        $certificate = Certificate::create([
+            'consultation_id' => $consultation->id,
+            'patient_id' => $consultation->patient_id,
+            'pdf_path' => 'certificates/c.pdf',
+            'status' => 'generado',
+            'created_by' => User::factory()->create()->id,
+        ]);
+
+        $mail = new CertificateMail($certificate);
+        $html = $mail->render();
+
+        $this->assertStringContainsString('Certificado Visual', $html);
+        $this->assertStringContainsString('Violeta Almeida', $html);
+        $this->assertStringContainsString('02 222 3333', $html);
+        $this->assertStringNotContainsString('x-mail', $html);
+        $mail->assertHasAttachment(
+            \Illuminate\Mail\Mailables\Attachment::fromStorageDisk('public', 'certificates/c.pdf')
+                ->as('certificado_'.$certificate->id.'.pdf')
+                ->withMime('application/pdf')
+        );
+    }
+
+    public function test_test_email_uses_the_clinic_template(): void
+    {
+        Mail::fake();
+        Setting::set('mail_host', 'mail.opticaandina.com.ec');
+
+        Sanctum::actingAs($this->userWith(Permission::SETTINGS_EDIT->value));
+
+        $this->postJson('/api/certificates/test-email', ['recipient' => 'prueba@correo.com'])
+            ->assertOk();
+
+        Mail::assertSent(\App\Mail\TestMail::class, fn ($m) => $m->hasTo('prueba@correo.com'));
+        $this->assertStringContainsString('El correo funciona', (new \App\Mail\TestMail)->render());
+    }
+
     public function test_send_fails_when_smtp_is_not_configured(): void
     {
         Mail::fake();

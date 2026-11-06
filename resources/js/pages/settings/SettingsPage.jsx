@@ -73,6 +73,8 @@ export default function SettingsPage() {
         mail_encryption: 'tls',
         mail_from_address: '',
         mail_from_name: '',
+        appointment_email_reminders_enabled: '0',
+        appointment_reminder_hours: '24',
         openai_api_key: '',
         required_fields: [],
         advanced_form_fields: DEFAULT_ADVANCED_FORM_FIELDS,
@@ -97,6 +99,8 @@ export default function SettingsPage() {
             mail_encryption: settings.mail_encryption ?? 'tls',
             mail_from_address: settings.mail_from_address || '',
             mail_from_name: settings.mail_from_name || '',
+            appointment_email_reminders_enabled: ['1', 'true', true, 1].includes(settings.appointment_email_reminders_enabled) ? '1' : '0',
+            appointment_reminder_hours: String(settings.appointment_reminder_hours || '24'),
             required_fields: Array.isArray(settings.required_fields) ? settings.required_fields : [],
             advanced_form_fields: Array.isArray(settings.advanced_form_fields) ? settings.advanced_form_fields : DEFAULT_ADVANCED_FORM_FIELDS,
             menu_visible_sections: Array.isArray(settings.menu_visible_sections) && settings.menu_visible_sections.length > 0
@@ -406,9 +410,10 @@ export default function SettingsPage() {
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
                     <h2 className="font-semibold text-gray-900 mb-2">Configuración de correo (SMTP)</h2>
                     <p className="text-sm text-gray-500 mb-6">
-                        Datos del servidor SMTP para enviar los certificados por correo. Para Gmail usa
-                        host <code className="bg-gray-100 px-1 rounded">smtp.gmail.com</code>, puerto 465 (SSL) o 587 (TLS),
-                        tu correo como usuario y una <strong>Contraseña de aplicación</strong> de Google (requiere verificación en 2 pasos).
+                        Datos del servidor SMTP para enviar certificados y recordatorios de citas. Con una cuenta de cPanel usa
+                        host <code className="bg-gray-100 px-1 rounded">mail.su-dominio.com</code>, puerto 465 (SSL) y la cuenta
+                        completa como usuario. Para Gmail: <code className="bg-gray-100 px-1 rounded">smtp.gmail.com</code>, puerto 465 (SSL)
+                        o 587 (TLS) y una <strong>Contraseña de aplicación</strong> de Google.
                     </p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                         <div>
@@ -468,6 +473,37 @@ export default function SettingsPage() {
                             </Button>
                         </div>
                         <p className="text-xs text-gray-400 mt-2">Guarda la configuración actual y envía un correo de prueba al destinatario indicado.</p>
+                    </div>
+
+                    <div className="mt-6 rounded-xl border border-gray-200 p-4">
+                        <h3 className="font-medium text-gray-900 mb-1">Recordatorio de citas por correo</h3>
+                        <p className="text-sm text-gray-500 mb-4">
+                            El paciente recibe un correo con los datos de la cita y la opción de agregarla a su calendario.
+                            En la Agenda también se puede enviar a mano con «Enviar recordatorio».
+                        </p>
+                        <label className="flex items-center gap-3 text-sm text-gray-700 mb-3">
+                            <input
+                                type="checkbox"
+                                checked={form.appointment_email_reminders_enabled === '1'}
+                                onChange={e => set('appointment_email_reminders_enabled', e.target.checked ? '1' : '0')}
+                                className="h-4 w-4 rounded border-gray-300"
+                            />
+                            Enviar automáticamente antes de cada cita pendiente
+                        </label>
+                        <div className="flex items-center gap-3 text-sm text-gray-700">
+                            <span>Enviar</span>
+                            <input
+                                type="number"
+                                min={1}
+                                max={168}
+                                value={form.appointment_reminder_hours}
+                                onChange={e => set('appointment_reminder_hours', e.target.value)}
+                                disabled={form.appointment_email_reminders_enabled !== '1'}
+                                className="w-20 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] disabled:bg-gray-100"
+                            />
+                            <span>horas antes de la cita</span>
+                        </div>
+                        <p className="text-xs text-gray-400 mt-2">Solo a pacientes con correo registrado, y una sola vez por cita.</p>
                     </div>
 
                     <div className="flex justify-end mt-6">
