@@ -188,6 +188,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/templates/{template}', [CrmController::class, 'updateTemplate']);
         Route::get('/reminders', [CrmController::class, 'reminders']);
         Route::post('/reminders', [CrmController::class, 'storeReminder']);
+        Route::get('/reminders/preview', [CrmController::class, 'previewReminder']);
+        Route::post('/reminders/whatsapp', [CrmController::class, 'recordWhatsApp']);
+        Route::patch('/reminders/{reminder}/status', [CrmController::class, 'updateReminderStatus']);
+        Route::get('/whatsapp-contacts', [CrmController::class, 'whatsappContacts']);
         Route::get('/campaigns', [CrmController::class, 'campaigns']);
         Route::post('/campaigns/preview', [CrmController::class, 'previewCampaign']);
         Route::post('/campaigns', [CrmController::class, 'storeCampaign']);
