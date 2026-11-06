@@ -32,7 +32,7 @@
                 <tr>
                     <td align="center" class="px" style="padding:26px 40px 18px 40px; background-color:#ffffff;">
                         @if (! empty($brand['logo_path']) && isset($message))
-                            <img src="{{ $message->embed($brand['logo_path']) }}" alt="{{ $brand['name'] }}" height="64" style="display:block; height:64px; width:auto; max-width:260px; border:0;">
+                            <img src="{{ $message->embedData(file_get_contents($brand['logo_path']), 'logo.'.pathinfo($brand['logo_path'], PATHINFO_EXTENSION), mime_content_type($brand['logo_path']) ?: 'image/png') }}" alt="{{ $brand['name'] }}" height="64" style="display:block; height:64px; width:auto; max-width:260px; border:0;">
                         @else
                             <div style="font-family:Georgia, 'Times New Roman', serif; font-size:26px; font-weight:bold; color:{{ $brand['navy'] }};">{{ $brand['name'] }}</div>
                         @endif
