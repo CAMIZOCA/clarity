@@ -1,4 +1,6 @@
-import { getLastError } from '../api/lastError';
+import { getLastError, isGatewayStatus } from '../api/lastError';
+
+export { isGatewayStatus };
 
 /**
  * Chequeo rapido de red, servidor, base de datos, sesion y version.
@@ -39,7 +41,7 @@ export function openDiagnosis() {
 
 export const currentBuild = () => document.querySelector('meta[name="app-build"]')?.content || 'dev';
 
-const hasXsrfCookie = () => document.cookie.includes('XSRF-TOKEN=');
+const hasXsrfCookie =() => document.cookie.includes('XSRF-TOKEN=');
 
 /** GET /session-check con limite de tiempo. `null` = el servidor no respondio. */
 export async function fetchSessionCheck() {
@@ -82,6 +84,11 @@ export async function diagnose() {
     const check = await fetchSessionCheck();
     if (!check) {
         checks.push({ key: 'server', label: 'Servidor', ok: false, detail: 'No respondió en 6 segundos' });
+        return result('server_down');
+    }
+    // 502-504 y 520-530 los responde Cloudflare/el proxy: el servidor no fue alcanzable.
+    if (!check.body && isGatewayStatus(check.httpStatus)) {
+        checks.push({ key: 'server', label: 'Servidor', ok: false, detail: `No alcanzable (código ${check.httpStatus} del proxy)` });
         return result('server_down');
     }
     if (!check.body) {

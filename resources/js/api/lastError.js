@@ -37,6 +37,26 @@ export function hasRecentConnectionFailure() {
     );
 }
 
+/** Respuesta de Cloudflare o del proxy, no de la aplicacion: el servidor no fue alcanzable. */
+export function isGatewayStatus(status) {
+    return status === 502 || status === 503 || status === 504 || (status >= 520 && status <= 530);
+}
+
+/**
+ * Una lectura acaba de fallar porque no se llego al servidor (sin respuesta o
+ * 502-504/520-530). `client.js` ya puso un unico aviso calmado y la barra; el
+ * "Error al cargar X" propio de cada pantalla solo repetia la alarma en rojo.
+ * Las escrituras quedan fuera: ahi el aviso de la pantalla si importa.
+ */
+export function hasRecentReadConnectionLoss() {
+    return Boolean(
+        lastError
+        && Date.now() - lastError.at < RECENT_MS
+        && lastError.method === 'GET'
+        && (lastError.status === 0 || isGatewayStatus(lastError.status))
+    );
+}
+
 export function describeLastError(error = lastError) {
     if (!error) return null;
 

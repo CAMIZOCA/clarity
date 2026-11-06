@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 import { CheckCircle, XCircle, AlertTriangle, Info, X } from 'lucide-react';
 import { prefersReducedMotion } from '../../utils/motion';
-import { hasRecentConnectionFailure } from '../../api/lastError';
+import { hasRecentConnectionFailure, hasRecentReadConnectionLoss } from '../../api/lastError';
 import { isSessionExpired, openDiagnosis } from '../../utils/connectionDiagnosis';
 
 const ToastContext = createContext(null);
@@ -203,6 +203,11 @@ export function ToastProvider({ children }) {
 
         // Con la sesion vencida todo falla por lo mismo, y el modal ya lo explica.
         if (kind === 'error' && isSessionExpired()) {
+            return null;
+        }
+
+        // Una carga que fallo por corte de conexion ya tiene su aviso y la barra (client.js).
+        if (kind === 'error' && !action && hasRecentReadConnectionLoss()) {
             return null;
         }
 

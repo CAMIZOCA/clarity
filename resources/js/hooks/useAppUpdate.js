@@ -8,7 +8,7 @@ const EDITING_PATHS = [/^\/consulta/, /^\/pacientes\/nuevo/, /\/editar$/, /\/nue
 
 const currentBuild = () => document.querySelector('meta[name="app-build"]')?.content || 'dev';
 
-export const isEditing = () => EDITING_PATHS.some((rule) => rule.test(window.location.pathname));
+export const isEditing = (pathname = window.location.pathname) => EDITING_PATHS.some((rule) => rule.test(pathname));
 
 export async function clearCaches() {
     try {
