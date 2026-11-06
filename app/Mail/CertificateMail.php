@@ -3,23 +3,17 @@
 namespace App\Mail;
 
 use App\Models\Certificate;
-use App\Models\Setting;
-use Illuminate\Bus\Queueable;
-use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Attachment;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
-use Illuminate\Queue\SerializesModels;
 
-class CertificateMail extends Mailable
+class CertificateMail extends ClinicMailable
 {
-    use Queueable, SerializesModels;
-
     public function __construct(public Certificate $certificate) {}
 
     public function envelope(): Envelope
     {
-        $clinic = Setting::get('clinic_name', 'Óptica');
+        $clinic = self::brand()['name'];
         $subject = $this->certificate->subject
             ?: "Certificado Visual - {$clinic}";
 
@@ -28,13 +22,15 @@ class CertificateMail extends Mailable
 
     public function content(): Content
     {
-        $this->certificate->loadMissing('patient');
+        $this->certificate->loadMissing('patient:id,nombre,apellido');
 
         return new Content(
             view: 'emails.certificate',
+            text: 'emails.certificate-text',
             with: [
-                'clinicName' => Setting::get('clinic_name', 'Óptica'),
-                'patientName' => $this->certificate->patient?->nombre,
+                'brand' => self::brand(),
+                'patientName' => $this->certificate->patient?->nombre_completo,
+                'filename' => $this->filename(),
             ],
         );
     }
@@ -44,12 +40,15 @@ class CertificateMail extends Mailable
      */
     public function attachments(): array
     {
-        $filename = 'certificado_'.($this->certificate->numero_consulta ?: $this->certificate->id).'.pdf';
-
         return [
             Attachment::fromStorageDisk('public', $this->certificate->pdf_path)
-                ->as($filename)
+                ->as($this->filename())
                 ->withMime('application/pdf'),
         ];
+    }
+
+    private function filename(): string
+    {
+        return 'certificado_'.($this->certificate->numero_consulta ?: $this->certificate->id).'.pdf';
     }
 }

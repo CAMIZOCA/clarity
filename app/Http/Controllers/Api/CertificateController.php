@@ -6,17 +6,16 @@ use App\Enums\Permission;
 use App\Http\Controllers\Api\Concerns\ApiResponses;
 use App\Http\Controllers\Controller;
 use App\Mail\CertificateMail;
+use App\Mail\TestMail;
 use App\Models\Certificate;
 use App\Models\CertifyingDoctor;
 use App\Models\Consultation;
-use App\Models\Setting;
 use App\Services\CertificateDocxService;
 use App\Services\MailConfigService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\Rule;
 
 class CertificateController extends Controller
@@ -101,21 +100,21 @@ class CertificateController extends Controller
             }
 
             try {
-                MailConfigService::apply();
-                Mail::to($recipient)->send(new CertificateMail($certificate));
+                MailConfigService::send($recipient, new CertificateMail($certificate));
 
                 $certificate->update([
                     'status' => 'enviado',
                     'sent_at' => now(),
                 ]);
             } catch (\Throwable $e) {
-                Log::error('Error al enviar certificado', ['id' => $certificate->id, 'error' => $e->getMessage()]);
+                $error = MailConfigService::sanitize($e);
+                Log::error('Error al enviar certificado', ['id' => $certificate->id, 'error' => $error]);
                 $certificate->update([
                     'status' => 'error',
-                    'error_message' => $e->getMessage(),
+                    'error_message' => $error,
                 ]);
 
-                return $this->error('El certificado se guardó, pero no se pudo enviar el correo: '.$e->getMessage(), 502);
+                return $this->error('El certificado se guardó, pero no se pudo enviar el correo: '.$error, 502);
             }
         }
 
@@ -173,19 +172,12 @@ class CertificateController extends Controller
         }
 
         try {
-            MailConfigService::apply();
-            $clinic = Setting::get('clinic_name', 'Óptica');
-
-            Mail::raw(
-                "Este es un correo de prueba de {$clinic}. Si lo recibe, la configuración SMTP funciona correctamente.",
-                fn ($message) => $message
-                    ->to($validated['recipient'])
-                    ->subject("Prueba de correo - {$clinic}")
-            );
+            MailConfigService::send($validated['recipient'], new TestMail);
         } catch (\Throwable $e) {
-            Log::error('Error en correo de prueba', ['error' => $e->getMessage()]);
+            $error = MailConfigService::sanitize($e);
+            Log::error('Error en correo de prueba', ['error' => $error]);
 
-            return $this->error('No se pudo enviar el correo de prueba: '.$e->getMessage(), 502);
+            return $this->error('No se pudo enviar el correo de prueba: '.$error, 502);
         }
 
         return $this->ok(['sent' => true], 'Correo de prueba enviado.');

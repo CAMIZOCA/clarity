@@ -4,8 +4,9 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import esLocale from '@fullcalendar/core/locales/es';
-import { Plus } from 'lucide-react';
+import { Plus, Mail } from 'lucide-react';
 import client from '../../api/client';
+import { getList, getPayload } from '../../api/response';
 import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
 import PatientAutocomplete from '../../components/ui/PatientAutocomplete';
@@ -42,6 +43,9 @@ export default function AgendaPage() {
     const [editing, setEditing] = useState(null);
     const [form, setForm] = useState(emptyForm());
     const [saving, setSaving] = useState(false);
+    /** Cita abierta tal como vino del servidor (email del paciente, ultimo recordatorio). */
+    const [current, setCurrent] = useState(null);
+    const [sendingReminder, setSendingReminder] = useState(false);
     const calendarRef = useRef(null);
 
     /** Sin esto una cita recien creada no aparecia hasta cambiar de vista. */
@@ -55,7 +59,7 @@ export default function AgendaPage() {
                     to: info.endStr,
                 },
             });
-            const mapped = res.data.map(a => ({
+            const mapped = getList(res).map(a => ({
                 id: String(a.id),
                 title: a.titulo || a.patient?.nombre_completo || a.patient?.nombre || 'Cita',
                 start: a.fecha_hora_inicio,
@@ -80,6 +84,7 @@ export default function AgendaPage() {
         }
         setForm(f);
         setEditing(null);
+        setCurrent(null);
         setModalOpen(true);
     };
 
@@ -94,8 +99,25 @@ export default function AgendaPage() {
             notas: a.notas || '',
             estado: a.estado || 'pendiente',
         });
+        setCurrent(a);
         setEditing(clickInfo.event.id);
         setModalOpen(true);
+    };
+
+    const handleSendReminder = async () => {
+        if (!editing) return;
+        setSendingReminder(true);
+        try {
+            const res = await client.post(`/appointments/${editing}/send-reminder`);
+            const body = getPayload(res);
+            setCurrent(c => ({ ...c, reminder_email_sent_at: body.sent_at }));
+            addToast(res.data?.message || 'Recordatorio enviado', 'success');
+            refetch();
+        } catch (err) {
+            addToast(err.response?.data?.message || 'No se pudo enviar el recordatorio', 'error');
+        } finally {
+            setSendingReminder(false);
+        }
     };
 
     const set = (field, value) => setForm(f => ({ ...f, [field]: value }));
@@ -256,6 +278,14 @@ export default function AgendaPage() {
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] resize-none"
                         />
                     </div>
+                    {editing && canEdit && current && (
+                        <ReminderBox
+                            appointment={current}
+                            patientChanged={String(form.patient_id || '') !== String(current.patient_id || '')}
+                            sending={sendingReminder}
+                            onSend={handleSendReminder}
+                        />
+                    )}
                     <div className="flex justify-between items-center pt-2 border-t border-gray-100">
                         {editing && canDelete ? (
                             <Button type="button" variant="danger" size="sm" onClick={() => setConfirmOpen(true)}>Eliminar cita</Button>
@@ -280,6 +310,47 @@ export default function AgendaPage() {
                 onConfirm={handleDelete}
                 onCancel={() => setConfirmOpen(false)}
             />
+        </div>
+    );
+}
+
+const formatSentAt = (iso) => {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '';
+    return d.toLocaleString('es-EC', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+};
+
+/**
+ * Recordatorio por correo de la cita abierta. Se envia con los datos guardados,
+ * asi que si se cambio el paciente sin guardar hay que guardar antes.
+ */
+function ReminderBox({ appointment, patientChanged, sending, onSend }) {
+    const email = appointment.patient?.email;
+    const cancelled = appointment.estado === 'cancelado';
+    const sentAt = formatSentAt(appointment.reminder_email_sent_at);
+
+    let hint;
+    if (!appointment.patient_id) hint = 'Asigne un paciente y guarde la cita para enviar el recordatorio.';
+    else if (patientChanged) hint = 'Guarde la cita antes de enviar el recordatorio al nuevo paciente.';
+    else if (cancelled) hint = 'La cita está cancelada.';
+    else if (!email) hint = 'El paciente no tiene correo registrado. Agréguelo en su ficha.';
+
+    const disabled = Boolean(hint);
+
+    return (
+        <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 flex flex-col sm:flex-row sm:items-center gap-3">
+            <div className="flex-1 text-sm">
+                <p className="font-medium text-gray-800 flex items-center gap-2">
+                    <Mail size={16} className="text-[#2f6db5]" /> Recordatorio por correo
+                </p>
+                <p className="text-gray-500 text-xs mt-0.5">
+                    {hint || (sentAt ? `Enviado el ${sentAt} a ${email}` : `Se enviará a ${email}, con la cita para agregar al calendario.`)}
+                </p>
+            </div>
+            <Button type="button" variant="secondary" size="sm" onClick={onSend} loading={sending} disabled={disabled}>
+                <Mail size={16} /> {sentAt ? 'Reenviar' : 'Enviar recordatorio'}
+            </Button>
         </div>
     );
 }

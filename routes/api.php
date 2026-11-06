@@ -55,6 +55,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Appointments
     Route::apiResource('appointments', AppointmentController::class);
+    Route::post('appointments/{appointment}/send-reminder', [AppointmentController::class, 'sendReminder']);
 
     // Brigades
     Route::post('/brigades/{brigade}/patients', [BrigadeController::class, 'attachPatient']);
