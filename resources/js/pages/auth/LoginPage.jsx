@@ -6,11 +6,22 @@ import { useToast } from '../../components/ui/Toast';
 import Button from '../../components/ui/Button';
 import client from '../../api/client';
 
+const REMEMBER_EMAIL_KEY = 'login:recordar_email';
+
 export default function LoginPage() {
     const { login } = useAuth();
     const { addToast } = useToast();
     const navigate = useNavigate();
-    const [email, setEmail] = useState('admin@clinica.com');
+    // Correo recordado en este equipo (solo el correo; la contraseña nunca se guarda).
+    const [savedEmail] = useState(() => {
+        try {
+            return localStorage.getItem(REMEMBER_EMAIL_KEY) || '';
+        } catch {
+            return '';
+        }
+    });
+    const [email, setEmail] = useState(savedEmail || 'admin@clinica.com');
+    const [remember, setRemember] = useState(!!savedEmail);
     const [password, setPassword] = useState('');
     const [showPass, setShowPass] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -29,7 +40,13 @@ export default function LoginPage() {
         setError('');
         setLoading(true);
         try {
-            await login(email, password);
+            await login(email, password, remember);
+            try {
+                if (remember) localStorage.setItem(REMEMBER_EMAIL_KEY, email);
+                else localStorage.removeItem(REMEMBER_EMAIL_KEY);
+            } catch {
+                // localStorage no disponible (modo privado, cuota): el ingreso ya fue correcto.
+            }
             navigate('/pacientes');
         } catch (err) {
             console.groupCollapsed('[Login Debug] submit error');
@@ -94,6 +111,16 @@ export default function LoginPage() {
                             </button>
                         </div>
                     </div>
+
+                    <label className="flex items-center gap-2 text-sm text-gray-700 select-none cursor-pointer">
+                        <input
+                            type="checkbox"
+                            checked={remember}
+                            onChange={e => setRemember(e.target.checked)}
+                            className="w-4 h-4 rounded border-gray-300 text-[#1a2a4a] focus:ring-[#1a2a4a]"
+                        />
+                        Recordarme en este equipo
+                    </label>
 
                     {error && (
                         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
