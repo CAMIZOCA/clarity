@@ -323,7 +323,15 @@ consultas importadas (a veces notas clinicas) y cada guardado lo dejaba en `null
   que no reconoce (una AV, una queratometria, un "ORTHO" heredado) queda como se escribio.
 - **Medico de la consulta**: una consulta nueva queda a nombre de quien la crea solo si es medico
   (`User::CLINICIAN_ROLES`, lo resuelve `StoreConsultationRequest`). Al elegir medico se trae su
-  registro SENESCYT a `doctor_license`, sin pisar uno escrito a mano.
+  registro SENESCYT a `doctor_license`, sin pisar uno escrito a mano. **`admin` no es medico**: la
+  optica entra con la cuenta admin compartida y todo quedaba firmado por "Administrador". Con una
+  cuenta que no es medico se propone el ultimo medico elegido en ese equipo (`localStorage`
+  `consulta:ultimo_medico`) y "Completar" pide confirmarlo. El medico es obligatorio al completar
+  aunque no este en `required_fields` (`ALWAYS_REQUIRED_ON_COMPLETION`, y `ALWAYS_REQUIRED_FIELDS`
+  en el formulario). Se elige con tarjetas (`DoctorPicker.jsx`); un medico guardado que ya no esta
+  en la lista sale como tarjeta extra para no perderlo. La cabecera clinica solo tiene lo editable:
+  los datos fijos del paciente (codigo, telefono, direccion, antecedentes) van en la tarjeta azul de
+  `ConsultationPage`.
 - **Terapia visual (motor, binocular y acomodativo)**: la seccion del formulario (4 bloques) se
   define en `resources/js/data/motorBinocularSchema.js` (`MOTOR_BINOCULAR_BLOCKS`) y se pinta en
   `pages/consultations/MotorBinocularSection.jsx`. Se guarda en la JSON `consultations.motor_binocular_data`

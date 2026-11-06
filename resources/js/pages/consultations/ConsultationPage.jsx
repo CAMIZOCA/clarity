@@ -167,9 +167,6 @@ export default function ConsultationPage() {
                                 </div>
                                 <div>
                                     <h2 className="text-xl font-semibold">{patientName}</h2>
-                                    {selectedPatient.ocupacion && (
-                                        <p className="text-blue-200 text-sm">{selectedPatient.ocupacion}</p>
-                                    )}
                                 </div>
                             </div>
                             {!consultationId && (
@@ -179,20 +176,36 @@ export default function ConsultationPage() {
                                 </button>
                             )}
                         </div>
+                        {/* Todo lo fijo del paciente va aqui: la cabecera clinica
+                            solo tiene lo que se edita en la consulta. */}
                         <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-white/15 pt-4 sm:grid-cols-4">
                             {[
                                 ['Cédula', selectedPatient.cedula || '—'],
+                                ['Código interno', selectedPatient.codigo_interno || '—'],
                                 ['Fecha nac.', toDisplayDate(selectedPatient.fecha_nacimiento, '—')],
-                                ['Año', getYear(selectedPatient.fecha_nacimiento, '—')],
-                                ['Edad', selectedPatient.edad != null ? `${selectedPatient.edad} años` : '—'],
+                                ['Edad', selectedPatient.edad != null
+                                    ? `${selectedPatient.edad} años (${getYear(selectedPatient.fecha_nacimiento, '—')})`
+                                    : '—'],
+                                ['Teléfono', selectedPatient.telefono || '—'],
+                                ['Ocupación', selectedPatient.ocupacion || '—'],
+                                ['Dirección', selectedPatient.direccion || '—'],
                                 ['Quién le recomienda', selectedPatient.como_nos_conocio || '—'],
                             ].map(([term, value]) => (
-                                <div key={term}>
+                                <div key={term} className="min-w-0">
                                     <dt className="text-[11px] uppercase tracking-wide text-blue-300">{term}</dt>
-                                    <dd className="text-sm font-medium text-white">{value}</dd>
+                                    <dd className="break-words text-sm font-medium text-white">{value}</dd>
                                 </div>
                             ))}
                         </dl>
+                        {selectedPatient.antecedentes?.trim() && (
+                            <div className="mt-4 flex gap-2 rounded-xl border border-amber-300/40 bg-amber-400/15 px-3 py-2 text-sm">
+                                <AlertTriangle size={16} className="mt-0.5 shrink-0 text-amber-300" />
+                                <div className="min-w-0">
+                                    <span className="text-[11px] font-semibold uppercase tracking-wide text-amber-200">Antecedentes</span>
+                                    <p className="whitespace-pre-line break-words text-amber-50">{selectedPatient.antecedentes}</p>
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     <ConsultationForm

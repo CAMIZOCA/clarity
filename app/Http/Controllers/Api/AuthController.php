@@ -16,9 +16,12 @@ class AuthController extends Controller
         $request->validate([
             'email' => 'required|email',
             'password' => 'required',
+            'remember' => 'sometimes|boolean',
         ]);
 
-        if (! Auth::attempt($request->only('email', 'password'))) {
+        // "Recordarme": Laravel emite la cookie remember_web_* y rota users.remember_token.
+        // La contrasena nunca se guarda en el navegador.
+        if (! Auth::attempt($request->only('email', 'password'), $request->boolean('remember'))) {
             throw ValidationException::withMessages([
                 'email' => ['Las credenciales son incorrectas.'],
             ]);

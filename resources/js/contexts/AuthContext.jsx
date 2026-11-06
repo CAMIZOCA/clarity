@@ -17,7 +17,7 @@ export function AuthProvider({ children }) {
             .finally(() => setLoading(false));
     }, []);
 
-    const login = async (email, password) => {
+    const login = async (email, password, remember = false) => {
         console.groupCollapsed('[Auth Debug] login start');
         console.log({
             email,
@@ -29,7 +29,7 @@ export function AuthProvider({ children }) {
 
         await initCsrf();
 
-        const res = await webClient.post('/login', { email, password });
+        const res = await webClient.post('/login', { email, password, remember: !!remember });
 
         console.groupCollapsed('[Auth Debug] login success');
         console.log({
