@@ -24,6 +24,7 @@ import { toDisplayDate, toIsoDate, todayIso } from '../../utils/dates';
 import { handleFieldNavigation } from '../../utils/fieldNavigation';
 import { buildMotorBinocularDefaults } from '../../data/motorBinocularSchema';
 import MotorBinocularSection from './MotorBinocularSection';
+import DoctorPicker from './DoctorPicker';
 
 const REQUIRED_FIELD_LABELS = {
     optometrista_id: 'Médico / Optometrista',
@@ -601,11 +602,44 @@ function fieldErrorClass(hasError) {
         : 'border-slate-300';
 }
 
+/**
+ * Campos que exige el servidor al completar aunque no esten en el ajuste
+ * (`StoreConsultationRequest::ALWAYS_REQUIRED_ON_COMPLETION`).
+ */
+const ALWAYS_REQUIRED_FIELDS = ['optometrista_id'];
+
 /** Campos que la configuracion exige para completar la consulta. */
 function useRequiredFields() {
     const { settings } = useSettings();
+    const configured = settings?.required_fields;
 
-    return Array.isArray(settings?.required_fields) ? settings.required_fields : [];
+    return useMemo(
+        () => [...new Set([...(Array.isArray(configured) ? configured : []), ...ALWAYS_REQUIRED_FIELDS])],
+        [configured]
+    );
+}
+
+/**
+ * Ultimo medico elegido en este equipo. Con la cuenta compartida (admin, que
+ * no es medico) es el mejor candidato para una consulta nueva: en la optica
+ * cada optometrista suele trabajar en su computadora.
+ */
+const LAST_DOCTOR_KEY = 'consulta:ultimo_medico';
+
+function readLastDoctorId() {
+    try {
+        return window.localStorage.getItem(LAST_DOCTOR_KEY);
+    } catch {
+        return null;
+    }
+}
+
+function rememberLastDoctorId(id) {
+    try {
+        if (id) window.localStorage.setItem(LAST_DOCTOR_KEY, String(id));
+    } catch {
+        // Sin almacenamiento solo se pierde la sugerencia.
+    }
 }
 
 /**
@@ -703,22 +737,6 @@ function TextArea({ label, register, name, rows = 3, placeholder, hint, ...props
     );
 }
 
-/**
- * Dato del paciente que la cabecera solo muestra. No se registra en el
- * formulario: como <input disabled> viajaba en cada guardado y contaba como
- * un cambio aunque nadie hubiera escrito nada.
- */
-function ReadOnlyField({ label, value, multiline = false }) {
-    return (
-        <div className="flex flex-col gap-1">
-            <span className="text-sm font-medium text-slate-700">{label}</span>
-            <div className={`w-full min-h-11 rounded-xl border border-slate-200 bg-slate-100 px-3 py-2.5 text-sm text-slate-600 ${multiline ? 'whitespace-pre-line' : ''}`}>
-                {isBlank(value) ? '—' : value}
-            </div>
-        </div>
-    );
-}
-
 const BADGE_TONES = {
     neutral: 'bg-slate-100 text-slate-700',
     draft: 'bg-amber-100 text-amber-800',
@@ -755,6 +773,9 @@ export default function ConsultationForm({ patient, consultation, meta, readOnly
     // Avisos de las medidas (`refractionChecks.js`), como `{ field, message, blocking }`.
     const [rxWarnings, setRxWarnings] = useState([]);
     const [showRxReview, setShowRxReview] = useState(false);
+    // Medico propuesto por el equipo y no elegido a mano: se confirma al completar.
+    const [doctorNeedsConfirm, setDoctorNeedsConfirm] = useState(false);
+    const [showDoctorConfirm, setShowDoctorConfirm] = useState(false);
     const autosaveTimerRef = useRef(null);
     // El id tambien vive en un ref: un guardado que espera en cola a que termine
     // el anterior debe ver el id que ese acaba de crear, no el de su closure.
@@ -779,16 +800,27 @@ export default function ConsultationForm({ patient, consultation, meta, readOnly
     // Quien abre una consulta nueva queda como medico solo si es medico. El
     // servidor asignaba a cualquier usuario, y una consulta abierta por
     // recepcion quedaba a su nombre con el selector en blanco.
-    const defaultDoctor = useMemo(
-        () => (Array.isArray(meta?.optometrists) ? meta.optometrists : [])
-            .find((item) => String(item.id) === String(user?.id)) ?? null,
-        [meta, user?.id]
-    );
+    // Si no lo es (cuenta admin compartida), se propone el ultimo medico elegido
+    // en este equipo; `fromDevice` pide confirmarlo al completar.
+    const defaultDoctor = useMemo(() => {
+        const list = Array.isArray(meta?.optometrists) ? meta.optometrists : [];
+        const self = list.find((item) => String(item.id) === String(user?.id));
+        if (self) return self;
+
+        const last = readLastDoctorId();
+        const remembered = last ? list.find((item) => String(item.id) === last) : null;
+
+        return remembered ? { ...remembered, fromDevice: true } : null;
+    }, [meta, user?.id]);
 
     const defaultValues = useMemo(
         () => buildDefaultValues(patient, consultation, meta, defaultDoctor),
         [patient.id, consultation, meta, defaultDoctor]
     );
+
+    useEffect(() => {
+        if (!consultation) setDoctorNeedsConfirm(Boolean(defaultDoctor?.fromDevice));
+    }, [consultation, defaultDoctor]);
 
     // `onBlur`: la unica validacion propia del formulario es la de las fechas,
     // y debe avisar al salir del campo, no recien al completar.
@@ -1149,6 +1181,16 @@ export default function ConsultationForm({ patient, consultation, meta, readOnly
     const onSubmit = async () => {
         if (!validateRequired()) return;
 
+        // El medico lo propuso el equipo: confirmar que es quien atendio.
+        if (doctorNeedsConfirm) {
+            setShowDoctorConfirm(true);
+            return;
+        }
+
+        await reviewRxThenComplete();
+    };
+
+    const reviewRxThenComplete = async () => {
         if (refreshRxWarnings().length > 0) {
             setShowRxReview(true);
             return;
@@ -1266,12 +1308,32 @@ export default function ConsultationForm({ patient, consultation, meta, readOnly
     const handleDoctorChange = (event) => {
         const selected = optometrists.find((item) => String(item.id) === String(event.target.value));
         const current = String(getValues('doctor_license') ?? '').trim();
-        const knownRegistries = optometrists.map((item) => String(item.registro_senescyt ?? '').trim()).filter(Boolean);
+        // Incluye el del medico guardado que ya no esta en la lista (Administrador).
+        const knownRegistries = [...optometrists, ...(extraDoctor ? [extraDoctor] : [])]
+            .map((item) => String(item.registro_senescyt ?? '').trim())
+            .filter(Boolean);
 
         if (current === '' || knownRegistries.includes(current)) {
             setValue('doctor_license', selected?.registro_senescyt ?? '', { shouldDirty: true });
         }
+
+        if (selected) rememberLastDoctorId(selected.id);
+        setDoctorNeedsConfirm(false);
     };
+
+    // Medico guardado que ya no esta en la lista (la cuenta Administrador en
+    // consultas antiguas): se muestra para no perderlo al guardar.
+    const savedDoctorId = consultation?.optometrista_id;
+    const extraDoctor = savedDoctorId && !optometrists.some((item) => String(item.id) === String(savedDoctorId))
+        ? {
+            id: savedDoctorId,
+            name: consultation?.optometrista?.name ?? `Usuario #${savedDoctorId}`,
+            codigo: consultation?.optometrista?.codigo,
+            registro_senescyt: consultation?.optometrista?.registro_senescyt,
+        }
+        : null;
+    const selectedDoctorName = [...optometrists, ...(extraDoctor ? [extraDoctor] : [])]
+        .find((item) => String(item.id) === String(watch('optometrista_id') ?? ''))?.name;
 
     /** Al corregir un campo se le quita el rojo, sin esperar al siguiente guardado. */
     const clearFieldError = useCallback((event) => {
@@ -1466,34 +1528,37 @@ export default function ConsultationForm({ patient, consultation, meta, readOnly
                 )}
             </div>
 
-            <CollapsibleSection title="Cabecera clínica" subtitle="Resumen operativo del paciente y la consulta actual." sectionKey="cabecera">
+            {/* Solo lo que se edita: los datos del paciente estan en la tarjeta azul. */}
+            <CollapsibleSection title="Cabecera clínica" subtitle="Datos de esta consulta: médico que atiende, fecha y motivo." sectionKey="cabecera">
                 <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
-                    <DateInput
-                        control={control}
-                        name="fecha_consulta"
-                        label="Fecha de consulta"
-                        required={requiredFields.includes('fecha_consulta')}
-                        rules={{ validate: notFutureDate }}
-                        error={requiredErrors.get('fecha_consulta')}
-                    />
-                    <FormSelect
-                        label="Médico / Optometrista"
-                        name="optometrista_id"
-                        register={register}
-                        options={optometrists}
-                        registerOptions={{ onChange: handleDoctorChange }}
-                    />
-                    <FormInput
-                        label="Registro SENESCYT del médico"
-                        name="doctor_license"
-                        register={register}
-                        placeholder="Se llena al elegir el médico"
-                    />
-                    <FormSelect label="Plantilla de impresión" name="print_template_key" register={register} options={templateOptions.map((item) => ({ value: item.key, label: item.name }))} />
-                    <ReadOnlyField label="Código interno" value={patient.codigo_interno} />
-                    <ReadOnlyField label="Paciente" value={patient.nombre_completo || patient.nombre} />
-                    <ReadOnlyField label="Edad" value={patient.edad != null ? `${patient.edad} años` : ''} />
-                    <ReadOnlyField label="Ocupación" value={patient.ocupacion} />
+                    <div className="lg:col-span-3">
+                        <DoctorPicker
+                            name="optometrista_id"
+                            label="Médico / Optometrista que atiende"
+                            register={register}
+                            onChange={handleDoctorChange}
+                            options={optometrists}
+                            value={watch('optometrista_id')}
+                            extraDoctor={extraDoctor}
+                            error={requiredErrors.get('optometrista_id')}
+                        />
+                    </div>
+                    <div className="flex flex-col gap-4">
+                        <DateInput
+                            control={control}
+                            name="fecha_consulta"
+                            label="Fecha de consulta"
+                            required={requiredFields.includes('fecha_consulta')}
+                            rules={{ validate: notFutureDate }}
+                            error={requiredErrors.get('fecha_consulta')}
+                        />
+                        <FormInput
+                            label="Registro SENESCYT"
+                            name="doctor_license"
+                            register={register}
+                            placeholder="Se llena al elegir el médico"
+                        />
+                    </div>
                     <div className="lg:col-span-2">
                         <TextArea label="Motivo de consulta" name="motivo_consulta" register={register} rows={3} placeholder="Motivo principal, síntomas, seguimiento o reclamo..." />
                     </div>
@@ -1506,10 +1571,7 @@ export default function ConsultationForm({ patient, consultation, meta, readOnly
                             error={requiredErrors.get('ultimo_control')}
                         />
                     )}
-                    <ReadOnlyField label="Dirección" value={patient.direccion} />
-                    <div className="lg:col-span-4">
-                        <ReadOnlyField label="Antecedentes" value={patient.antecedentes} multiline />
-                    </div>
+                    <FormSelect label="Plantilla de impresión" name="print_template_key" register={register} options={templateOptions.map((item) => ({ value: item.key, label: item.name }))} />
                 </div>
                 {cabeceraHasAdvanced && (
                     <div className="mt-4">
@@ -2030,6 +2092,16 @@ export default function ConsultationForm({ patient, consultation, meta, readOnly
             confirmLabel="Salir sin guardar"
             onConfirm={() => { setConfirmLeave(false); blocker.proceed?.(); }}
             onCancel={() => { setConfirmLeave(false); blocker.reset?.(); }}
+        />
+
+        <ConfirmModal
+            open={showDoctorConfirm}
+            variant="primary"
+            title="¿Quién atendió esta consulta?"
+            message={`Si la atendió otro médico, cámbielo en la cabecera. Quedará firmada por: ${selectedDoctorName ?? 'el médico elegido'}`}
+            confirmLabel="Sí, completar"
+            onConfirm={() => { setShowDoctorConfirm(false); setDoctorNeedsConfirm(false); reviewRxThenComplete(); }}
+            onCancel={() => { setShowDoctorConfirm(false); goToField('optometrista_id'); }}
         />
 
         {showRxReview && (

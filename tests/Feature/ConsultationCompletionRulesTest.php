@@ -246,6 +246,49 @@ class ConsultationCompletionRulesTest extends TestCase
             ->assertJsonPath('optometrista_id', null);
     }
 
+    /**
+     * La optica entra con la cuenta admin compartida: si admin contaba como
+     * medico, toda consulta quedaba firmada por "Administrador".
+     */
+    public function test_the_admin_account_is_not_offered_nor_assigned_as_doctor(): void
+    {
+        $this->requireFields([]);
+        User::factory()->create(['role' => 'optometra', 'name' => 'Opt. Real']);
+        $this->actingAsStaff('admin');
+
+        $names = collect($this->getJson('/api/consultations-meta')->assertOk()->json('optometrists'))->pluck('name');
+        $this->assertContains('Opt. Real', $names);
+        $this->assertNotContains(auth()->user()->name, $names);
+
+        $this->postJson('/api/consultations', $this->payload(['estado' => 'borrador']))
+            ->assertCreated()
+            ->assertJsonPath('optometrista_id', null);
+    }
+
+    /** El medico es obligatorio al completar aunque el ajuste no lo pida. */
+    public function test_completing_always_requires_a_doctor(): void
+    {
+        $this->requireFields([]);
+        $this->actingAsStaff('admin');
+
+        $this->postJson('/api/consultations', $this->payload())
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['optometrista_id' => 'Elija el médico']);
+
+        $id = $this->postJson('/api/consultations', $this->payload(['estado' => 'borrador']))
+            ->assertCreated()
+            ->json('id');
+
+        $this->putJson("/api/consultations/{$id}", ['estado' => 'completada'])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('optometrista_id');
+
+        $doctor = User::factory()->create(['role' => 'optometra']);
+        $this->putJson("/api/consultations/{$id}", ['estado' => 'completada', 'optometrista_id' => $doctor->id])
+            ->assertOk()
+            ->assertJsonPath('optometrista_id', $doctor->id);
+    }
+
     /** `decimal(5,2)`: mas de 999.99 desborda la columna y MariaDB responde 500. */
     public function test_a_draft_rejects_a_measurement_that_does_not_fit_the_column(): void
     {

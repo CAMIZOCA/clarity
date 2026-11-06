@@ -37,6 +37,9 @@ class StoreConsultationRequest extends FormRequest
         return $this->user()?->can('consultations.create') ?? false;
     }
 
+    /** Obligatorios al completar aunque no esten en `settings.required_fields`. */
+    public const ALWAYS_REQUIRED_ON_COMPLETION = ['optometrista_id'];
+
     public function rules(): array
     {
         $rules = [
@@ -310,6 +313,7 @@ class StoreConsultationRequest extends FormRequest
             'patient_id.required' => 'Debe seleccionar un paciente para la consulta.',
             'patient_id.exists' => 'El paciente seleccionado no existe en el sistema.',
             'optometrista_id.exists' => 'El optómetra seleccionado no existe.',
+            'optometrista_id.required' => 'Elija el médico que atiende la consulta.',
             'fecha_consulta.required' => 'La fecha de la consulta es obligatoria.',
             'fecha_consulta.before_or_equal' => 'La fecha de consulta no puede ser futura.',
             'ultimo_control.before_or_equal' => 'La fecha del último control no puede ser futura.',
@@ -533,7 +537,11 @@ class StoreConsultationRequest extends FormRequest
 
         $required = json_decode((string) Setting::get('required_fields'), true);
 
-        foreach (is_array($required) ? $required : [] as $field) {
+        // El medico firma la consulta: siempre obligatorio, este o no en el ajuste.
+        // Con la cuenta admin compartida las consultas quedaban sin medico real.
+        $required = array_values(array_unique([...(is_array($required) ? $required : []), ...self::ALWAYS_REQUIRED_ON_COMPLETION]));
+
+        foreach ($required as $field) {
             // El formulario llama asi a "tener al menos un diagnostico".
             if ($field === 'diagnostico_descripcion') {
                 if (! $this->hasStoredValue('diagnoses')) {

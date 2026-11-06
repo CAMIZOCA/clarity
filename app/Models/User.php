@@ -31,8 +31,13 @@ class User extends Authenticatable
         'phone',
     ];
 
-    /** Valores de la columna `role` que atienden consultas y salen en el selector de medico. */
-    public const CLINICIAN_ROLES = ['admin', 'optometra'];
+    /**
+     * Valores de la columna `role` que atienden consultas y salen en el selector de medico.
+     *
+     * `admin` no esta: en la optica todos entran con la cuenta admin compartida, y como
+     * contaba como medico cada consulta nueva quedaba firmada por "Administrador".
+     */
+    public const CLINICIAN_ROLES = ['optometra'];
 
     protected $hidden = ['password', 'remember_token'];
 
