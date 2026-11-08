@@ -12,6 +12,10 @@ import MobileLaunchSplash from './components/pwa/MobileLaunchSplash';
 import DiagnosisModal from './components/ui/DiagnosisModal';
 import SessionExpiredModal from './components/auth/SessionExpiredModal';
 import { router } from './router/index';
+import { disableFormHistory } from './utils/disableFormHistory';
+
+// Sin esto el navegador ofrece lo tecleado en otras consultas como si fueran opciones.
+disableFormHistory();
 
 createRoot(document.getElementById('app')).render(
     <React.StrictMode>

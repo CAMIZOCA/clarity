@@ -459,6 +459,10 @@ consultas importadas (a veces notas clinicas) y cada guardado lo dejaba en `null
   que vuelva. **Una ruta web que el SPA pida sola (foco, intervalo) no debe abrir sesion**:
   `/app-version.json` lleva `withoutMiddleware(StartSession...)` porque, si respondia despues de un
   login, reenviaba la cookie de sesion vieja y el usuario quedaba "dentro" con 401 en todo `/api`.
+- **Historial del navegador apagado**: `utils/disableFormHistory.js` (llamado en `app.jsx`) pone
+  `autocomplete="off"` a todo input/textarea sin valor propio. Chrome ofrecia lo tecleado en otras
+  consultas ("-100 -075 x 90") y el personal lo tomaba por las unicas opciones. Un campo que si
+  quiera sugerencias (login, `new-password`) debe declarar su `autoComplete`.
 - **Servicios**: los controladores delegan en `app/Services/`. La logica de negocio no va en el controlador.
 - **Permisos**: Spatie. Roles en `app/Enums/Role.php`, permisos en `app/Enums/Permission.php`.
   `user.roles` es un array de **strings** (`['admin']`), no de objetos.

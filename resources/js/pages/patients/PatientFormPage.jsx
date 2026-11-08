@@ -779,7 +779,7 @@ function PatientForm({ id }) {
                 </div>
             )}
 
-            <form onSubmit={handleSubmit(onSubmit)} onKeyDown={handleFieldNavigation} className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 sm:p-8 space-y-6">
+            <form onSubmit={handleSubmit(onSubmit)} onKeyDown={handleFieldNavigation} autoComplete="off" className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 sm:p-8 space-y-6">
                 {loadState === 'loading' && (
                     <p className="flex items-center gap-2 text-sm text-gray-600">
                         <Loader2 size={18} className="animate-spin" /> Cargando los datos del paciente...
