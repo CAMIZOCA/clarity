@@ -236,7 +236,9 @@ varios campos para otra cosa. La importacion lo copio literal, asi que en las co
   "prog ev gold", "No trajo"). La importacion guardo solo el primer numero: la esfera del
   subjetivo quedo en `subj_cilindro`, la de RX en uso en `rx_uso_eje`, y cilindro, eje y AV
   nunca entraron. `RX_EN USO_ESFERA_*` trae una agudeza ("20/40", "CD 3m"), de ahi el 20
-  residual en `rx_uso_esfera`;
+  residual en `rx_uso_esfera`. Es la casilla **"AV.SC lejos"** del formulario Access
+  (`AVSC_LEJOS_*` y `RX_EN USO_AVCC_*` estan vacias en todas las filas): va a `avsc_*`, no a la
+  AV.CC de la RX en uso. La AV.CC es la escrita dentro del texto de la receta ("... 20/20");
 - `ark_*` (rotulado "Queratometria") trae la refraccion, que aqui es la Retinoscopia, y
   `retinoscopia_*` trae el cover test ("ORTHO", "X").
 
@@ -246,12 +248,17 @@ segunda pasada divida dos veces (2500 -> 25.00 -> 0.25).
 
 - **Sin el Access** (`decimales` y `rx_uso`): se aplican solas con la migracion
   `2026_10_13_000001`. No hay que correr nada a mano.
-- **Con el Access** (`subj_origen` y `rx_uso_origen`): reparten la refraccion completa. Corren
+- **Con el Access** (`subj_origen`, `rx_uso_origen` y `avsc_origen`): reparten la refraccion
+  completa y llevan la AV.SC a `avsc_*` (solo si la AV.CC sigue siendo ese texto). Corren
   al importar el respaldo sin `--replace` (`import:optica-andina-sqlite`, o Mantenimiento con
   "Reescribir datos legacy" desmarcado) o con
   `consultations:repair-legacy-import --source=ruta.sqlite` (primero con `--dry-run`). Solo tocan
   un ojo que sigue como lo dejo la importacion; lo corregido a mano se respeta. Aplicado en la BD
-  local el 2026-10-13; en staging y produccion falta subir el `.sqlite`.
+  local el 2026-10-13 (`avsc_origen` el 2026-11-08); en staging y produccion falta subir el `.sqlite`.
+
+Las OBSERVACIONES del Access (lo vendido, cada reclamo) estan en `consultations.observaciones`
+desde la primera importacion. Se ven en el historial de la ficha del paciente y en la seccion
+"Observaciones clinicas" del formulario, justo despues de Diagnostico (donde las tenia el Access).
 
 La regla `ark` **no esta aplicada en ninguna instancia** (falta que la optica vea el
 `--dry-run`), y `subj` (mover el numero a esfera a ciegas) quedo superada por `subj_origen`.

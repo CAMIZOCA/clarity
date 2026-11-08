@@ -115,7 +115,7 @@ class LegacyOpticalParserTest extends TestCase
     public function test_rx_en_uso_with_legacy_shape_reads_the_prescription_from_the_axis_column(): void
     {
         $this->assertSame(
-            ['esfera' => '-0.50', 'esfera_neutral' => false, 'cilindro' => null, 'eje' => null, 'add' => '2.50', 'avcc' => '20/25', 'observacion' => null],
+            ['esfera' => '-0.50', 'esfera_neutral' => false, 'cilindro' => null, 'eje' => null, 'add' => '2.50', 'avcc' => null, 'avsc' => '20/25', 'observacion' => null],
             LegacyOpticalParser::rxUso('20/25', null, '-050', '250', null)
         );
 
@@ -123,13 +123,13 @@ class LegacyOpticalParserTest extends TestCase
         $this->assertSame('3.00', LegacyOpticalParser::rxUso('20', null, '300', null, null)['esfera']);
 
         $this->assertSame(
-            ['esfera' => null, 'esfera_neutral' => true, 'cilindro' => '-0.50', 'eje' => 5, 'add' => '2.00', 'avcc' => '20/25-', 'observacion' => '20/20 prog ev gold'],
+            ['esfera' => null, 'esfera_neutral' => true, 'cilindro' => '-0.50', 'eje' => 5, 'add' => '2.00', 'avcc' => '20/20', 'avsc' => '20/25-', 'observacion' => 'prog ev gold'],
             LegacyOpticalParser::rxUso('20/25-', null, 'N -050 X 5 20/20 prog ev gold', '+200', null)
         );
 
         // "CD 3m" (cuenta dedos) es una agudeza, no una esfera de 3.00.
         $this->assertSame(
-            ['esfera' => '1.25', 'esfera_neutral' => false, 'cilindro' => '-1.25', 'eje' => 25, 'add' => null, 'avcc' => 'CD 3m', 'observacion' => null],
+            ['esfera' => '1.25', 'esfera_neutral' => false, 'cilindro' => '-1.25', 'eje' => 25, 'add' => null, 'avcc' => null, 'avsc' => 'CD 3m', 'observacion' => null],
             LegacyOpticalParser::rxUso('CD 3m', null, '125-125x 25', null, null)
         );
     }
@@ -137,7 +137,7 @@ class LegacyOpticalParserTest extends TestCase
     public function test_rx_en_uso_without_a_prescription_keeps_the_note(): void
     {
         $this->assertSame(
-            ['esfera' => null, 'esfera_neutral' => false, 'cilindro' => null, 'eje' => null, 'add' => null, 'avcc' => '20/40', 'observacion' => 'No trajo. Tiene 5 años'],
+            ['esfera' => null, 'esfera_neutral' => false, 'cilindro' => null, 'eje' => null, 'add' => null, 'avcc' => null, 'avsc' => '20/40', 'observacion' => 'No trajo. Tiene 5 años'],
             LegacyOpticalParser::rxUso('20/40', null, 'No trajo. Tiene 5 años', null, null)
         );
     }
@@ -145,7 +145,7 @@ class LegacyOpticalParserTest extends TestCase
     public function test_rx_en_uso_with_real_columns_is_respected(): void
     {
         $this->assertSame(
-            ['esfera' => '-1.25', 'esfera_neutral' => false, 'cilindro' => '-0.50', 'eje' => 90, 'add' => null, 'avcc' => '20/20', 'observacion' => null],
+            ['esfera' => '-1.25', 'esfera_neutral' => false, 'cilindro' => '-0.50', 'eje' => 90, 'add' => null, 'avcc' => '20/20', 'avsc' => null, 'observacion' => null],
             LegacyOpticalParser::rxUso('-125', '-050', '90', null, '20/20')
         );
     }

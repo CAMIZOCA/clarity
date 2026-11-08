@@ -9,7 +9,7 @@ import { useToast } from '../../components/ui/Toast';
 import { useSettings } from '../../contexts/SettingsContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { canStartWorkOrder, consultationUrl, workOrderUrl } from '../../utils/consultationLinks';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { toDisplayDate } from '../../utils/dates';
 
@@ -251,13 +251,20 @@ export default function PatientDetailPage() {
                                                     <Badge label={item.estado} />
                                                 </div>
                                                 <p className="text-sm text-gray-500 ml-6">
-                                                    {item.fecha_consulta ? format(new Date(item.fecha_consulta), "d 'de' MMMM yyyy", { locale: es }) : ''}
+                                                    {item.fecha_consulta ? format(parseISO(item.fecha_consulta), "d 'de' MMMM yyyy", { locale: es }) : ''}
                                                     {item.optometrista && ` · Dr. ${item.optometrista.name}`}
                                                 </p>
                                                 {item.diagnostico_descripcion && (
                                                     <p className="text-sm text-gray-700 mt-1 ml-6">
                                                         <span className="font-mono text-xs bg-gray-100 px-1.5 py-0.5 rounded mr-2">{item.diagnostico_cie10}</span>
                                                         {item.diagnostico_descripcion}
+                                                    </p>
+                                                )}
+                                                {item.observaciones?.trim() && (
+                                                    // Ahi la optica anotaba lo vendido y cada problema con los lentes.
+                                                    <p className="text-sm text-gray-600 mt-1 ml-6 whitespace-pre-line line-clamp-3" title={item.observaciones}>
+                                                        <span className="font-medium text-gray-700">Observaciones: </span>
+                                                        {item.observaciones}
                                                     </p>
                                                 )}
                                             </div>

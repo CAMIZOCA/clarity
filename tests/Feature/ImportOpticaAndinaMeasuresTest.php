@@ -63,7 +63,10 @@ class ImportOpticaAndinaMeasuresTest extends TestCase
         $this->assertTrue($consultation->rx_uso_esfera_od_neutral);
         $this->assertEqualsWithDelta(-0.50, $consultation->rx_uso_cilindro_od, 0.001);
         $this->assertSame(5, $consultation->rx_uso_eje_od);
-        $this->assertSame('20/25-', $consultation->rx_uso_avcc_od);
+        // La agudeza de ESFERA es la "AV.SC lejos" del Access; la escrita junto a la receta, la AV.CC.
+        $this->assertSame('20/25-', $consultation->avsc_od);
+        $this->assertSame('20/20', $consultation->rx_uso_avcc_od);
+        $this->assertSame('20/40', $consultation->avsc_oi);
 
         // "N" en la RX final es una esfera neutra, no un campo en blanco.
         $this->assertTrue($consultation->rx_final_esfera_od_neutral);
@@ -71,8 +74,9 @@ class ImportOpticaAndinaMeasuresTest extends TestCase
 
         $entry = $consultation->rxUsoEntries()->where('orden', 0)->firstOrFail();
         $this->assertEqualsWithDelta(-0.50, $entry->cilindro_od, 0.001);
-        $this->assertSame('20/40', $entry->avcc_oi);
-        $this->assertSame('OD: 20/20 prog ev gold / OI: No trajo', $entry->observacion);
+        $this->assertSame('20/20', $entry->avcc_od);
+        $this->assertNull($entry->avcc_oi);
+        $this->assertSame('OD: prog ev gold / OI: No trajo', $entry->observacion);
     }
 
     /** Produccion (MariaDB) rechazo '0003-04-18' y toda la importacion quedo como fallida. */

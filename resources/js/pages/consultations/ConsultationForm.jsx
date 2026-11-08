@@ -1782,6 +1782,31 @@ export default function ConsultationForm({ patient, consultation, meta, readOnly
                 </div>
             </CollapsibleSection>
 
+            <CollapsibleSection title="Observaciones clínicas, queratometría y examen externo" subtitle="Texto libre y hallazgos auxiliares del examen." sectionKey="observaciones">
+                <div className="mb-4">
+                    <TextArea label="Observaciones clínicas" name="observaciones" register={register} rows={6} placeholder="Comentarios del caso, comparación con recetas previas, seguimiento y observaciones libres..." hint="No se imprimen en el certificado." />
+                </div>
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                    {advVisible('consulta:queratometria', observacionesAdv) && (
+                        <FormInput label="Queratometría detallada OD" name="queratometria_od" register={register} placeholder="K1 / K2 @ eje" hint="Complementa la columna Queratometría del examen visual." />
+                    )}
+                    {advVisible('consulta:queratometria', observacionesAdv) && (
+                        <FormInput label="Queratometría detallada OI" name="queratometria_oi" register={register} placeholder="K1 / K2 @ eje" hint="Complementa la columna Queratometría del examen visual." />
+                    )}
+                    {advVisible('consulta:examen_externo', observacionesAdv) && (
+                        <TextArea label="Examen externo OD" name="examen_externo_od" register={register} rows={3} />
+                    )}
+                    {advVisible('consulta:examen_externo', observacionesAdv) && (
+                        <TextArea label="Examen externo OI" name="examen_externo_oi" register={register} rows={3} />
+                    )}
+                </div>
+                {observacionesHasAdvanced && (
+                    <div className="mt-2">
+                        <AdvancedToggleButton open={observacionesAdv.open} onToggle={observacionesAdv.toggle} />
+                    </div>
+                )}
+            </CollapsibleSection>
+
             <CollapsibleSection title="Recomendación de lunas y recomendaciones médicas" subtitle="Selección rápida por catálogos y texto editable antes de guardar." sectionKey="recomendaciones">
                 <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
                     <div className="rounded-2xl border border-slate-200 p-4">
@@ -1912,31 +1937,6 @@ export default function ConsultationForm({ patient, consultation, meta, readOnly
                         </span>
                     </div>
                 </div>
-            </CollapsibleSection>
-
-            <CollapsibleSection title="Observaciones clínicas, queratometría y examen externo" subtitle="Texto libre y hallazgos auxiliares del examen." sectionKey="observaciones">
-                <div className="mb-4">
-                    <TextArea label="Observaciones clínicas" name="observaciones" register={register} rows={6} placeholder="Comentarios del caso, comparación con recetas previas, seguimiento y observaciones libres..." hint="No se imprimen en el certificado." />
-                </div>
-                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                    {advVisible('consulta:queratometria', observacionesAdv) && (
-                        <FormInput label="Queratometría detallada OD" name="queratometria_od" register={register} placeholder="K1 / K2 @ eje" hint="Complementa la columna Queratometría del examen visual." />
-                    )}
-                    {advVisible('consulta:queratometria', observacionesAdv) && (
-                        <FormInput label="Queratometría detallada OI" name="queratometria_oi" register={register} placeholder="K1 / K2 @ eje" hint="Complementa la columna Queratometría del examen visual." />
-                    )}
-                    {advVisible('consulta:examen_externo', observacionesAdv) && (
-                        <TextArea label="Examen externo OD" name="examen_externo_od" register={register} rows={3} />
-                    )}
-                    {advVisible('consulta:examen_externo', observacionesAdv) && (
-                        <TextArea label="Examen externo OI" name="examen_externo_oi" register={register} rows={3} />
-                    )}
-                </div>
-                {observacionesHasAdvanced && (
-                    <div className="mt-2">
-                        <AdvancedToggleButton open={observacionesAdv.open} onToggle={observacionesAdv.toggle} />
-                    </div>
-                )}
             </CollapsibleSection>
 
             <CollapsibleSection title="Módulo de Terapia Visual – Examen motor, binocular y acomodativo" subtitle="Motilidad ocular, binocularidad y vergencias, acomodación y reflejos pupilares." sectionKey="motor_binocular" {...moduleSectionProps('consulta:sec_motor_binocular')}>

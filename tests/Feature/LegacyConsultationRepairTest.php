@@ -375,7 +375,10 @@ class LegacyConsultationRepairTest extends TestCase
         $this->assertEqualsWithDelta(1.25, $row->rx_uso_esfera_od, 0.001);
         $this->assertEqualsWithDelta(-0.75, $row->rx_uso_cilindro_od, 0.001);
         $this->assertEquals(90, $row->rx_uso_eje_od);
-        $this->assertSame('20/40', $row->rx_uso_avcc_od);
+        // La agudeza de ESFERA es la AV.SC lejos; la escrita junto a la receta, la AV.CC.
+        $this->assertSame('20/40', $row->avsc_od);
+        $this->assertSame('20/20', $row->rx_uso_avcc_od);
+        $this->assertSame('20/200', $row->avsc_oi);
         $this->assertEqualsWithDelta(-1.25, $row->rx_uso_esfera_oi, 0.001);
         $this->assertEqualsWithDelta(-1.00, $row->rx_uso_cilindro_oi, 0.001);
         $this->assertEquals(20, $row->rx_uso_eje_oi);
@@ -384,8 +387,66 @@ class LegacyConsultationRepairTest extends TestCase
         $this->assertEqualsWithDelta(1.25, $entry->esfera_od, 0.001);
         $this->assertEqualsWithDelta(-0.75, $entry->cilindro_od, 0.001);
         $this->assertEquals(90, $entry->eje_od);
-        $this->assertSame('20/200', $entry->avcc_oi);
-        $this->assertSame('OD: 20/20 prog ev gold', $entry->observacion);
+        $this->assertSame('20/20', $entry->avcc_od);
+        $this->assertNull($entry->avcc_oi);
+        $this->assertSame('OD: prog ev gold', $entry->observacion);
+    }
+
+    public function test_the_acuity_imported_as_avcc_moves_to_avsc(): void
+    {
+        // Como quedo la consulta 71787 despues de `rx_uso_origen`: la AV.SC en la AV.CC.
+        $id = $this->insertConsultation([
+            'rx_uso_esfera_od' => -3.50, 'rx_uso_cilindro_od' => -1.00, 'rx_uso_eje_od' => 155, 'rx_uso_avcc_od' => 'CD 3m',
+            'rx_uso_esfera_oi' => -2.50, 'rx_uso_cilindro_oi' => -1.00, 'rx_uso_eje_oi' => 3, 'rx_uso_avcc_oi' => '20/150',
+        ]);
+        $entryId = DB::table('consultation_rx_uso_entries')->insertGetId([
+            'consultation_id' => $id, 'orden' => 0, 'avcc_od' => 'CD 3m', 'avcc_oi' => '20/150',
+        ]);
+        $source = $this->source([
+            'RX_EN USO_ESFERA_OD' => 'CD 3m', 'RX_EN USO_EJE_OD' => '-350-100x 155 Tres años',
+            'RX_EN USO_ESFERA_OI' => '20/150', 'RX_EN USO_EJE_OI' => '-250-100x 3',
+        ]);
+
+        $report = $this->service()->repairFromSource($source);
+
+        $row = $this->consultation($id);
+        $this->assertSame('CD 3m', $row->avsc_od);
+        $this->assertSame('20/150', $row->avsc_oi);
+        $this->assertNull($row->rx_uso_avcc_od);
+        $this->assertNull($row->rx_uso_avcc_oi);
+        $entry = DB::table('consultation_rx_uso_entries')->find($entryId);
+        $this->assertNull($entry->avcc_od);
+        $this->assertNull($entry->avcc_oi);
+        $this->assertSame(6, $report['rules'][LegacyConsultationRepairService::RULE_AVSC_SOURCE]['changes']);
+
+        $second = $this->service()->repairFromSource($source);
+        $this->assertSame(0, $second['rules'][LegacyConsultationRepairService::RULE_AVSC_SOURCE]['changes']);
+
+        $this->service()->revert([LegacyConsultationRepairService::RULE_AVSC_SOURCE]);
+        $row = $this->consultation($id);
+        $this->assertNull($row->avsc_od);
+        $this->assertSame('CD 3m', $row->rx_uso_avcc_od);
+        $this->assertSame('20/150', DB::table('consultation_rx_uso_entries')->find($entryId)->avcc_oi);
+    }
+
+    public function test_an_avcc_or_avsc_edited_by_hand_is_respected(): void
+    {
+        // OD: AV.CC cambiada a mano. OI: AV.SC ya escrita con otro valor.
+        $id = $this->insertConsultation([
+            'rx_uso_avcc_od' => '20/25', 'rx_uso_avcc_oi' => '20/150', 'avsc_oi' => '20/100',
+        ]);
+        $source = $this->source([
+            'RX_EN USO_ESFERA_OD' => 'CD 3m', 'RX_EN USO_EJE_OD' => '-350-100x 155',
+            'RX_EN USO_ESFERA_OI' => '20/150', 'RX_EN USO_EJE_OI' => '-250-100x 3',
+        ]);
+
+        $this->service()->repairFromSource($source, [LegacyConsultationRepairService::RULE_AVSC_SOURCE]);
+
+        $row = $this->consultation($id);
+        $this->assertSame('CD 3m', $row->avsc_od);
+        $this->assertSame('20/25', $row->rx_uso_avcc_od);
+        $this->assertSame('20/100', $row->avsc_oi);
+        $this->assertSame('20/150', $row->rx_uso_avcc_oi);
     }
 
     public function test_rx_en_uso_edited_by_hand_is_not_recovered(): void

@@ -478,6 +478,12 @@ class ImportHistoriasClincias extends Command
             );
 
             foreach ($rxUso as $column => $value) {
+                // La agudeza de ESFERA es la "AV.SC lejos" del Access, no parte de la receta.
+                if ($column === 'avsc') {
+                    $attributes["avsc_{$eye}"] = $this->val($row, $colIndex, $eye === 'od' ? 'AVSC_LEJOS_DERECHA' : 'AVSC_LEJOS_IZQUIERDA') ?? $value;
+
+                    continue;
+                }
                 $attributes["rx_uso_{$column}_{$eye}"] = $value;
             }
         }

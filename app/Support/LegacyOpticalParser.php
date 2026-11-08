@@ -9,8 +9,9 @@ namespace App\Support;
  * - Las dioptrias van sin punto decimal ("+300" es +3.00, "-050" es -0.50).
  *   Leerlas como numero literal dejo el 92 % de las consultas importadas con
  *   esferas de 300 y cilindros de -225.
- * - En "RX en uso" la columna ESFERA trae una agudeza visual ("20/40", "CD 3m")
- *   y la columna EJE la receta entera en un solo texto, a veces con una nota
+ * - En "RX en uso" la columna ESFERA trae una agudeza visual ("20/40", "CD 3m"):
+ *   es la casilla "AV.SC lejos" del formulario Access (AVSC_LEJOS y
+ *   RX_EN USO_AVCC estan vacias en todas las filas). La columna EJE la receta entera en un solo texto, a veces con una nota
  *   ("+125-075x 90 20/40", "N -050 X 5 20/20 prog ev gold", "No trajo").
  *   CILINDRO siempre esta vacio.
  * - En el subjetivo pasa lo mismo: RXPARCIAL_CILINDRO trae la refraccion
@@ -227,11 +228,12 @@ class LegacyOpticalParser
      *
      * Si la fila tiene la forma legacy (AV o texto en ESFERA, o un "eje" que no
      * es un numero de 0 a 180) la receta se lee del texto de EJE; si no, se
-     * respeta el nombre de las columnas. La agudeza de ESFERA es la AV con esa
-     * receta; la que venga escrita dentro del texto y cualquier nota ("prog ev
-     * gold", "No trajo") se devuelven en `observacion`.
+     * respeta el nombre de las columnas. La agudeza de ESFERA es la AV sin
+     * correccion de lejos (`avsc`, rotulada "AV.SC lejos" en el Access); la que
+     * venga escrita dentro del texto de la receta es la AV con ella (`avcc`), y
+     * cualquier nota ("prog ev gold", "No trajo") se devuelve en `observacion`.
      *
-     * @return array{esfera: ?string, esfera_neutral: bool, cilindro: ?string, eje: ?int, add: ?string, avcc: ?string, observacion: ?string}
+     * @return array{esfera: ?string, esfera_neutral: bool, cilindro: ?string, eje: ?int, add: ?string, avcc: ?string, avsc: ?string, observacion: ?string}
      */
     public static function rxUso(?string $esfera, ?string $cilindro, ?string $eje, ?string $add, ?string $avcc): array
     {
@@ -250,16 +252,23 @@ class LegacyOpticalParser
                 'eje' => $axis,
                 'add' => self::diopter($add),
                 'avcc' => $avcc,
+                'avsc' => null,
                 'observacion' => null,
             ];
         }
 
         $parsed = self::refraction($eje);
-        // Lo que venia en ESFERA no es una esfera: se conserva como texto.
-        $acuity = $avcc ?? $esfera ?? $parsed['av'] ?? null;
+        // Lo que venia en ESFERA no es una esfera: es la AV sin correccion.
+        $sphereIsAcuity = ! $plainSphere || $acuityAsNumber;
+        $avsc = $sphereIsAcuity ? $esfera : null;
+        $withRx = $avcc ?? $parsed['av'] ?? null;
         $note = $parsed === null
             ? $eje
-            : implode(' ', array_filter([$parsed['av'] !== $acuity ? $parsed['av'] : null, $parsed['resto']]));
+            : implode(' ', array_filter([$parsed['av'] !== $withRx ? $parsed['av'] : null, $parsed['resto']]));
+        // Una esfera numerica junto a una receta escrita en EJE no se sabe que es: no se pierde.
+        if (! $sphereIsAcuity && filled($esfera) && ! self::isNeutral($esfera)) {
+            $note = trim("ESFERA {$esfera} ".($note ?? ''));
+        }
 
         return [
             'esfera' => $parsed['esfera'] ?? null,
@@ -267,7 +276,8 @@ class LegacyOpticalParser
             'cilindro' => $parsed['cilindro'] ?? self::diopter($cilindro),
             'eje' => $parsed['eje'] ?? null,
             'add' => self::diopter($add),
-            'avcc' => $acuity,
+            'avcc' => $withRx,
+            'avsc' => $avsc,
             'observacion' => filled($note) ? trim($note) : null,
         ];
     }
