@@ -343,7 +343,11 @@ consultas importadas (a veces notas clinicas) y cada guardado lo dejaba en `null
   (`resources/js/utils/fieldNavigation.js`); se activa con `onKeyDown={handleFieldNavigation}` en
   el `<form>`. Ahi Enter ya no envia el formulario: lleva al boton de guardar. El borde ambar del
   campo activo es una regla **sin capa** en `app.css`, asi que un `focus:outline-*` de Tailwind
-  no la pisa.
+  no la pisa. Con Bloq Num apagado el teclado numerico manda flechas/Inicio/Supr (el 8 y el 2
+  saltaban de campo): `utils/numLockWarning.js` (instalado en `app.jsx`) anula esa tecla en
+  todo campo de texto y avisa "Bloq Num esta desactivado" como mucho cada 10 s. Se detecta por
+  `code` `Numpad*` + `key` no imprimible, no por `getModifierState('NumLock')` (en Mac siempre es
+  falso); el navegador no puede leer Bloq Num antes de una pulsacion ni activarlo.
 - **Medidas opticas**: esfera, cilindro y ADD se muestran con signo explicito y dos decimales
   ("+0.75", "-0.25"). Las columnas son `decimal` y no guardan el "+": al cargar un valor en un
   input o en un PDF usar `formatOpticalForInput` (`resources/js/utils/opticalFormat.js`). Un

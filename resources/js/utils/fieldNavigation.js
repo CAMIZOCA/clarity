@@ -61,6 +61,8 @@ function isPickerOpen(select) {
 export function navigationIntent(event) {
     const native = event.nativeEvent ?? event;
     if (native.isComposing || event.ctrlKey || event.altKey || event.metaKey) return null;
+    // Ya atendida: `watchNumLock` anula el teclado numerico con Bloq Num apagado.
+    if (native.defaultPrevented) return null;
 
     const field = event.target;
     const tag = field?.tagName;
