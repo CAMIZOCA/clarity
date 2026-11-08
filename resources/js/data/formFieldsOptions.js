@@ -39,7 +39,6 @@ export const FORM_ADVANCED_OPTIONS = [
             { key: 'consulta:rx_final_base', label: 'RX final: base', type: 'field', defaultAdvanced: false },
             { key: 'consulta:rx_final_distancia', label: 'RX final: distancia (a 50cm)', type: 'field', defaultAdvanced: true },
             { key: 'consulta:grp_vision_cerca', label: 'Grupo: Visión de cerca', type: 'field', defaultAdvanced: false },
-            { key: 'consulta:lente_anterior', label: 'Lente anterior', type: 'field', defaultAdvanced: false, requiredFields: ['lente_anterior'] },
             { key: 'consulta:queratometria', label: 'Queratometría (OD/OI)', type: 'field', defaultAdvanced: true },
             { key: 'consulta:examen_externo', label: 'Examen externo (OD/OI)', type: 'field', defaultAdvanced: true },
             { key: 'consulta:vision_colores', label: 'Visión de colores', type: 'field', defaultAdvanced: true },
