@@ -41,14 +41,20 @@ class LegacyConsultationRepairService
     /** RX en uso completa desde el respaldo: la receta entera estaba en "eje". */
     public const RULE_RX_USO_SOURCE = 'rx_uso_origen';
 
+    /**
+     * AV.SC lejos desde el respaldo: la agudeza de RX_EN USO_ESFERA es la casilla
+     * "AV.SC lejos" del Access y la importacion la dejo como AV.CC de la RX en uso.
+     */
+    public const RULE_AVSC_SOURCE = 'avsc_origen';
+
     public const DEFAULT_RULES = [self::RULE_DECIMALS, self::RULE_RX_USO, self::RULE_ARK];
 
     /** Reglas que necesitan el respaldo original: solo corren con `repairFromSource`. */
-    public const SOURCE_RULES = [self::RULE_SUBJ_SOURCE, self::RULE_RX_USO_SOURCE];
+    public const SOURCE_RULES = [self::RULE_SUBJ_SOURCE, self::RULE_RX_USO_SOURCE, self::RULE_AVSC_SOURCE];
 
     public const RULES = [
         self::RULE_DECIMALS, self::RULE_RX_USO, self::RULE_ARK, self::RULE_SUBJ,
-        self::RULE_SUBJ_SOURCE, self::RULE_RX_USO_SOURCE,
+        self::RULE_SUBJ_SOURCE, self::RULE_RX_USO_SOURCE, self::RULE_AVSC_SOURCE,
     ];
 
     private const CONSULTATIONS = 'consultations';
@@ -146,7 +152,7 @@ class LegacyConsultationRepairService
     {
         $this->start($rules, $examples);
 
-        $columns = ['id', 'legacy_id', 'rx_uso_avcc_od', 'rx_uso_avcc_oi', 'rx_uso_esfera_od_neutral', 'rx_uso_esfera_oi_neutral'];
+        $columns = ['id', 'legacy_id', 'rx_uso_avcc_od', 'rx_uso_avcc_oi', 'rx_uso_esfera_od_neutral', 'rx_uso_esfera_oi_neutral', 'avsc_od', 'avsc_oi'];
         foreach (array_keys(self::EYES) as $eye) {
             array_push(
                 $columns,
@@ -186,6 +192,7 @@ class LegacyConsultationRepairService
                                     ...$this->rxUsoNoteChanges((int) $entry->id, (array) $entry, $original),
                                 ])->all(),
                             ],
+                            self::RULE_AVSC_SOURCE => $this->avscSourceChanges($id, $row, $entries->get($id, collect())->all(), $original),
                             default => [],
                         };
 
@@ -341,6 +348,56 @@ class LegacyConsultationRepairService
                 ...$this->flagChanges($table, $targetId, $row, "{$prefix}esfera_{$eye}_neutral", $target['esfera_neutral']),
                 ...$this->textChanges($table, $targetId, $row, "{$prefix}avcc_{$eye}", $target['avcc']),
             ];
+        }
+
+        return $changes;
+    }
+
+    /**
+     * AV.SC lejos de cada ojo desde el respaldo. La agudeza de RX_EN USO_ESFERA
+     * pasa a `avsc` si esta vacia, y sale de la AV.CC de la RX en uso (consulta
+     * y primera entrada) solo donde sigue siendo ese mismo texto; ahi queda la AV
+     * escrita junto a la receta, si la habia. Un AV.SC distinta puesta a mano
+     * deja el ojo como esta.
+     *
+     * @param  list<object>  $entries  entrada `orden = 0` de la RX en uso
+     */
+    private function avscSourceChanges(int $consultationId, array $row, array $entries, array $original): array
+    {
+        $changes = [];
+
+        foreach (self::EYES as $eye => $suffix) {
+            $target = LegacyOpticalParser::rxUso(
+                $this->raw($original, "RX_EN USO_ESFERA_{$suffix}"),
+                $this->raw($original, "RX_EN USO_CILINDRO_{$suffix}"),
+                $this->raw($original, "RX_EN USO_EJE_{$suffix}"),
+                null,
+                $this->raw($original, "RX_EN USO_AVCC_{$suffix}"),
+            );
+            if ($target['avsc'] === null) {
+                continue;
+            }
+
+            $acuity = Str::limit($target['avsc'], 20, '');
+            $current = trim((string) ($row["avsc_{$eye}"] ?? ''));
+            if ($current !== '' && $current !== $acuity) {
+                continue;
+            }
+
+            $withRx = $target['avcc'] === null ? null : Str::limit($target['avcc'], 20, '');
+            $changes = [...$changes, ...$this->textChanges(self::CONSULTATIONS, $consultationId, $row, "avsc_{$eye}", $acuity)];
+
+            $targets = [[self::CONSULTATIONS, $consultationId, $row, "rx_uso_avcc_{$eye}"]];
+            foreach ($entries as $entry) {
+                $targets[] = [self::RX_USO_ENTRIES, (int) $entry->id, (array) $entry, "avcc_{$eye}"];
+            }
+
+            foreach ($targets as [$table, $targetId, $values, $column]) {
+                $old = $values[$column] ?? null;
+                if ($old !== null && trim((string) $old) === $acuity && $old !== $withRx) {
+                    $changes[] = $this->change($table, $targetId, $column, $old, $withRx);
+                }
+            }
         }
 
         return $changes;

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Edit2, Plus, FileText, Eye, ShieldCheck, Award, Download, CheckCircle2, Send, ClipboardList } from 'lucide-react';
+import { ArrowLeft, Edit2, Plus, FileText, Eye, ShieldCheck, Award, Download, CheckCircle2, Send } from 'lucide-react';
 import client from '../../api/client';
 import { getPayload } from '../../api/response';
 import Button from '../../components/ui/Button';
@@ -8,8 +8,8 @@ import Badge from '../../components/ui/Badge';
 import { useToast } from '../../components/ui/Toast';
 import { useSettings } from '../../contexts/SettingsContext';
 import { useAuth } from '../../contexts/AuthContext';
-import { canStartWorkOrder, consultationUrl, workOrderUrl } from '../../utils/consultationLinks';
-import { format } from 'date-fns';
+import { consultationUrl } from '../../utils/consultationLinks';
+import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { toDisplayDate } from '../../utils/dates';
 
@@ -251,7 +251,7 @@ export default function PatientDetailPage() {
                                                     <Badge label={item.estado} />
                                                 </div>
                                                 <p className="text-sm text-gray-500 ml-6">
-                                                    {item.fecha_consulta ? format(new Date(item.fecha_consulta), "d 'de' MMMM yyyy", { locale: es }) : ''}
+                                                    {item.fecha_consulta ? format(parseISO(item.fecha_consulta), "d 'de' MMMM yyyy", { locale: es }) : ''}
                                                     {item.optometrista && ` · Dr. ${item.optometrista.name}`}
                                                 </p>
                                                 {item.diagnostico_descripcion && (
@@ -260,15 +260,15 @@ export default function PatientDetailPage() {
                                                         {item.diagnostico_descripcion}
                                                     </p>
                                                 )}
+                                                {item.observaciones?.trim() && (
+                                                    // Ahi la optica anotaba lo vendido y cada problema con los lentes.
+                                                    <p className="text-sm text-gray-600 mt-1 ml-6 whitespace-pre-line line-clamp-3" title={item.observaciones}>
+                                                        <span className="font-medium text-gray-700">Observaciones: </span>
+                                                        {item.observaciones}
+                                                    </p>
+                                                )}
                                             </div>
                                             <div className="flex flex-wrap items-center justify-end gap-1">
-                                                {canStartWorkOrder(can, item) && (
-                                                    <Link to={workOrderUrl(id, item.id)}>
-                                                        <Button variant="ghost" size="sm">
-                                                            <ClipboardList size={16} /> Orden de trabajo
-                                                        </Button>
-                                                    </Link>
-                                                )}
                                                 {can('consultations.view') && (
                                                     <Link to={consultationUrl(can, item.id)}>
                                                         <Button variant="ghost" size="sm">
