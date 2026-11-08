@@ -1437,8 +1437,14 @@ export default function ConsultationForm({ patient, consultation, meta, readOnly
         'consulta:col_avsc', 'consulta:col_avcc', 'consulta:rx_uso_cilindro', 'consulta:rx_uso_avcc',
         'consulta:subj_esfera', 'consulta:subj_eje', 'consulta:subj_avl',
         'consulta:rx_final_prisma', 'consulta:rx_final_base', 'consulta:rx_final_distancia',
-        'consulta:grp_vision_cerca', 'consulta:vision_colores', 'consulta:lente_anterior',
+        'consulta:grp_vision_cerca', 'consulta:vision_colores',
     ];
+    // Se fija con la consulta cargada (no con watch) para que no desaparezca al vaciarlo mientras se edita.
+    const hasLegacyLenteAnterior = useMemo(
+        () => !isBlank(consultation?.lente_anterior),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [consultation?.id],
+    );
     const hasRefractionAdvanced = refractionAdvKeys.some((k) => isAdvanced(k));
     const cabeceraHasAdvanced = isAdvanced('consulta:ultimo_control');
     const diagnosticoHasAdvanced = isAdvanced('consulta:diagnostico_adicional');
@@ -1644,9 +1650,11 @@ export default function ConsultationForm({ patient, consultation, meta, readOnly
                         </div>
                     </div>
 
-                    {advVisible('consulta:lente_anterior', refractionAdv) && (
+                    {/* "Lente anterior" ya no se ofrece (la optica anota eso en la Observacion de la RX en uso).
+                        Solo se muestra si la consulta ya traia texto, para no ocultarlo ni perderlo. */}
+                    {hasLegacyLenteAnterior && (
                         <div className="mb-6">
-                            <TextArea label="Lente anterior" name="lente_anterior" register={register} rows={3} placeholder="Lente previo, marca, material y comparación con receta anterior." />
+                            <TextArea label="Lente anterior (registro anterior)" name="lente_anterior" register={register} rows={2} />
                         </div>
                     )}
 

@@ -18,7 +18,6 @@ const REQUIRED_FIELD_OPTIONS = [
     { key: 'rx_final_esfera_od', label: 'RX Final esfera OD' },
     { key: 'rx_final_esfera_oi', label: 'RX Final esfera OI' },
     { key: 'diagnostico_descripcion', label: 'Diagnóstico principal' },
-    { key: 'lente_anterior', label: 'Lente anterior' },
     { key: 'observaciones', label: 'Observaciones clínicas' },
     { key: 'print_template_key', label: 'Plantilla de impresión' },
     { key: 'doctor_license', label: 'Registro SENESCYT del médico' },
