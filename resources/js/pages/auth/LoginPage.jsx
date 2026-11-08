@@ -71,6 +71,7 @@ export default function LoginPage() {
                             type="email"
                             value={email}
                             onChange={e => setEmail(e.target.value)}
+                            autoComplete="username"
                             required
                             className="w-full px-4 py-3 text-base rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] focus:bg-[#fef08a]/20"
                             placeholder="correo@clinica.com"
@@ -84,6 +85,7 @@ export default function LoginPage() {
                                 type={showPass ? 'text' : 'password'}
                                 value={password}
                                 onChange={e => setPassword(e.target.value)}
+                                autoComplete="current-password"
                                 required
                                 className="w-full px-4 py-3 pr-12 text-base rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] focus:bg-[#fef08a]/20"
                                 placeholder="••••••••"

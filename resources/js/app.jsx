@@ -12,6 +12,13 @@ import MobileLaunchSplash from './components/pwa/MobileLaunchSplash';
 import DiagnosisModal from './components/ui/DiagnosisModal';
 import SessionExpiredModal from './components/auth/SessionExpiredModal';
 import { router } from './router/index';
+import { disableFormHistory } from './utils/disableFormHistory';
+import { watchNumLock } from './utils/numLockWarning';
+
+// Sin esto el navegador ofrece lo tecleado en otras consultas como si fueran opciones.
+disableFormHistory();
+// Con Bloq Num apagado el teclado numerico saltaba de campo en vez de escribir.
+watchNumLock();
 
 createRoot(document.getElementById('app')).render(
     <React.StrictMode>
