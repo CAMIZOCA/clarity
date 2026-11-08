@@ -1462,6 +1462,7 @@ export default function ConsultationForm({ patient, consultation, meta, readOnly
             onSubmit={readOnly ? (event) => event.preventDefault() : handleSubmit(onSubmit, onInvalidSubmit)}
             onKeyDown={handleFieldNavigation}
             onChange={clearFieldError}
+            autoComplete="off"
             className="pb-24 lg:pb-8"
         >
             <div className="sticky top-0 z-20 mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-3 shadow-sm">
