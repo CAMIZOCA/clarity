@@ -12,6 +12,12 @@ const TONES = {
 const INPUT_CLASS = 'w-full rounded-xl border border-slate-300 px-3 py-2';
 const TH_CLASS = 'px-3 py-2 text-center text-xs font-semibold uppercase text-slate-500';
 
+// Parte `list` en grupos de `size`: [a,b,c] con 2 -> [[a,b],[c]].
+const chunk = (list, size) => Array.from(
+    { length: Math.ceil(list.length / size) },
+    (_, index) => list.slice(index * size, index * size + size),
+);
+
 /**
  * Examen motor, binocular y acomodativo (Terapia visual). Los bloques, filas y
  * campos salen de `MOTOR_BINOCULAR_BLOCKS`; cada input se registra como
@@ -65,7 +71,11 @@ export default function MotorBinocularSection({ register }) {
                                                 </td>
                                                 {inline ? (
                                                     <td className="px-2 py-2">
-                                                        <div className="flex flex-wrap gap-2">{row.cells.filter(Boolean).map(cellBox)}</div>
+                                                        <div className="space-y-2">
+                                                            {chunk(row.cells.filter(Boolean), row.perLine ?? row.cells.length).map((line, index) => (
+                                                                <div key={index} className="flex flex-wrap gap-2">{line.map(cellBox)}</div>
+                                                            ))}
+                                                        </div>
                                                     </td>
                                                 ) : row.cells.map((cell, index) => (
                                                     <td key={block.columns[index]} className="px-2 py-2">

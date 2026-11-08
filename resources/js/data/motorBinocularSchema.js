@@ -13,6 +13,8 @@
 // columna (`null` = "—", sin campo) mas la observacion. Una celda con `label`
 // lo muestra sobre el input (Horizontales, VL, BO VL...). En Binocularidad la
 // unica columna "Resultado / Parametros" reparte sus celdas en linea.
+// `perLine` (solo esa columna) corta las celdas en lineas de N: en Vergencias,
+// `perLine: 2` deja VL en una linea y VP en la siguiente.
 //
 // La validacion del servidor (`StoreConsultationRequest`) solo exige texto de
 // hasta 255 caracteres en `motor_binocular_data.*.*.*`: un campo nuevo aqui no
@@ -99,6 +101,7 @@ export const MOTOR_BINOCULAR_BLOCKS = [
             },
             {
                 key: 'vergencias', label: 'Vergencias fusionales (B/N)', hint: '(borrosidad/ruptura/recobro)',
+                perLine: 2,
                 cells: [
                     { key: 'bo_vl', label: 'BO VL (Base externa)', placeholder: 'Ej. 10/18/12 Δ' },
                     { key: 'bi_vl', label: 'BI VL (Base interna)', placeholder: 'Ej. 6/12/8 Δ' },
