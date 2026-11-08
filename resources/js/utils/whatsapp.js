@@ -29,10 +29,24 @@ export function whatsappNumber(phone) {
     return null;
 }
 
+/**
+ * Texto listo para `?text=`: forma NFC (los acentos llegan siempre en el mismo
+ * formato) y sin mitades de par sustituto sueltas. `encodeURIComponent` lanza
+ * URIError con esas, y un emoji partido llega a WhatsApp como "�".
+ * Los emojis completos (un par sustituto valido) se conservan intactos.
+ */
+export function cleanWhatsAppText(text) {
+    return String(text ?? '')
+        .normalize('NFC')
+        .replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/g, '')
+        .replace(/(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, '');
+}
+
 /** `https://wa.me/<numero>?text=<mensaje>` o `null` si no hay celular. */
 export function whatsappLink(phone, text = '') {
     const number = whatsappNumber(phone);
     if (!number) return null;
-    const query = text ? `?text=${encodeURIComponent(text)}` : '';
+    const clean = cleanWhatsAppText(text);
+    const query = clean ? `?text=${encodeURIComponent(clean)}` : '';
     return `https://wa.me/${number}${query}`;
 }
