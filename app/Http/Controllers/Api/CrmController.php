@@ -24,6 +24,19 @@ class CrmController extends Controller
 
     public function __construct(private CrmService $crmService) {}
 
+    /**
+     * Lo que pide la pantalla de Recordatorios (lista, vista previa, contactos y
+     * elegir plantilla). `crm.reminders` lo abre sin Campañas ni Plantillas: es
+     * lo que tiene Recepcion. Enviar sigue pidiendo `crm.send_messages`.
+     */
+    private function canUseReminders(Request $request): bool
+    {
+        return $request->user()->canAny([
+            Permission::CRM_VIEW->value,
+            Permission::CRM_REMINDERS->value,
+        ]);
+    }
+
     // ─── Templates ────────────────────────────────────────────────────────────
 
     /**
@@ -32,7 +45,7 @@ class CrmController extends Controller
      */
     public function templates(Request $request): JsonResponse
     {
-        if (! $request->user()->can(Permission::CRM_VIEW->value)) {
+        if (! $this->canUseReminders($request)) {
             return $this->forbidden();
         }
 
@@ -121,7 +134,7 @@ class CrmController extends Controller
      */
     public function reminders(Request $request): JsonResponse
     {
-        if (! $request->user()->can(Permission::CRM_VIEW->value)) {
+        if (! $this->canUseReminders($request)) {
             return $this->forbidden();
         }
 
@@ -208,7 +221,7 @@ class CrmController extends Controller
      */
     public function whatsappContacts(Request $request): JsonResponse
     {
-        if (! $request->user()->can(Permission::CRM_VIEW->value)) {
+        if (! $this->canUseReminders($request)) {
             return $this->forbidden();
         }
 
@@ -230,7 +243,7 @@ class CrmController extends Controller
      */
     public function previewReminder(Request $request): JsonResponse
     {
-        if (! $request->user()->can(Permission::CRM_VIEW->value)) {
+        if (! $this->canUseReminders($request)) {
             return $this->forbidden();
         }
 

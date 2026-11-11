@@ -199,6 +199,9 @@ function NewReminderModal({ open, onClose, onCreated }) {
  */
 function SendWhatsAppModal({ target, onClose, onSent }) {
     const { addToast } = useToast();
+    const { can } = useAuth();
+    // Recepcion entra con `crm.reminders`: elige plantilla pero no las edita.
+    const canEditTemplates = can('crm.view');
     const [templates, setTemplates] = useState([]);
     const [templateId, setTemplateId] = useState('');
     const [message, setMessage] = useState('');
@@ -288,9 +291,11 @@ function SendWhatsAppModal({ target, onClose, onSent }) {
                     <div>
                         <div className="flex items-center justify-between mb-1">
                             <label className="block text-sm font-medium text-gray-700">Plantilla</label>
-                            <Link to="/crm/plantillas" className="text-xs text-[#1a2a4a] underline hover:no-underline">
-                                Editar plantillas
-                            </Link>
+                            {canEditTemplates && (
+                                <Link to="/crm/plantillas" className="text-xs text-[#1a2a4a] underline hover:no-underline">
+                                    Editar plantillas
+                                </Link>
+                            )}
                         </div>
                         <select
                             value={templateId}

@@ -74,6 +74,7 @@ enum Permission: string
     case CRM_SEND_MESSAGES  = 'crm.send_messages';
     case CRM_CAMPAIGNS      = 'crm.manage_campaigns';
     case CRM_EXPORT_CONTACTS = 'crm.export_contacts';
+    case CRM_REMINDERS      = 'crm.reminders';     // Solo Recordatorios (sin Campañas ni Plantillas)
 
     // ─── REPORTES ─────────────────────────────────────────
     case REPORTS_CLINICAL   = 'reports.clinical';
@@ -155,7 +156,10 @@ enum Permission: string
                 self::BRIGADES_VIEW->value,
                 self::REFERENCES_VIEW->value,
                 self::GUARANTEE_REPORTS_VIEW->value,
-                // Sin reportes ni la parte comercial (ventas, caja, inventario, CRM).
+                self::CRM_REMINDERS->value,                // Recordatorios por WhatsApp
+                self::CRM_SEND_MESSAGES->value,
+                // Sin reportes ni la parte comercial (ventas, caja, inventario,
+                // Campañas ni Plantillas): de CRM solo Recordatorios.
             ],
 
             Role::VENDEDOR => [

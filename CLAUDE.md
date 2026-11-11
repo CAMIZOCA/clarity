@@ -426,7 +426,10 @@ consultas importadas (a veces notas clinicas) y cada guardado lo dejaba en `null
   contador de Agenda) y `consultations-forecast` pide `consultations.handoff`.
 - **Recepcion**: pacientes, consultas en lectura, agenda completa y ordenes de trabajo (ver, crear,
   editar, cambiar estado; no eliminar). Sin reportes, ventas, caja, inventario ni CRM
-  (migracion `2026_10_26_000002`). Ve un mensaje de animo por dia bajo la fecha del dashboard
+  (migracion `2026_10_26_000002`), salvo **Recordatorios** para mandar los WhatsApp:
+  `crm.reminders` abre esa pantalla y sus endpoints (lista, vista previa, contactos y elegir
+  plantilla) sin Campanas ni el menu Plantillas, que siguen con `crm.view`; enviar pide
+  `crm.send_messages` (migracion `2026_11_11_000002`). Ve un mensaje de animo por dia bajo la fecha del dashboard
   (`data/dailyMessages.js`, `messageOfTheDay`).
 - **Lente definitivo**: bajo su tabla hay "Observaciones del lente definitivo (marca, novedades)",
   guardado en la JSON `final_lens.observacion` (sin columna; la marca no va en "Material"). La
