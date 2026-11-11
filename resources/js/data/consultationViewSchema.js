@@ -86,6 +86,39 @@ export const KERATOMETRY_ROWS = [
     { key: 'examen_externo', label: 'Examen externo' },
 ];
 
+/**
+ * Tablas del modulo de lentes de contacto: cada celda lee
+ * `contact_lens_module.${key}.${ojo}.${columna}`. El poder del lente definitivo
+ * de una consulta importada sale del bloque "Lentes de contacto blandos" del Access.
+ */
+export const CONTACT_LENS_TABLES = [
+    {
+        key: 'test_lens',
+        title: 'Lente de prueba',
+        columns: [
+            { key: 'curva_base', label: 'Curva base' },
+            { key: 'poder', label: 'Poder' },
+            { key: 'h2o', label: '%H2O' },
+            { key: 'material', label: 'Material' },
+            { key: 'diametro', label: 'Diámetro' },
+            { key: 'sobre_refraccion', label: 'Sobre-refracción' },
+            { key: 'agudeza_visual', label: 'Agudeza visual' },
+        ],
+    },
+    {
+        key: 'final_lens',
+        title: 'Lente definitivo',
+        columns: [
+            { key: 'curva_base', label: 'Curva base' },
+            { key: 'poder', label: 'Poder' },
+            { key: 'diametro', label: 'Diámetro' },
+            { key: 'h2o', label: '%H2O' },
+            { key: 'material', label: 'Material' },
+        ],
+        observation: { path: 'contact_lens_module.final_lens.observacion', label: 'Observaciones del lente definitivo' },
+    },
+];
+
 /** Campos de texto sueltos, por seccion. `path` admite `modulo.campo`. */
 export const TEXT_SECTIONS = {
     cabecera: [

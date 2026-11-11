@@ -241,6 +241,15 @@ varios campos para otra cosa. La importacion lo copio literal, asi que en las co
   AV.CC de la RX en uso. La AV.CC es la escrita dentro del texto de la receta ("... 20/20");
 - `ark_*` (rotulado "Queratometria") trae la refraccion, que aqui es la Retinoscopia, y
   `retinoscopia_*` trae el cover test ("ORTHO", "X").
+- `retinoscopia_esfera/cilindro/eje_*` (`RETINOSCOPIA_ESFERA/CILINDRO/EJE` del Access) son el
+  bloque **"Lentes de contacto blandos"**, no la retinoscopia. Ninguna pantalla las muestra: la
+  regla `lc_blandos` (migracion `2026_11_11_000001`, sin el Access) las copia como texto
+  ("-4.25 -0.75 x 0") a `contact_lens_module.final_lens.{od,oi}.poder` si esa casilla esta vacia.
+  Las filas viejas usaban esas casillas para notas ("Test de H +", "AE 20/30", una "N" sola): esas
+  se informan y se dejan. `final_lens` se guarda `{od:{curva_base,poder,diametro,h2o,material},
+  oi:{...}, observacion}`; el importador lo escribia con claves planas (`poder_od`) que el
+  formulario no lee, y la misma regla las anida. `test_lens` importado sigue plano (`bc_od`, casi
+  todo "N") y no se muestra.
 
 Lo corrige `LegacyConsultationRepairService` en dos pasos. Cada cambio queda en
 `consultation_legacy_repairs` con el valor anterior: eso permite `--revert` y evita que una
@@ -419,6 +428,9 @@ consultas importadas (a veces notas clinicas) y cada guardado lo dejaba en `null
   editar, cambiar estado; no eliminar). Sin reportes, ventas, caja, inventario ni CRM
   (migracion `2026_10_26_000002`). Ve un mensaje de animo por dia bajo la fecha del dashboard
   (`data/dailyMessages.js`, `messageOfTheDay`).
+- **Lente definitivo**: bajo su tabla hay "Observaciones del lente definitivo (marca, novedades)",
+  guardado en la JSON `final_lens.observacion` (sin columna; la marca no va en "Material"). La
+  ficha de lectura pinta las tablas de lente de prueba y definitivo (`CONTACT_LENS_TABLES`).
 - **Ficha de lectura de la consulta**: `/consulta/:id/ver` (`ConsultationViewPage`) muestra solo lo
   lleno, con rotulos de `data/consultationViewSchema.js`. Quien no tiene `consultations.edit` llega ahi
   desde la ficha del paciente y el dashboard (`utils/consultationLinks.js`) y `/consulta/:id` lo

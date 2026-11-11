@@ -10,7 +10,7 @@ class RepairLegacyConsultations extends Command
 {
     protected $signature = 'consultations:repair-legacy-import
                             {--dry-run : Solo informar, no guardar en BD}
-                            {--only= : Reglas a aplicar, separadas por coma (decimales, rx_uso, ark, subj; con --source: subj_origen, rx_uso_origen, avsc_origen)}
+                            {--only= : Reglas a aplicar, separadas por coma (decimales, rx_uso, ark, subj, lc_blandos; con --source: subj_origen, rx_uso_origen, avsc_origen)}
                             {--source= : SQLite convertido del Access: recupera el subjetivo, la RX en uso completa y la AV.SC lejos}
                             {--examples=20 : Ejemplos antes/despues que se muestran por regla}
                             {--revert : Deshace la reparacion con los valores guardados en la bitacora}';

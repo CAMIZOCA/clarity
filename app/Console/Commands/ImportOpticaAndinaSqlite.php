@@ -701,19 +701,41 @@ class ImportOpticaAndinaSqlite extends Command
             'blando' => $this->v($row, 'LENTECONTACTO_PRUEBA_BLANDO'),
         ]);
 
-        $finalLens = $this->compactValues([
-            'poder_od' => $this->v($row, 'LENTECONTACTO_PEDIDO_PODER_OD'),
-            'poder_oi' => $this->v($row, 'LENTECONTACTO_PEDIDO_PODER_OI'),
-            'cb_od' => $this->v($row, 'LENTECONTACTO_PEDIDO_CB_OD'),
-            'cb_oi' => $this->v($row, 'LENTECONTACTO_PEDIDO_CB_OI'),
-            'diametro_od' => $this->v($row, 'LENTECONTACTO_PEDIDO_DIAMETRO_OD'),
-            'diametro_oi' => $this->v($row, 'LENTECONTACTO_PEDIDO_DIAMETRO_OI'),
-            'av_od' => $this->v($row, 'LENTECONTACTO_PEDIDO_AV_OD'),
-            'av_oi' => $this->v($row, 'LENTECONTACTO_PEDIDO_AV_OI'),
-            'color_od' => $this->v($row, 'LENTECONTACTO_PEDIDO_COLOR_OD'),
-            'color_oi' => $this->v($row, 'LENTECONTACTO_PEDIDO_COLOR_OI'),
-            'tipo_lente' => $this->v($row, 'LENTECONTACTO_PEDIDO_TIPO DE LENTE'),
-        ]);
+        // El formulario lee el lente definitivo como `final_lens.od.poder`. Si el
+        // pedido no trae poder, sale del bloque "LENTES DE CONTACTO BLANDOS",
+        // que el Access guarda en RETINOSCOPIA_ESFERA/CILINDRO/EJE.
+        $finalLens = [];
+        $notes = [];
+        foreach (['od' => 'OD', 'oi' => 'OI'] as $eye => $suffix) {
+            $eyeValues = [
+                'curva_base' => $this->v($row, "LENTECONTACTO_PEDIDO_CB_{$suffix}"),
+                'poder' => $this->v($row, "LENTECONTACTO_PEDIDO_PODER_{$suffix}") ?? LegacyOpticalParser::contactLensPower(
+                    $this->v($row, "RETINOSCOPIA_ESFERA_{$suffix}"),
+                    $this->v($row, "RETINOSCOPIA_CILINDRO_{$suffix}"),
+                    $this->v($row, "RETINOSCOPIA_EJE_{$suffix}"),
+                ),
+                'diametro' => $this->v($row, "LENTECONTACTO_PEDIDO_DIAMETRO_{$suffix}"),
+                'h2o' => null,
+                'material' => null,
+            ];
+            if ($this->hasAnyValue($eyeValues)) {
+                $finalLens[$eye] = $eyeValues;
+            }
+
+            foreach (['AV' => 'AV', 'COLOR' => 'Color'] as $column => $label) {
+                $value = $this->v($row, "LENTECONTACTO_PEDIDO_{$column}_{$suffix}");
+                if ($value !== null) {
+                    $notes[] = "{$suffix} {$label}: {$value}";
+                }
+            }
+        }
+        $lensType = $this->v($row, 'LENTECONTACTO_PEDIDO_TIPO DE LENTE');
+        if ($lensType !== null) {
+            $notes[] = "Tipo: {$lensType}";
+        }
+        if ($notes !== []) {
+            $finalLens['observacion'] = implode(' / ', $notes);
+        }
 
         if ($testLens !== []) {
             $fields['test_lens'] = $testLens;
