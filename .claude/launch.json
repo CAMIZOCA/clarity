@@ -29,6 +29,16 @@
         "set SESSION_DOMAIN=null&& php artisan serve --host=127.0.0.1 --port=8000 --no-reload"
       ],
       "port": 8000
+    },
+    {
+      "name": "correo-worktree",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": [
+        "/c",
+        "cd /d D:\\laragon\\www\\sistemaclinico-correo && php artisan serve --host=127.0.0.1 --port=8002 --no-reload"
+      ],
+      "port": 8002,
+      "autoPort": false
     }
   ]
 }
