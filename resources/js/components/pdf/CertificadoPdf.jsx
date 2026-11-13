@@ -444,7 +444,7 @@ export default function CertificadoPdf({ data, onClose, consultationDoctor }) {
                             onChange={e => setTypeKey(e.target.value)}
                             aria-label="Modelo de certificado"
                             title="Modelo de certificado"
-                            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]"
+                            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy"
                         >
                             {CERTIFICATE_TYPES.map(t => <option key={t.key} value={t.key}>{t.label}</option>)}
                         </select>
@@ -454,7 +454,7 @@ export default function CertificadoPdf({ data, onClose, consultationDoctor }) {
                                 onChange={e => setDoctorId(e.target.value)}
                                 aria-label="Doctor que firma"
                                 title="Doctor que firma"
-                                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]"
+                                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy"
                             >
                                 {doctors.map(d => <option key={d.id} value={d.id}>{d.nombre}</option>)}
                             </select>
@@ -466,7 +466,7 @@ export default function CertificadoPdf({ data, onClose, consultationDoctor }) {
                                     value={email}
                                     onChange={e => setEmail(e.target.value)}
                                     placeholder="correo del paciente"
-                                    className="px-3 py-2 border border-gray-300 rounded-lg text-sm w-56 focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]"
+                                    className="px-3 py-2 border border-gray-300 rounded-lg text-sm w-56 focus:outline-none focus:ring-2 focus:ring-navy"
                                 />
                                 <Button variant="secondary" size="sm" onClick={handleSendEmail} loading={sending}>
                                     <Mail size={16} /> Enviar

@@ -7,13 +7,13 @@ import { consultationUrl, workOrderUrl } from '../../utils/consultationLinks';
 const STYLES = {
     light: {
         history: 'border border-gray-300 text-gray-700 hover:bg-gray-50',
-        sell: 'bg-[#1a2a4a] text-white hover:bg-[#253d6b]',
+        sell: 'bg-navy text-white hover:bg-navy-light',
         sold: 'bg-green-50 text-green-800',
     },
     // Sobre el encabezado azul de la tarjeta destacada.
     dark: {
         history: 'border border-white/40 text-white hover:bg-white/10',
-        sell: 'bg-white text-[#1a2a4a] hover:bg-gray-100',
+        sell: 'bg-white text-navy hover:bg-gray-100',
         sold: 'bg-green-500/25 text-green-100',
     },
 };

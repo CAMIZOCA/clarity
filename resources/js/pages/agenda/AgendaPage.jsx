@@ -232,7 +232,7 @@ export default function AgendaPage() {
                             value={form.titulo}
                             onChange={e => set('titulo', e.target.value)}
                             placeholder="Ej: Control, Primera vez..."
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy"
                         />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
@@ -243,7 +243,7 @@ export default function AgendaPage() {
                                 value={form.fecha_hora_inicio}
                                 onChange={e => set('fecha_hora_inicio', e.target.value)}
                                 required
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy"
                             />
                         </div>
                         <div>
@@ -253,7 +253,7 @@ export default function AgendaPage() {
                                 value={form.fecha_hora_fin}
                                 onChange={e => set('fecha_hora_fin', e.target.value)}
                                 required
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy"
                             />
                         </div>
                     </div>
@@ -262,7 +262,7 @@ export default function AgendaPage() {
                         <select
                             value={form.estado}
                             onChange={e => set('estado', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy"
                         >
                             <option value="pendiente">Pendiente</option>
                             <option value="atendido">Atendido</option>
@@ -275,7 +275,7 @@ export default function AgendaPage() {
                             value={form.notas}
                             onChange={e => set('notas', e.target.value)}
                             rows={2}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] resize-none"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy resize-none"
                         />
                     </div>
                     {editing && canEdit && current && (

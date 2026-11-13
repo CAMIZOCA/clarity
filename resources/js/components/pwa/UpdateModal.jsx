@@ -40,7 +40,7 @@ export default function UpdateModal() {
                     type="button"
                     onClick={applyUpdate}
                     disabled={applying}
-                    className="mt-6 inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-full bg-[#1a2a4a] px-6 py-3 text-lg font-bold text-white transition hover:bg-[#243660] disabled:opacity-70"
+                    className="mt-6 inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-full bg-navy px-6 py-3 text-lg font-bold text-white transition hover:bg-navy-light disabled:opacity-70"
                 >
                     <RefreshCw size={20} />
                     {applying ? 'Actualizando...' : 'Actualizar ahora'}

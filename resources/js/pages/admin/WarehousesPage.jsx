@@ -104,7 +104,7 @@ export default function WarehousesPage() {
                 <h1 className="text-2xl font-bold text-gray-800">Bodegas</h1>
                 <button
                     onClick={openNew}
-                    className="bg-[#1a2a4a] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#243660] transition-colors"
+                    className="bg-navy text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-navy-light transition-colors"
                 >
                     + Nueva Bodega
                 </button>
@@ -114,7 +114,7 @@ export default function WarehousesPage() {
 
             {loading ? (
                 <div className="flex justify-center items-center h-40">
-                    <div className="animate-spin h-8 w-8 border-4 border-[#1a2a4a] border-t-transparent rounded-full" />
+                    <div className="animate-spin h-8 w-8 border-4 border-navy border-t-transparent rounded-full" />
                 </div>
             ) : (
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -156,7 +156,7 @@ export default function WarehousesPage() {
                                     <td className="px-4 py-3">
                                         <button
                                             onClick={() => openEdit(wh)}
-                                            className="text-[#1a2a4a] hover:underline text-sm font-medium"
+                                            className="text-navy hover:underline text-sm font-medium"
                                         >
                                             Editar
                                         </button>
@@ -185,7 +185,7 @@ export default function WarehousesPage() {
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Sucursal *</label>
                                 <select name="branch_id" value={form.branch_id} onChange={handleChange} required
-                                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]">
+                                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy">
                                     <option value="">Seleccionar...</option>
                                     {branches.map(b => (
                                         <option key={b.id} value={b.id}>{b.name}</option>
@@ -197,19 +197,19 @@ export default function WarehousesPage() {
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Nombre *</label>
                                     <input name="name" value={form.name} onChange={handleChange} required
-                                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]" />
+                                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy" />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Código *</label>
                                     <input name="code" value={form.code} onChange={handleChange} required maxLength={20}
-                                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]" />
+                                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy" />
                                 </div>
                             </div>
 
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Tipo</label>
                                 <select name="type" value={form.type} onChange={handleChange}
-                                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]">
+                                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy">
                                     {WAREHOUSE_TYPES.map(t => (
                                         <option key={t.value} value={t.value}>{t.label}</option>
                                     ))}
@@ -219,25 +219,25 @@ export default function WarehousesPage() {
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Notas</label>
                                 <textarea name="notes" value={form.notes} onChange={handleChange} rows={2}
-                                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]" />
+                                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy" />
                             </div>
 
                             <div className="flex gap-6">
                                 <label className="flex items-center gap-2 cursor-pointer">
                                     <input type="checkbox" name="is_active" checked={form.is_active} onChange={handleChange}
-                                        className="rounded border-gray-300 text-[#1a2a4a]" />
+                                        className="rounded border-gray-300 text-navy" />
                                     <span className="text-sm text-gray-700">Activa</span>
                                 </label>
                                 <label className="flex items-center gap-2 cursor-pointer">
                                     <input type="checkbox" name="is_default" checked={form.is_default} onChange={handleChange}
-                                        className="rounded border-gray-300 text-[#1a2a4a]" />
+                                        className="rounded border-gray-300 text-navy" />
                                     <span className="text-sm text-gray-700">Por defecto</span>
                                 </label>
                             </div>
 
                             <div className="flex gap-3 pt-2">
                                 <button type="submit" disabled={saving}
-                                    className="bg-[#1a2a4a] text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-[#243660] transition-colors disabled:opacity-50">
+                                    className="bg-navy text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-navy-light transition-colors disabled:opacity-50">
                                     {saving ? 'Guardando...' : 'Guardar'}
                                 </button>
                                 <button type="button" onClick={() => setShowModal(false)}

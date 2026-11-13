@@ -1,0 +1,672 @@
+<title>Consulta con pestañas</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<style>
+/* Presentacion: barra de controles arriba, pantalla simulada al centro, notas abajo.
+   La pantalla simulada usa la paleta clara real del sistema (navy #1a2a4a, slate, foco ambar). */
+:root {
+  --page: #eef1f5;
+  --ink: #16202f;
+  --muted: #5b6678;
+  --line: #d5dbe4;
+  --panel: #ffffff;
+  --accent: #1a2a4a;
+  --ok: #157347;
+  --warn: #9a5b00;
+  --font: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --page: #0f141c; --ink: #e6ebf2; --muted: #9aa6b8; --line: #2a3443; --panel: #161d28;
+    --accent: #9fb6e0; --ok: #5fd39a; --warn: #f2b45a; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --page: #0f141c; --ink: #e6ebf2; --muted: #9aa6b8; --line: #2a3443; --panel: #161d28;
+  --accent: #9fb6e0; --ok: #5fd39a; --warn: #f2b45a; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  background: var(--page); color: var(--ink); font-family: var(--font); font-size: 14px; line-height: 1.5;
+  padding-block: 20px 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 1960px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+.bar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; }
+.bar h1 { font-size: 20px; font-weight: 700; margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
+.bar p { margin: 0; color: var(--muted); font-size: 13px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--panel); }
+.seg button { font: inherit; font-size: 13px; padding: 7px 12px; border: 0; background: transparent; color: var(--ink); cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--panel); font-weight: 600; }
+.fit { font-size: 13px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); font-variant-numeric: tabular-nums; }
+.fit.ok { color: var(--ok); }
+.fit.no { color: var(--warn); }
+.stage { position: relative; width: 100%; }
+.notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+.note { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; min-width: 0; }
+.note h2 { font-size: 14px; margin: 0 0 6px; }
+.note p, .note li { color: var(--muted); font-size: 13px; margin: 0; }
+.note ul { margin: 0; padding-left: 18px; display: grid; gap: 3px; }
+kbd { font-family: var(--font); font-size: 12px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; background: var(--panel); }
+@media (prefers-reduced-motion: no-preference) { .frame { transition: transform .2s ease; } }
+
+/* ---------- Pantalla simulada (siempre en el tema claro real del sistema) ---------- */
+.frame {
+  --navy: #1a2a4a; --navy-2: #24375e; --s50: #f8fafc; --s100: #f1f5f9; --s200: #e2e8f0; --s300: #cbd5e1;
+  --s400: #94a3b8; --s500: #64748b; --s600: #475569; --s700: #334155; --s800: #1e293b; --s900: #0f172a;
+  --amber: #f59e0b; --amber-50: #fffbeb; --amber-200: #fde68a; --amber-800: #92400e;
+  --red: #dc2626; --red-50: #fef2f2; --green: #16a34a; --indigo-50: #eef2ff; --indigo-800: #3730a3;
+  color-scheme: light; color: var(--s800); background: var(--s100);
+  font-family: var(--font); font-size: 13px; line-height: 1.35;
+  position: absolute; top: 0; left: 0; transform-origin: top left;
+  border-radius: 10px; overflow: hidden; border: 1px solid var(--line);
+  display: flex; container-type: inline-size; container-name: frame;
+}
+.side { width: 288px; flex: none; background: var(--navy); color: #c7d2e4; display: flex; flex-direction: column; padding: 16px 12px; gap: 4px; }
+.side .brand { color: #fff; font-weight: 700; font-size: 15px; padding: 4px 10px 14px; }
+.side a { color: inherit; text-decoration: none; padding: 9px 12px; border-radius: 10px; font-size: 13.5px; }
+.side a.on { background: rgba(255,255,255,.12); color: #fff; font-weight: 600; }
+@container frame (max-width: 1023px) { .side { display: none; } }
+.appcol { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.top { height: 52px; flex: none; display: flex; align-items: center; gap: 12px; padding: 0 20px; background: rgba(255,255,255,.92); border-bottom: 1px solid var(--s200); font-size: 13px; color: var(--s600); }
+.top .crumb b { color: var(--s900); font-weight: 600; }
+.top .branch { margin-left: auto; border: 1px solid var(--s200); border-radius: 8px; padding: 4px 10px; }
+.main { flex: 1; overflow: auto; container-type: inline-size; container-name: main; }
+
+.strip { position: sticky; top: 0; z-index: 3; background: #fff; border-bottom: 1px solid var(--s200); }
+.strip-row { display: flex; align-items: center; gap: 8px 10px; padding: 7px 16px; flex-wrap: nowrap; min-height: 48px; }
+.strip-row > * { flex: none; }
+.strip-row .who { min-width: 150px; flex: 0 1 auto; }
+.strip-row .pname, .strip-row .pmeta { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.strip-row .chip.amber { flex: 0 1 auto; min-width: 60px; max-width: 280px; overflow: hidden; text-overflow: ellipsis; display: block; }
+@container main (max-width: 899px) { .strip-row { flex-wrap: wrap; } }
+.av { width: 32px; height: 32px; border-radius: 50%; background: var(--navy); color: #fff; display: grid; place-items: center; font-weight: 700; font-size: 12px; flex: none; }
+.pname { font-weight: 700; font-size: 14px; color: var(--s900); line-height: 1.2; }
+.pmeta { font-size: 12px; color: var(--s500); font-variant-numeric: tabular-nums; }
+.chip { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; padding: 3px 9px; border-radius: 999px; border: 1px solid; white-space: nowrap; }
+.chip.amber { background: var(--amber-50); border-color: var(--amber-200); color: var(--amber-800); }
+.chip.doc { background: var(--s50); border-color: var(--s200); color: var(--s700); cursor: pointer; font: inherit; font-size: 12px; }
+.chip.err { background: var(--red-50); border-color: #fecaca; color: var(--red); cursor: pointer; font: inherit; font-size: 12px; font-weight: 600; }
+.ficha { position: relative; }
+.ficha-pop { position: absolute; top: calc(100% + 6px); left: 0; z-index: 5; background: #fff; border: 1px solid var(--s200); border-radius: 10px; padding: 10px 12px; width: 320px; box-shadow: 0 10px 24px rgba(15,23,42,.14); display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 12px; }
+.ficha-pop dt { color: var(--s500); }
+.ficha-pop dd { margin: 0; color: var(--s800); }
+.spacer { flex: 1; }
+.saved { font-size: 12px; color: var(--green); white-space: nowrap; }
+.b { font: inherit; font-size: 13px; font-weight: 600; height: 32px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--s300); background: #fff; color: var(--s800); cursor: pointer; white-space: nowrap; }
+.b.pri { background: var(--navy); border-color: var(--navy); color: #fff; }
+.b.sm { height: 26px; font-size: 12px; padding: 0 8px; font-weight: 500; }
+.b.link { border: 0; background: none; color: var(--navy); padding: 0 4px; }
+
+.tabs { display: flex; align-items: stretch; gap: 2px; padding: 0 12px; border-top: 1px solid var(--s100); overflow-x: auto; scrollbar-width: thin; }
+.tab { font: inherit; font-size: 13px; color: var(--s500); background: none; border: 0; border-bottom: 2px solid transparent; padding: 9px 12px 8px; display: inline-flex; align-items: center; gap: 7px; cursor: pointer; white-space: nowrap; }
+.tab:hover { color: var(--s800); }
+.tab[aria-selected="true"] { color: var(--navy); border-bottom-color: var(--navy); font-weight: 700; }
+.tab .n { font-size: 11px; color: var(--s400); font-weight: 600; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--s300); flex: none; }
+.dot.data { background: var(--navy); }
+.dot.warn { background: var(--amber); }
+.dot.err { background: var(--red); }
+.cnt { font-size: 11px; font-weight: 700; color: #fff; background: var(--red); border-radius: 999px; padding: 0 6px; }
+.next { margin-left: auto; align-self: center; flex: none; }
+
+.panel { padding: 12px 16px 16px; }
+.grid { display: grid; gap: 10px; grid-template-columns: minmax(0, 1fr); }
+@container main (min-width: 720px) { .g2 { grid-template-columns: repeat(2, minmax(0, 1fr)); } .span2, .g-rx .fin { grid-column: 1 / -1; } }
+@container main (min-width: 1400px) {
+  .g-rx { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .g-rx .fin { grid-column: span 2; }
+}
+.blk { background: #fff; border: 1px solid var(--s200); border-radius: 10px; padding: 8px 10px 10px; min-width: 0; }
+.blk.key { border-color: var(--navy); box-shadow: inset 0 0 0 1px var(--navy); }
+.bh { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; min-height: 22px; }
+.bh h3 { margin: 0; font-size: 11.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--navy); }
+.bh .acts { display: flex; gap: 6px; }
+
+table.eye { width: 100%; border-collapse: collapse; table-layout: fixed; }
+table.eye th { font-size: 11px; font-weight: 600; color: var(--s500); text-align: left; padding: 0 3px 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+table.eye td { padding: 2px 3px; }
+table.eye th:first-child, table.eye td:first-child { width: 34px; padding-left: 0; }
+.eb { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-size: 10.5px; font-weight: 700; color: #fff; background: var(--navy); }
+.eb.oi { background: var(--s600); }
+
+.f { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.f label, .lbl { font-size: 11.5px; font-weight: 600; color: var(--s600); }
+.f label .req, .req { color: var(--red); }
+.hint { font-size: 11px; color: var(--s500); }
+.f .msg { font-size: 11px; color: var(--red); font-weight: 600; }
+.frame input, .frame select, .frame textarea {
+  font: inherit; font-size: 13px; color: var(--s900); width: 100%; height: 32px; padding: 4px 8px;
+  border: 1px solid var(--s300); border-radius: 7px; background: #fff; font-variant-numeric: tabular-nums;
+}
+.frame textarea { height: auto; min-height: 32px; resize: vertical; line-height: 1.35; padding-block: 6px; }
+.frame input[readonly] { background: var(--s50); color: var(--s600); }
+.frame input:focus, .frame select:focus, .frame textarea:focus { outline: 3px solid var(--amber); outline-offset: 1px; background: #fffef3; }
+.frame button:focus-visible { outline: 3px solid var(--amber); outline-offset: 2px; }
+.frame .bad { border-color: var(--red); box-shadow: 0 0 0 1px var(--red); }
+.frame .warnf { border-color: #fbbf24; background: var(--amber-50); }
+.row { display: grid; gap: 8px; }
+.r2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.r3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.r4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@container main (max-width: 719px) { .r3, .r4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.stack { display: flex; flex-direction: column; gap: 8px; }
+
+.docs { display: grid; gap: 6px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@container main (min-width: 960px) { .docs { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.doc { display: flex; align-items: center; gap: 8px; border: 1px solid var(--s200); border-radius: 8px; padding: 0 10px; height: 36px; cursor: pointer; font-size: 12.5px; background: #fff; }
+.doc input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.doc .ini { width: 22px; height: 22px; border-radius: 50%; background: var(--s100); color: var(--s700); display: grid; place-items: center; font-size: 10px; font-weight: 700; flex: none; }
+.doc small { color: var(--s500); margin-left: auto; font-size: 11px; white-space: nowrap; }
+.doc:has(input:checked) { background: var(--navy); border-color: var(--navy); color: #fff; }
+.doc:has(input:checked) .ini { background: rgba(255,255,255,.2); color: #fff; }
+.doc:has(input:checked) small { color: #c7d2e4; }
+.doc:has(input:focus-visible) { outline: 3px solid var(--amber); outline-offset: 2px; }
+.prev { border: 1px solid var(--amber-200); background: var(--amber-50); color: var(--amber-800); border-radius: 8px; padding: 6px 10px; font-size: 12px; }
+
+.sum { background: var(--s50); border: 1px solid var(--s200); border-radius: 8px; padding: 6px 10px; font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 12px; color: var(--s700); display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 12px; }
+.sug { background: var(--indigo-50); border: 1px solid #c7d2fe; border-radius: 8px; padding: 6px 10px; font-size: 12px; color: var(--indigo-800); display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.sug button { font: inherit; font-size: 11.5px; border: 1px solid #a5b4fc; background: #fff; color: var(--indigo-800); border-radius: 999px; padding: 1px 8px; cursor: pointer; }
+.chk { border: 1px solid var(--s200); border-radius: 8px; padding: 6px 8px; min-width: 0; }
+.chk.bad { border-color: var(--red); box-shadow: 0 0 0 1px var(--red); }
+.chk h4 { margin: 0 0 4px; font-size: 12px; display: flex; align-items: center; gap: 6px; }
+.chk ul { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 1px; max-height: 168px; overflow: auto; }
+.chk li label { display: flex; gap: 6px; align-items: center; font-size: 12px; padding: 3px 4px; border-radius: 5px; cursor: pointer; }
+.chk li label:hover { background: var(--s50); }
+.chk input[type="checkbox"] { width: 14px; height: 14px; flex: none; }
+.chk code { font-size: 11px; color: var(--s500); }
+
+table.lines { width: 100%; border-collapse: collapse; table-layout: fixed; }
+table.lines th { font-size: 11px; font-weight: 600; color: var(--s500); text-align: left; padding: 0 3px 4px; }
+table.lines td { padding: 2px 3px; vertical-align: top; }
+table.lines td.x { width: 30px; }
+.del { font: inherit; width: 28px; height: 32px; border: 0; background: none; color: var(--s400); cursor: pointer; border-radius: 6px; }
+.del:hover { color: var(--red); background: var(--red-50); }
+.tot { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+.sub { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+.sub button { font: inherit; font-size: 12.5px; border: 1px solid var(--s300); background: #fff; color: var(--s700); border-radius: 999px; padding: 4px 12px; cursor: pointer; }
+.sub button[aria-pressed="true"] { background: var(--s800); border-color: var(--s800); color: #fff; }
+table.mb { width: 100%; border-collapse: collapse; table-layout: fixed; }
+table.mb th { font-size: 11px; text-align: left; color: var(--s500); font-weight: 600; padding: 0 3px 4px; }
+table.mb td { padding: 2px 3px; }
+table.mb td:first-child { font-size: 12px; font-weight: 600; color: var(--s700); width: 26%; }
+.mbh { font-size: 11.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--navy); margin: 0 0 6px; }
+</style>
+
+<div class="wrap">
+  <div class="bar">
+    <div style="min-width: 0;">
+      <h1>Consulta con pestañas</h1>
+      <p>Propuesta visual para Óptica Andina. Datos de ejemplo, nada se guarda.</p>
+    </div>
+    <div class="seg" role="group" aria-label="Simular pantalla">
+      <button type="button" id="sz-laptop" data-w="1366" data-h="657" aria-pressed="true">Laptop 1366×768</button>
+      <button type="button" id="sz-monitor" data-w="1920" data-h="969" aria-pressed="false">Monitor 1920×1080</button>
+      <button type="button" id="sz-fit" data-w="0" data-h="0" aria-pressed="false">Esta ventana</button>
+    </div>
+    <span class="fit" id="fitInfo" aria-live="polite">Midiendo…</span>
+  </div>
+
+  <div class="stage" id="stage">
+    <div class="frame" id="frame">
+      <nav class="side" aria-label="Menú del sistema (simulado)">
+        <div class="brand">Óptica Andina</div>
+        <a href="#" onclick="return false">Dashboard</a>
+        <a href="#" class="on" onclick="return false">Pacientes</a>
+        <a href="#" onclick="return false">Agenda</a>
+        <a href="#" onclick="return false">Órdenes de trabajo</a>
+        <a href="#" onclick="return false">Punto de venta</a>
+        <a href="#" onclick="return false">Reportes</a>
+        <a href="#" onclick="return false">Configuración</a>
+      </nav>
+      <div class="appcol">
+        <div class="top"><span class="crumb">Pacientes / María Fernanda Pérez / <b>Consulta #4.512</b></span><span class="branch">Matriz Quito</span></div>
+        <div class="main" id="main">
+          <form id="form" autocomplete="off" onsubmit="event.preventDefault()">
+            <div class="strip">
+              <div class="strip-row">
+                <div class="av" aria-hidden="true">MP</div>
+                <div class="who">
+                  <div class="pname" title="María Fernanda Pérez López">María Fernanda Pérez López</div>
+                  <div class="pmeta">C.I. 1700000001 · 42 años · 099 000 0001</div>
+                </div>
+                <span class="chip amber" title="Antecedentes: diabetes tipo 2, usa lentes desde 2015">Antecedentes: diabetes tipo 2, usa lentes desde 2015</span>
+                <div class="ficha">
+                  <button type="button" class="b sm" id="fichaBtn" aria-expanded="false">Ficha</button>
+                  <dl class="ficha-pop" id="fichaPop" hidden>
+                    <dt>Código</dt><dd>PAC-03 418</dd>
+                    <dt>Nacimiento</dt><dd>14/03/1984</dd>
+                    <dt>Ocupación</dt><dd>Contadora</dd>
+                    <dt>Dirección</dt><dd>Av. Amazonas N24 y Colón, Quito</dd>
+                    <dt>Recomienda</dt><dd>Hermana (paciente)</dd>
+                  </dl>
+                </div>
+                <div class="spacer"></div>
+                <button type="button" class="chip doc" id="docChip" title="Médico que atiende. Pulse para cambiarlo.">Dr. Andrés Mora</button>
+                <button type="button" class="chip err" id="errChip">1 error</button>
+                <span class="saved" title="Guardado automáticamente a las 10:42">✓ 10:42</span>
+                <button type="button" class="b">Guardar</button>
+                <button type="button" class="b">Imprimir</button>
+                <button type="button" class="b pri" id="completeBtn">Completar</button>
+              </div>
+              <div class="tabs" role="tablist" aria-label="Secciones de la consulta" id="tablist"></div>
+            </div>
+
+            <div class="panel" role="tabpanel" id="p-motivo" aria-labelledby="t-motivo" hidden>
+              <div class="grid g2">
+                <div class="blk span2">
+                  <div class="bh"><h3>Médico que atiende <span class="req">*</span></h3><span class="hint">Se trae su registro SENESCYT al elegirlo</span></div>
+                  <div class="docs" role="radiogroup" aria-label="Médico">
+                    <label class="doc"><input type="radio" name="doc" checked><span class="ini">AM</span>Dr. Andrés Mora<small>Optometrista</small></label>
+                    <label class="doc"><input type="radio" name="doc"><span class="ini">LC</span>Dra. Lucía Cevallos<small>Optometrista</small></label>
+                    <label class="doc"><input type="radio" name="doc"><span class="ini">JV</span>Dr. Jorge Vaca<small>Oftalmólogo</small></label>
+                    <label class="doc"><input type="radio" name="doc"><span class="ini">PS</span>Dra. Paola Sánchez<small>Optometrista</small></label>
+                  </div>
+                </div>
+                <div class="blk">
+                  <div class="row r2">
+                    <div class="f"><label for="fecha">Fecha de consulta <span class="req">*</span></label><input id="fecha" value="11/11/2026"></div>
+                    <div class="f"><label for="senescyt">Registro SENESCYT</label><input id="senescyt" value="1027-2019-2045678"></div>
+                    <div class="f"><label for="ultimo">Último control</label><input id="ultimo" value="02/09/2025"></div>
+                    <div class="f"><label for="plantilla">Plantilla de impresión</label><select id="plantilla"><option>Certificado Óptica Andina</option><option>Receta simple</option></select></div>
+                  </div>
+                </div>
+                <div class="blk stack">
+                  <div class="f"><label for="motivo">Motivo de consulta</label><textarea id="motivo" rows="3">Visión borrosa de lejos al conducir de noche. Control anual; refiere cansancio visual en el computador.</textarea></div>
+                  <div class="prev">Consulta previa #3.977 · 02/09/2025 · H52.1 Miopía</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel" role="tabpanel" id="p-rx" aria-labelledby="t-rx">
+              <div class="grid g2 g-rx">
+                <div class="blk" id="b-top"></div>
+                <div class="blk" id="b-uso"></div>
+                <div class="blk" id="b-subj"></div>
+                <div class="blk vc" id="b-vc"></div>
+                <div class="blk key fin">
+                  <div class="row" style="grid-template-columns: minmax(0, 2.6fr) minmax(0, 1fr); align-items: start;">
+                    <div id="b-fin"></div>
+                    <div class="f"><label for="rxobs">Observaciones RX final</label><textarea id="rxobs" rows="3" placeholder="Aplican a ambos ojos. No se imprime en el certificado."></textarea></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel" role="tabpanel" id="p-dx" aria-labelledby="t-dx" hidden>
+              <div class="grid g2">
+                <div class="blk stack">
+                  <div class="bh"><h3>Diagnóstico clínico <span class="req">*</span></h3><button type="button" class="b sm">+ Diagnóstico manual</button></div>
+                  <div class="sum"><span><b>OD:</b> -1.25 -0.50 x 90</span><span><b>OI:</b> -1.00 -0.25 x 85</span></div>
+                  <div class="sug"><span>Sugeridos por las medidas:</span><button type="button" data-sug="H52.1">H52.1 Miopía</button><button type="button" data-sug="H52.2">H52.2 Astigmatismo</button></div>
+                  <div class="row r2" id="dxEyes"></div>
+                  <div class="f"><span class="msg" id="dxMsg">Se necesita al menos un diagnóstico para completar la consulta.</span></div>
+                </div>
+                <div class="blk stack">
+                  <div class="bh"><h3>Observaciones clínicas</h3></div>
+                  <div class="f"><label for="obs">Observaciones</label><textarea id="obs" rows="4" placeholder="Comentarios del caso, comparación con recetas previas, seguimiento."></textarea><span class="hint">No se imprimen en el certificado.</span></div>
+                  <div class="row r2">
+                    <div class="f"><label for="kod">Queratometría OD</label><input id="kod" placeholder="K1 / K2 @ eje"></div>
+                    <div class="f"><label for="koi">Queratometría OI</label><input id="koi" placeholder="K1 / K2 @ eje"></div>
+                    <div class="f"><label for="eod">Examen externo OD</label><textarea id="eod" rows="2"></textarea></div>
+                    <div class="f"><label for="eoi">Examen externo OI</label><textarea id="eoi" rows="2"></textarea></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel" role="tabpanel" id="p-lunas" aria-labelledby="t-lunas" hidden>
+              <div class="grid g2">
+                <div class="blk stack">
+                  <div class="bh"><h3>Recomendación de lunas</h3></div>
+                  <div class="row r3">
+                    <div class="f"><label for="mat">Material</label><select id="mat"><option>Policarbonato</option><option>CR-39</option><option>Alto índice 1.67</option></select></div>
+                    <div class="f"><label for="esp">Espesor</label><select id="esp"><option>Normal</option><option>Delgado</option></select></div>
+                    <div class="f"><label for="pro">Protección</label><select id="pro"><option>Filtro luz azul + antirreflejo</option><option>Antirreflejo</option><option>Fotocromático</option></select></div>
+                  </div>
+                  <div class="f"><label for="lobs">Observación</label><textarea id="lobs" rows="2">Para uso permanente; preferir montura completa.</textarea><span class="hint">No se imprime en el certificado.</span></div>
+                </div>
+                <div class="blk">
+                  <div class="bh"><h3>Recomendaciones médicas</h3><button type="button" class="b sm" id="addRec">+ Agregar</button></div>
+                  <table class="lines"><thead><tr><th style="width: 38%;">Catálogo</th><th>Texto que se imprime</th><th style="width: 30px;"></th></tr></thead><tbody id="recRows"></tbody></table>
+                  <span class="hint">El texto se imprime en el certificado, bajo RECOMENDACIONES.</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel" role="tabpanel" id="p-venta" aria-labelledby="t-venta" hidden>
+              <div class="blk">
+                <div class="bh"><h3>Productos vendidos</h3><span class="hint">Registro informativo: no afecta caja ni inventario.</span></div>
+                <table class="lines">
+                  <thead><tr><th style="width: 15%;">Tipo</th><th>Descripción</th><th style="width: 11%;">Precio</th><th style="width: 9%;">% Desc.</th><th style="width: 11%;">Total</th><th style="width: 22%;">Nota</th><th style="width: 30px;"></th></tr></thead>
+                  <tbody id="saleRows"></tbody>
+                </table>
+                <div class="tot"><button type="button" class="b sm" id="addSale">+ Agregar item</button><span id="saleTotal">Total de la venta: $0.00</span></div>
+              </div>
+            </div>
+
+            <div class="panel" role="tabpanel" id="p-mod" aria-labelledby="t-mod" hidden>
+              <div class="sub" role="group" aria-label="Módulo">
+                <button type="button" data-sub="tv" aria-pressed="true">Terapia visual</button>
+                <button type="button" data-sub="lc" aria-pressed="false">Lentes de contacto</button>
+                <button type="button" data-sub="of" aria-pressed="false">Oftalmoscopia</button>
+                <button type="button" data-sub="tr" aria-pressed="false">Tratamiento</button>
+              </div>
+              <div id="sub-tv" class="grid g2"></div>
+              <div id="sub-lc" class="stack" hidden>
+                <div class="blk"><div class="row r4" id="lcFields"></div></div>
+                <div class="grid g2"><div class="blk" id="lcTest"></div><div class="blk" id="lcFinal"></div></div>
+              </div>
+              <div id="sub-of" class="blk" hidden>
+                <div class="row r3" style="margin-bottom: 8px;">
+                  <div class="f"><label for="fod">Fijación OD</label><input id="fod"></div>
+                  <div class="f"><label for="foi">Fijación OI</label><input id="foi"></div>
+                  <div class="f"><label for="vm">Valoración motora / test</label><input id="vm"></div>
+                </div>
+                <div id="ofTable"></div>
+              </div>
+              <div id="sub-tr" class="blk" hidden>
+                <div class="row r2">
+                  <div class="f"><label for="plan">Plan de tratamiento</label><textarea id="plan" rows="4"></textarea></div>
+                  <div class="stack">
+                    <div class="f"><label for="horas">Horas de uso</label><input id="horas"></div>
+                    <div class="f"><label for="limp">Método de limpieza</label><input id="limp"></div>
+                    <div class="f"><label for="moda">Modalidad de uso</label><input id="moda"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="notes">
+    <div class="note">
+      <h2>Qué cambia</h2>
+      <ul>
+        <li>Seis pestañas en el orden del examen, en vez de diez secciones una debajo de otra.</li>
+        <li>La franja del paciente, el médico y los botones quedan fijos arriba.</li>
+        <li>Campos de 32 px y etiquetas pequeñas en computador. En tablet y celular siguen grandes.</li>
+        <li>La pantalla usa todo el ancho: dos columnas en laptop y tres en monitor grande.</li>
+      </ul>
+    </div>
+    <div class="note">
+      <h2>Cómo se llena</h2>
+      <ul>
+        <li><kbd>Enter</kbd> pasa al siguiente campo. Al final de la pestaña llega a “Siguiente”.</li>
+        <li><kbd>Alt</kbd> + <kbd>1</kbd>…<kbd>6</kbd> abre cada pestaña.</li>
+        <li>El borde ámbar marca siempre el campo donde se está escribiendo.</li>
+      </ul>
+    </div>
+    <div class="note">
+      <h2>Qué indica cada pestaña</h2>
+      <ul>
+        <li>Punto azul: tiene datos. Gris: vacía. Ámbar: hay medidas para revisar.</li>
+        <li>Rojo con número: errores que impiden completar. Pulse “1 error” arriba para ir al campo.</li>
+      </ul>
+    </div>
+    <div class="note">
+      <h2>Qué no cambia</h2>
+      <p>Los datos, el autoguardado, la impresión del certificado y quién puede editar quedan igual. Solo cambia cómo se ordena la pantalla.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var TABS = [
+    { id: 'motivo', label: 'Motivo y médico', state: 'data' },
+    { id: 'rx', label: 'Refracción', state: 'warn' },
+    { id: 'dx', label: 'Diagnóstico y observaciones', state: 'err', count: 1 },
+    { id: 'lunas', label: 'Lunas y recomendaciones', state: 'data' },
+    { id: 'venta', label: 'Venta', state: 'data' },
+    { id: 'mod', label: 'Módulos', state: '' }
+  ];
+  var tablist = document.getElementById('tablist');
+  var current = 'rx';
+
+  function renderTabs() {
+    var html = TABS.map(function (t, i) {
+      var sel = t.id === current;
+      var dot = '<span class="dot ' + (t.state || '') + '" aria-hidden="true"></span>';
+      var cnt = t.count ? '<span class="cnt" aria-label="' + t.count + ' error">' + t.count + '</span>' : '';
+      return '<button type="button" role="tab" class="tab" id="t-' + t.id + '" aria-controls="p-' + t.id + '" aria-selected="' + sel + '" tabindex="' + (sel ? 0 : -1) + '" data-tab="' + t.id + '"><span class="n">' + (i + 1) + '</span>' + dot + t.label + cnt + '</button>';
+    }).join('');
+    var idx = TABS.findIndex(function (t) { return t.id === current; });
+    var nxt = TABS[idx + 1];
+    html += nxt
+      ? '<button type="button" class="b sm next" id="nextBtn" data-next-tab="' + nxt.id + '" title="Ir a ' + nxt.label + '">Siguiente →</button>'
+      : '<button type="button" class="b sm pri next" id="nextBtn">Completar</button>';
+    tablist.innerHTML = html;
+  }
+
+  function show(id, focusFirst) {
+    current = id;
+    TABS.forEach(function (t) { document.getElementById('p-' + t.id).hidden = t.id !== id; });
+    renderTabs();
+    try { sessionStorage.setItem('mock-tab', id); } catch (e) {}
+    document.getElementById('main').scrollTop = 0;
+    if (focusFirst) {
+      var f = firstField(document.getElementById('p-' + id));
+      if (f) f.focus();
+    }
+    measure();
+  }
+
+  tablist.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-tab],[data-next-tab]');
+    if (!b) return;
+    show(b.dataset.tab || b.dataset.nextTab, !!b.dataset.nextTab);
+  });
+  tablist.addEventListener('keydown', function (e) {
+    if (!e.target.matches('[role="tab"]')) return;
+    var i = TABS.findIndex(function (t) { return t.id === current; });
+    if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+      e.preventDefault();
+      var n = (i + (e.key === 'ArrowRight' ? 1 : -1) + TABS.length) % TABS.length;
+      show(TABS[n].id); document.getElementById('t-' + TABS[n].id).focus();
+    }
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.altKey && !e.ctrlKey && !e.metaKey && /^[1-6]$/.test(e.key)) {
+      e.preventDefault(); show(TABS[Number(e.key) - 1].id, true);
+    }
+  });
+
+  function eyeTable(title, cols, vals, opts) {
+    opts = opts || {};
+    var h = '<div class="bh"><h3>' + title + '</h3>' + (opts.acts || '') + '</div><table class="eye"><thead><tr><th></th>';
+    cols.forEach(function (c) { h += '<th title="' + c + '">' + c + '</th>'; });
+    h += '</tr></thead><tbody>';
+    ['OD', 'OI'].forEach(function (eye, r) {
+      h += '<tr><td><span class="eb ' + eye.toLowerCase() + '">' + eye + '</span></td>';
+      cols.forEach(function (c, j) {
+        var v = (vals[r] || [])[j] || '';
+        var cls = opts.warn && opts.warn[r + ':' + j] ? ' class="warnf" title="' + opts.warn[r + ':' + j] + '"' : '';
+        h += '<td><input aria-label="' + title + ' ' + c + ' ' + eye + '" value="' + v + '"' + cls + '></td>';
+      });
+      h += '</tr>';
+    });
+    return h + '</tbody></table>' + (opts.after || '');
+  }
+
+  document.getElementById('b-top').innerHTML = eyeTable('Lecturas iniciales', ['Lectura comp.', 'Queratometría', 'AV.SC lejos', 'Retinoscopia', 'AV.CC'],
+    [['-1.25 -0.50 x 90', '43.25/44.00', '20/60', '-1.00 -0.50 x 90', '20/20'], ['-1.00 -0.25 x 85', '43.50/44.00', '20/50', '-0.75', '20/20']]);
+  document.getElementById('b-uso').innerHTML = eyeTable('RX en uso', ['Esfera', 'Cilindro', 'Eje', 'AV.CC', 'ADD'],
+    [['-1.00', '-0.50', '90', '20/25', ''], ['-0.75', '', '', '20/25', '']],
+    { acts: '<span class="acts"><button type="button" class="b sm">Historial</button><button type="button" class="b sm">+ RX en uso</button></span>',
+      after: '<div class="f" style="margin-top: 6px;"><input aria-label="Observación RX en uso" placeholder="Observación de esta receta (montura, tiempo de uso…)"></div>' });
+  document.getElementById('b-subj').innerHTML = eyeTable('Subjetivo', ['Esfera', 'Cilindro', 'Eje', 'AV lejos'],
+    [['-1.25', '-0.50', '90', '20/20'], ['-1.00', '-0.25', '85', '20/20']]);
+  document.getElementById('b-fin').innerHTML = eyeTable('RX final', ['Esfera', 'Cilindro', 'Eje', 'Prisma', 'Base', 'AV', 'ADD', 'DP'],
+    [['-1.25', '-0.50', '90', '', '', '20/20', '', '32'], ['-1.00', '-0.25', '', '', '', '20/20', '', '31']],
+    { warn: { '1:2': 'Cilindro sin eje' } });
+  document.getElementById('b-vc').innerHTML = eyeTable('Visión de cerca', ['Esfera', 'Cilindro', 'Eje', 'AV.CC', 'DP'], [[], []]);
+
+  var DX = ['H52.1 Miopía', 'H52.2 Astigmatismo', 'H52.0 Hipermetropía', 'H52.4 Presbicia', 'H04.1 Ojo seco', 'H10.1 Conjuntivitis alérgica', 'H25.0 Catarata senil incipiente', 'H40.0 Sospecha de glaucoma'];
+  document.getElementById('dxEyes').innerHTML = ['OD', 'OI'].map(function (eye) {
+    return '<div class="chk bad" data-eye="' + eye + '"><h4><span class="eb ' + eye.toLowerCase() + '" style="width: 20px; height: 20px; font-size: 9px;">' + eye + '</span>' + (eye === 'OD' ? 'Ojo derecho' : 'Ojo izquierdo') + '</h4>' +
+      '<input aria-label="Filtrar diagnósticos ' + eye + '" placeholder="Filtrar diagnósticos…" style="height: 28px;"><ul>' +
+      DX.map(function (d) { var p = d.split(' '); return '<li><label><input type="checkbox" data-code="' + p[0] + '"><code>' + p[0] + '</code> ' + p.slice(1).join(' ') + '</label></li>'; }).join('') + '</ul></div>';
+  }).join('');
+  document.getElementById('dxEyes').addEventListener('input', function (e) {
+    if (e.target.type === 'checkbox') { updateDx(); return; }
+    var q = e.target.value.toLowerCase();
+    e.target.parentNode.querySelectorAll('li').forEach(function (li) { li.hidden = q && li.textContent.toLowerCase().indexOf(q) < 0; });
+  });
+  document.querySelector('.sug').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-sug]'); if (!b) return;
+    document.querySelectorAll('#dxEyes input[data-code="' + b.dataset.sug + '"]').forEach(function (c) { c.checked = true; });
+    updateDx();
+  });
+  function updateDx() {
+    var any = document.querySelectorAll('#dxEyes input[type="checkbox"]:checked').length > 0;
+    document.querySelectorAll('#dxEyes .chk').forEach(function (c) { c.classList.toggle('bad', !any); });
+    document.getElementById('dxMsg').hidden = any;
+    var t = TABS[2]; t.state = any ? 'data' : 'err'; t.count = any ? 0 : 1;
+    var chip = document.getElementById('errChip'); chip.hidden = any;
+    renderTabs();
+  }
+
+  var REC = ['Uso permanente de la corrección', 'Pausas visuales 20-20-20 frente al computador', 'Control en 12 meses', 'Lágrimas artificiales 3 veces al día'];
+  function recRow(cat, txt) {
+    return '<tr><td><select aria-label="Recomendación de catálogo"><option value="">Seleccionar…</option>' + REC.map(function (r) { return '<option' + (r === cat ? ' selected' : '') + '>' + r + '</option>'; }).join('') + '</select></td>' +
+      '<td><input aria-label="Texto de la recomendación" value="' + (txt || '') + '"></td><td class="x"><button type="button" class="del" aria-label="Quitar">✕</button></td></tr>';
+  }
+  var recRows = document.getElementById('recRows');
+  recRows.innerHTML = recRow(REC[0], REC[0] + '.') + recRow(REC[1], 'Pausas visuales cada 20 minutos frente al computador.') + recRow(REC[2], 'Control en 12 meses.');
+  recRows.addEventListener('change', function (e) { if (e.target.tagName === 'SELECT') e.target.closest('tr').querySelector('input').value = e.target.value ? e.target.value + '.' : ''; });
+  document.getElementById('addRec').onclick = function () { recRows.insertAdjacentHTML('beforeend', recRow('', '')); };
+
+  var TYPES = ['Armazón', 'Lunas', 'Lentes de contacto', 'Otro'];
+  function saleRow(t, d, p, pct, n) {
+    return '<tr><td><select aria-label="Tipo">' + TYPES.map(function (x) { return '<option' + (x === t ? ' selected' : '') + '>' + x + '</option>'; }).join('') + '</select></td>' +
+      '<td><input aria-label="Descripción" value="' + (d || '') + '"></td><td><input aria-label="Precio" inputmode="decimal" data-p value="' + (p || '') + '"></td>' +
+      '<td><input aria-label="% descuento" inputmode="decimal" data-d value="' + (pct || '') + '"></td><td><input aria-label="Total" readonly data-t></td>' +
+      '<td><input aria-label="Nota" value="' + (n || '') + '"></td><td class="x"><button type="button" class="del" aria-label="Quitar">✕</button></td></tr>';
+  }
+  var saleRows = document.getElementById('saleRows');
+  saleRows.innerHTML = saleRow('Armazón', 'Ray-Ban RB5154 Clubmaster 51', '145.00', '10', 'Color carey') + saleRow('Lunas', 'Policarbonato filtro azul + AR', '120.00', '', '');
+  function recalc() {
+    var sum = 0;
+    saleRows.querySelectorAll('tr').forEach(function (tr) {
+      var p = parseFloat(tr.querySelector('[data-p]').value) || 0, d = parseFloat(tr.querySelector('[data-d]').value) || 0;
+      var t = Math.round(p * (1 - Math.min(d, 100) / 100) * 100) / 100; sum += t;
+      tr.querySelector('[data-t]').value = p ? t.toFixed(2) : '';
+    });
+    document.getElementById('saleTotal').textContent = 'Total de la venta: $' + sum.toFixed(2);
+  }
+  saleRows.addEventListener('input', recalc);
+  document.getElementById('addSale').onclick = function () { saleRows.insertAdjacentHTML('beforeend', saleRow('Otro', '', '', '', '')); };
+  document.getElementById('form').addEventListener('click', function (e) {
+    var del = e.target.closest('.del'); if (!del) return;
+    del.closest('tr').remove(); recalc(); measure();
+  });
+  recalc();
+
+  var MB = [
+    { t: '1. Motilidad ocular', rows: [['Ducciones', ['OD', 'OI']], ['Versiones', ['Horizontales', 'Verticales']], ['Seguimientos', ['Horizontales', 'Verticales']], ['Sacádicos', ['Horizontales', 'Verticales']]] },
+    { t: '2. Binocularidad y vergencias', rows: [['Hirschberg', ['Evaluación']], ['Cover test', ['VL', 'VP']], ['PPC', ['Objeto real', 'Luz', 'Filtro rojo']], ['Worth 4 puntos', ['Resultado']], ['Estereopsis', ['Resultado']]] },
+    { t: '3. Acomodación', rows: [['Amplitud (A.A.)', ['OD', 'OI']], ['MEM', ['OD', 'OI']], ['ARN / ARP', ['ARN', 'ARP']], ['Flippers MAF', ['OD', 'OI']]] },
+    { t: '4. Reflejos pupilares', rows: [['Directo y consensual', ['OD', 'OI']]] }
+  ];
+  document.getElementById('sub-tv').innerHTML = MB.map(function (b) {
+    return '<div class="blk"><p class="mbh">' + b.t + '</p><table class="mb"><tbody>' + b.rows.map(function (r) {
+      return '<tr><td>' + r[0] + '</td>' + r[1].map(function (c) { return '<td colspan="' + (r[1].length === 1 ? 3 : r[1].length === 2 ? (c === r[1][0] ? 1 : 2) : 1) + '"><input aria-label="' + r[0] + ' ' + c + '" placeholder="' + c + '"></td>'; }).join('') + '</tr>';
+    }).join('') + '</tbody></table></div>';
+  }).join('');
+
+  document.getElementById('lcFields').innerHTML = ['Diámetro pupilar', 'Diámetro corneal', 'Apertura palpebral', 'Tensión palpebral', 'DHIV', 'Ojo dominante', 'BUT', 'Test de Schirmer', 'Tinción', 'Frecuencia de parpadeo', 'Estado'].map(function (l, i) {
+    return '<div class="f"><label for="lc' + i + '">' + l + '</label><input id="lc' + i + '"></div>';
+  }).join('') + '<div class="f"><label for="lcobs">Observaciones</label><input id="lcobs"></div>';
+  document.getElementById('lcTest').innerHTML = eyeTable('Lente de prueba', ['Curva base', 'Poder', '%H2O', 'Material', 'Diámetro', 'Sobre-refr.', 'AV'], [[], []]);
+  document.getElementById('lcFinal').innerHTML = eyeTable('Lente definitivo', ['Curva base', 'Poder', 'Diámetro', '%H2O', 'Material'], [[], []]);
+
+  var dist = ['6 m', '3 m', '1 m', '40 cm', '33 cm', '25 cm'];
+  var ofr = ['Reflejo rojo', 'Medios', 'Papila', 'Mácula', 'Vasos'];
+  document.getElementById('ofTable').innerHTML = '<table class="mb"><thead><tr><th></th>' + dist.map(function (d) { return '<th>' + d + '</th>'; }).join('') + '</tr></thead><tbody>' +
+    ofr.map(function (r) { return '<tr><td>' + r + '</td>' + dist.map(function (d) { return '<td><input aria-label="' + r + ' ' + d + '"></td>'; }).join('') + '</tr>'; }).join('') + '</tbody></table>';
+
+  document.querySelector('.sub').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-sub]'); if (!b) return;
+    document.querySelectorAll('.sub button').forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); });
+    ['tv', 'lc', 'of', 'tr'].forEach(function (k) { document.getElementById('sub-' + k).hidden = k !== b.dataset.sub; });
+    measure();
+  });
+
+  var fichaBtn = document.getElementById('fichaBtn'), fichaPop = document.getElementById('fichaPop');
+  fichaBtn.onclick = function () { var open = fichaPop.hidden; fichaPop.hidden = !open; fichaBtn.setAttribute('aria-expanded', String(open)); };
+  document.addEventListener('click', function (e) { if (!e.target.closest('.ficha')) { fichaPop.hidden = true; fichaBtn.setAttribute('aria-expanded', 'false'); } });
+  document.getElementById('docChip').onclick = function () { show('motivo'); document.querySelector('.doc input:checked').focus(); };
+  function goToError() {
+    show('dx');
+    var first = document.querySelector('#dxEyes .chk input');
+    first.focus();
+    first.scrollIntoView({ block: 'center' });
+  }
+  document.getElementById('errChip').onclick = goToError;
+  document.getElementById('completeBtn').onclick = function () { if (!document.getElementById('errChip').hidden) goToError(); };
+
+  var FIELD = 'input:not([type="radio"]):not([type="checkbox"]):not([readonly]), select, textarea';
+  function firstField(scope) { return scope.querySelector(FIELD); }
+  document.getElementById('form').addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter' || e.shiftKey || e.altKey || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'BUTTON') return;
+    var panel = e.target.closest('[role="tabpanel"]'); if (!panel) return;
+    e.preventDefault();
+    var list = Array.prototype.filter.call(panel.querySelectorAll(FIELD), function (el) { return el.offsetParent !== null; });
+    var i = list.indexOf(e.target);
+    if (i >= 0 && i < list.length - 1) { list[i + 1].focus(); if (list[i + 1].select) list[i + 1].select(); }
+    else document.getElementById('nextBtn').focus();
+  });
+
+  var stage = document.getElementById('stage'), frame = document.getElementById('frame'), info = document.getElementById('fitInfo');
+  var size = { w: 1366, h: 657 };
+  function layout() {
+    var avail = stage.clientWidth;
+    if (!size.w) {
+      var h = Math.max(560, Math.min(window.innerHeight - 140, 1100));
+      frame.style.width = avail + 'px'; frame.style.height = h + 'px'; frame.style.transform = 'none';
+      stage.style.height = h + 'px';
+    } else {
+      var s = Math.min(1, avail / size.w);
+      frame.style.width = size.w + 'px'; frame.style.height = size.h + 'px';
+      frame.style.transform = 'scale(' + s + ')';
+      stage.style.height = Math.ceil(size.h * s) + 'px';
+    }
+    measure();
+  }
+  function measure() {
+    requestAnimationFrame(function () {
+      var main = document.getElementById('main');
+      var extra = main.scrollHeight - main.clientHeight;
+      var name = TABS.find(function (t) { return t.id === current; }).label;
+      var where = size.w ? (size.w === 1366 ? 'laptop' : 'monitor') : 'esta ventana';
+      info.className = 'fit ' + (extra <= 1 ? 'ok' : 'no');
+      info.textContent = extra <= 1 ? name + ': cabe completa en ' + where : name + ': faltan ' + extra + ' px en ' + where;
+    });
+  }
+  document.querySelectorAll('.seg button').forEach(function (b) {
+    b.onclick = function () {
+      document.querySelectorAll('.seg button').forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); });
+      size = { w: Number(b.dataset.w), h: Number(b.dataset.h) };
+      layout();
+    };
+  });
+  window.addEventListener('resize', layout);
+  if (window.innerWidth < 700) { document.getElementById('sz-fit').click(); }
+
+  var saved = null;
+  try { saved = sessionStorage.getItem('mock-tab'); } catch (e) {}
+  show(saved && TABS.some(function (t) { return t.id === saved; }) ? saved : 'rx');
+  layout();
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(measure);
+})();
+</script>

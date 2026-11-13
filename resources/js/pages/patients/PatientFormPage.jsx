@@ -835,7 +835,7 @@ function PatientForm({ id }) {
                                 disabled={loadState !== 'ready'}
                                 onClick={() => changeDocType(value)}
                                 className={`min-h-11 rounded-md px-3 text-sm font-medium transition-colors disabled:opacity-50
-                                    ${docType === value ? 'bg-[#1a2a4a] text-white' : 'text-gray-700 hover:bg-white'}`}
+                                    ${docType === value ? 'bg-navy text-white' : 'text-gray-700 hover:bg-white'}`}
                             >
                                 {label}
                             </button>
@@ -987,7 +987,7 @@ function PatientForm({ id }) {
                                 <button
                                     type="button"
                                     onClick={() => setValue('fecha_nacimiento', birthFix, { shouldDirty: true, shouldValidate: true })}
-                                    className="mt-2 min-h-11 rounded-lg border border-[#1a2a4a] px-3 text-sm font-medium text-[#1a2a4a] hover:bg-gray-50"
+                                    className="mt-2 min-h-11 rounded-lg border border-navy px-3 text-sm font-medium text-navy hover:bg-gray-50"
                                 >
                                     ¿Es {toDisplayDate(birthFix)}? Usar esa fecha
                                 </button>
@@ -1072,7 +1072,7 @@ function PatientForm({ id }) {
                                     id="antecedentes"
                                     rows={4}
                                     maxLength={2000}
-                                    className="w-full px-3 py-2.5 text-base rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] focus:bg-[#fef08a]/20 resize-none"
+                                    className="w-full px-3 py-2.5 text-base rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-navy focus:bg-accent-yellow/20 resize-none"
                                     placeholder="Historial de enfermedades oculares, cirugías, alergias..."
                                     {...register('antecedentes')}
                                 />

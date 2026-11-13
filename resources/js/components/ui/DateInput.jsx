@@ -158,8 +158,8 @@ export default function DateInput({
                     onKeyDown={handleKeyDown}
                     enterKeyHint={nextFieldId ? 'next' : 'done'}
                     className={`w-full rounded-lg border text-base py-2.5 pl-3 pr-10 transition-colors
-                        min-h-11 touch-manipulation focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]
-                        focus:border-transparent focus:bg-[#fef08a]/20 disabled:bg-gray-100
+                        min-h-11 touch-manipulation focus:outline-none focus:ring-2 focus:ring-navy
+                        focus:border-transparent focus:bg-accent-yellow/20 disabled:bg-gray-100
                         ${invalid ? 'border-red-400 bg-red-50' : 'border-gray-300 bg-white'}`}
                     {...props}
                 />
@@ -170,7 +170,7 @@ export default function DateInput({
                     onClick={openPicker}
                     aria-label="Abrir calendario"
                     className="absolute right-0 flex h-full min-w-11 items-center justify-center rounded-r-lg
-                        text-gray-400 hover:text-[#1a2a4a] disabled:pointer-events-none"
+                        text-gray-400 hover:text-navy disabled:pointer-events-none"
                 >
                     <Calendar size={16} />
                 </button>

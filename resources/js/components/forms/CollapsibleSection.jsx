@@ -1,13 +1,22 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 
-const OPEN_SECTION_EVENT = 'collapsible-section:open';
+export const OPEN_SECTION_EVENT = 'collapsible-section:open';
 
 /**
  * Formulario en solo lectura: cada seccion envuelve su contenido en un
  * `<fieldset disabled>`. El encabezado queda fuera para poder abrirla.
  */
 export const FormReadOnlyContext = createContext(false);
+
+/**
+ * Como se reparten las secciones en pantalla.
+ * - `stack` (plantilla Clasico): una debajo de otra, cada una colapsable.
+ * - `tabs` (plantilla Compacto): solo se montan las de la pestaña activa
+ *   (`activeKeys`), como panel plano. Los hijos son los mismos en los dos modos,
+ *   asi que ningun campo existe en una plantilla y falta en la otra.
+ */
+export const SectionLayoutContext = createContext({ mode: 'stack', activeKeys: null });
 
 /**
  * Abre desde fuera la seccion con ese `sectionKey` (ej. para llevar al usuario
@@ -65,6 +74,25 @@ export default function CollapsibleSection({
 
     const advanced = variant === 'advanced';
     const readOnly = useContext(FormReadOnlyContext);
+    const layout = useContext(SectionLayoutContext);
+
+    if (layout.mode === 'tabs') {
+        // Pestaña no activa: no se monta (igual que una seccion colapsada);
+        // react-hook-form conserva sus valores.
+        if (!layout.activeKeys?.has(sectionKey)) return null;
+        return (
+            <section data-section-key={sectionKey} className="min-w-0" aria-label={title}>
+                {/* Si la pestaña tiene una sola seccion, su nombre ya esta en la pestaña. */}
+                {layout.showTitles && (
+                    <div className="mb-1.5 flex items-baseline gap-2 px-1">
+                        <h2 className="text-[13px] font-semibold text-gray-700">{title}</h2>
+                        {subtitle && <p className="hidden truncate text-xs text-gray-400 xl:block">{subtitle}</p>}
+                    </div>
+                )}
+                <fieldset disabled={readOnly} className="min-w-0 rounded-xl bg-white p-2.5 shadow-sm">{children}</fieldset>
+            </section>
+        );
+    }
 
     return (
         <section data-section-key={sectionKey} className={`mb-6 overflow-hidden rounded-2xl border shadow-sm ${advanced ? 'border-slate-200 bg-slate-50/70' : 'border-slate-200 bg-white'}`}>

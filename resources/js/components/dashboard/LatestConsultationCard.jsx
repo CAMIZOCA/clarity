@@ -19,7 +19,7 @@ export default function LatestConsultationCard({ item, now, fresh }) {
                 fresh ? 'border-amber-400 ring-2 ring-amber-300 shadow-lg' : 'border-gray-200'
             }`}
         >
-            <header className="bg-[#1a2a4a] text-white px-6 py-4 flex flex-wrap items-center justify-between gap-3">
+            <header className="bg-navy text-white px-6 py-4 flex flex-wrap items-center justify-between gap-3">
                 <div>
                     <p className="text-xs uppercase tracking-wide text-white/70 flex items-center gap-1.5">
                         <BellRing size={14} className={fresh ? 'text-amber-300' : ''} />

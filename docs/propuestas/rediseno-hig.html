@@ -1,0 +1,964 @@
+<title>Rediseño Óptica Andina</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Presentacion: controles arriba, ventana simulada al centro, principios y fases abajo.
+   La ventana simulada sigue las Human Interface Guidelines: barra lateral y barra de
+   herramientas con material translucido, color de acento unico, tipografia del sistema,
+   controles segmentados y un inspector a la derecha. */
+:root {
+  --page: #e9ebef; --ink: #1c1c1e; --muted: #5d6470; --line: #d3d7de; --panel: #ffffff;
+  --accent: #1f5fbf; --ok: #1f7a35; --warn: #9a5200;
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --page: #0d0e10; --ink: #f2f2f7; --muted: #a1a7b3; --line: #2c2f36; --panel: #18191c; --accent: #6ea2f5; --ok: #30d158; --warn: #ffb340; color-scheme: dark; }
+}
+:root[data-theme="dark"] { --page: #0d0e10; --ink: #f2f2f7; --muted: #a1a7b3; --line: #2c2f36; --panel: #18191c; --accent: #6ea2f5; --ok: #30d158; --warn: #ffb340; color-scheme: dark; }
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  margin: 0; background: var(--page); color: var(--ink); font-family: var(--font); font-size: 14px; line-height: 1.45;
+  padding-block: 20px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 1960px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+.bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; }
+.bar h1 { font-size: 22px; line-height: 1.2; font-weight: 700; letter-spacing: -0.016em; margin: 0; text-wrap: balance; }
+.bar p { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+.ctl { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+.pseg { display: inline-flex; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; background: var(--panel); }
+.pseg button { font: inherit; font-size: 13px; padding: 6px 11px; border: 0; background: transparent; color: var(--ink); cursor: pointer; }
+.pseg button + button { border-left: 1px solid var(--line); }
+.pseg button[aria-pressed="true"] { background: var(--accent); color: var(--panel); font-weight: 600; }
+.pseg button:focus-visible, .note a:focus-visible { outline: 3px solid #f59e0b; outline-offset: 2px; }
+.fit { font-size: 13px; padding: 5px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); font-variant-numeric: tabular-nums; }
+.fit.ok { color: var(--ok); } .fit.no { color: var(--warn); }
+.stage { position: relative; width: 100%; }
+.notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+.note { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; min-width: 0; }
+.note h2 { font-size: 15px; letter-spacing: -0.01em; margin: 0 0 8px; }
+.note p, .note li { color: var(--muted); font-size: 13px; margin: 0; }
+.note ul, .note ol { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+.note b { color: var(--ink); font-weight: 600; }
+
+/* ================= Ventana simulada (tokens HIG) ================= */
+.frame {
+  --win: #ececee; --grouped: #f2f2f7; --card: #ffffff; --field: #ffffff;
+  --label: #1c1c1e; --label2: rgba(60, 60, 67, .74); --label3: rgba(60, 60, 67, .46);
+  --sep: rgba(60, 60, 67, .17); --fill: rgba(118, 118, 128, .13); --fill2: rgba(118, 118, 128, .07);
+  --tint: #1f5fbf; --tint-bg: rgba(31, 95, 191, .11); --on-tint: #ffffff;
+  --red: #d70015; --red-bg: rgba(255, 59, 48, .10); --orange: #a54b00; --orange-bg: rgba(255, 149, 0, .13);
+  --green: #1f7a35; --green-bg: rgba(52, 199, 89, .13);
+  --mat: rgba(248, 248, 250, .76); --mat-side: rgba(232, 232, 237, .80);
+  --shadow: 0 0 0 .5px rgba(0, 0, 0, .06), 0 1px 3px rgba(0, 0, 0, .06);
+  --lift: 0 0 0 .5px rgba(0, 0, 0, .08), 0 8px 28px rgba(0, 0, 0, .12);
+  --brand: #1a2a4a; --focus: #f59e0b;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .frame:not([data-appearance="light"]) {
+    --win: #1e1e20; --grouped: #141416; --card: #232326; --field: #1b1b1d;
+    --label: #f2f2f7; --label2: rgba(235, 235, 245, .72); --label3: rgba(235, 235, 245, .42);
+    --sep: rgba(84, 84, 88, .62); --fill: rgba(118, 118, 128, .30); --fill2: rgba(118, 118, 128, .16);
+    --tint: #6ea2f5; --tint-bg: rgba(110, 162, 245, .17); --on-tint: #0b1730;
+    --red: #ff6961; --red-bg: rgba(255, 69, 58, .17); --orange: #ffb340; --orange-bg: rgba(255, 159, 10, .17);
+    --green: #30d158; --green-bg: rgba(48, 209, 88, .16);
+    --mat: rgba(36, 36, 39, .78); --mat-side: rgba(28, 28, 31, .82);
+    --shadow: 0 0 0 .5px rgba(255, 255, 255, .07); --lift: 0 0 0 .5px rgba(255, 255, 255, .1), 0 10px 30px rgba(0, 0, 0, .5);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] .frame:not([data-appearance="light"]), .frame[data-appearance="dark"] {
+  --win: #1e1e20; --grouped: #141416; --card: #232326; --field: #1b1b1d;
+  --label: #f2f2f7; --label2: rgba(235, 235, 245, .72); --label3: rgba(235, 235, 245, .42);
+  --sep: rgba(84, 84, 88, .62); --fill: rgba(118, 118, 128, .30); --fill2: rgba(118, 118, 128, .16);
+  --tint: #6ea2f5; --tint-bg: rgba(110, 162, 245, .17); --on-tint: #0b1730;
+  --red: #ff6961; --red-bg: rgba(255, 69, 58, .17); --orange: #ffb340; --orange-bg: rgba(255, 159, 10, .17);
+  --green: #30d158; --green-bg: rgba(48, 209, 88, .16);
+  --mat: rgba(36, 36, 39, .78); --mat-side: rgba(28, 28, 31, .82);
+  --shadow: 0 0 0 .5px rgba(255, 255, 255, .07); --lift: 0 0 0 .5px rgba(255, 255, 255, .1), 0 10px 30px rgba(0, 0, 0, .5);
+  color-scheme: dark;
+}
+.frame {
+  position: absolute; top: 0; left: 0; transform-origin: top left; overflow: hidden;
+  border-radius: 12px; border: 1px solid var(--line); box-shadow: 0 12px 40px rgba(0, 0, 0, .14);
+  display: flex; background: var(--grouped); color: var(--label);
+  font-family: var(--font); font-size: 14px; line-height: 1.4; letter-spacing: -0.003em;
+  container-type: inline-size; container-name: frame;
+}
+.frame svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Barra lateral */
+.sidebar { width: 224px; flex: none; display: flex; flex-direction: column; gap: 2px; padding: 12px 10px; background: var(--mat-side); backdrop-filter: blur(30px) saturate(180%); -webkit-backdrop-filter: blur(30px) saturate(180%); border-right: .5px solid var(--sep); overflow-y: auto; }
+.frame[data-sidebar="off"] .sidebar { display: none; }
+@container frame (max-width: 899px) { .sidebar { display: none; } }
+.brand { display: flex; align-items: center; gap: 9px; padding: 4px 8px 12px; }
+.brand .mk { width: 26px; height: 26px; border-radius: 7px; background: var(--brand); color: #fff; display: grid; place-items: center; font-size: 12px; font-weight: 700; }
+.brand b { font-size: 14px; font-weight: 650; letter-spacing: -0.01em; }
+.brand small { display: block; font-size: 11px; color: var(--label2); font-weight: 400; }
+.navh { font-size: 11px; font-weight: 600; color: var(--label3); padding: 12px 10px 4px; letter-spacing: .01em; }
+.nav { font: inherit; font-size: 13.5px; display: flex; align-items: center; gap: 9px; height: 30px; padding: 0 10px; border-radius: 7px; color: var(--label); background: none; border: 0; text-align: left; width: 100%; cursor: pointer; }
+.nav svg { color: var(--tint); }
+.nav:hover { background: var(--fill2); }
+.nav[aria-current="page"] { background: var(--fill); font-weight: 600; }
+.nav .cnt { margin-left: auto; font-size: 12px; color: var(--label2); font-variant-numeric: tabular-nums; }
+.side-foot { margin-top: auto; display: flex; align-items: center; gap: 9px; padding: 10px 8px 2px; border-top: .5px solid var(--sep); font-size: 12.5px; }
+.side-foot .avt { width: 26px; height: 26px; }
+
+/* Ventana: barra de herramientas sobre el contenido */
+.window { flex: 1; min-width: 0; position: relative; display: flex; }
+.content { flex: 1; min-width: 0; overflow: auto; padding-top: 52px; container-type: inline-size; container-name: main; scroll-padding-top: 64px; }
+.toolbar { position: absolute; top: 0; left: 0; right: 0; height: 52px; z-index: 4; display: flex; align-items: center; gap: 10px; padding: 0 14px; background: var(--mat); backdrop-filter: blur(20px) saturate(180%); -webkit-backdrop-filter: blur(20px) saturate(180%); transition: box-shadow .2s; }
+.frame[data-inspector="on"] .toolbar { right: 0; }
+.toolbar.edge { box-shadow: 0 .5px 0 var(--sep), 0 6px 14px -8px rgba(0, 0, 0, .18); }
+.tb-title { min-width: 0; display: flex; flex-direction: column; line-height: 1.15; }
+.tb-title b { font-size: 15px; font-weight: 650; letter-spacing: -0.012em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tb-title small { font-size: 11.5px; color: var(--label2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tb-title.fade { opacity: 0; transition: opacity .18s; }
+.toolbar.edge .tb-title.fade { opacity: 1; }
+.tb-flex { flex: 1; min-width: 8px; }
+.ib { font: inherit; width: 32px; height: 30px; display: grid; place-items: center; border-radius: 7px; border: 0; background: none; color: var(--label2); cursor: pointer; flex: none; }
+.ib:hover { background: var(--fill2); color: var(--label); }
+.ib[aria-pressed="true"] { background: var(--fill); color: var(--tint); }
+.back { font: inherit; font-size: 14px; display: inline-flex; align-items: center; gap: 2px; height: 30px; padding: 0 8px 0 4px; border: 0; border-radius: 7px; background: none; color: var(--tint); cursor: pointer; white-space: nowrap; flex: none; }
+.back:hover { background: var(--tint-bg); }
+.back svg { width: 18px; height: 18px; stroke-width: 2.2; }
+
+/* Controles */
+.btn { font: inherit; font-size: 13px; font-weight: 500; height: 30px; padding: 0 12px; border-radius: 7px; border: 0; background: var(--card); color: var(--label); box-shadow: var(--shadow); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; flex: none; transition: transform .1s ease-out, filter .1s; }
+.btn:hover { filter: brightness(.97); }
+.btn:active, .nav:active, .ib:active, .back:active, .row:active, .seg button:active { transform: scale(.97); }
+.btn.pro { background: var(--tint); color: var(--on-tint); box-shadow: none; font-weight: 600; }
+.btn.plain { background: none; box-shadow: none; color: var(--tint); padding: 0 6px; }
+.btn.sm { height: 26px; font-size: 12.5px; padding: 0 10px; }
+.btn.danger { color: var(--red); }
+.frame :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.search { position: relative; flex: 0 1 280px; min-width: 150px; }
+.search svg { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); color: var(--label3); pointer-events: none; }
+.frame .search input { height: 30px; padding-left: 30px; padding-right: 44px; background: var(--fill); border: 0; border-radius: 8px; }
+.search kbd { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-family: var(--font); font-size: 11px; color: var(--label3); }
+
+.seg { position: relative; display: inline-flex; padding: 2px; border-radius: 9px; background: var(--fill); flex: none; max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+.seg .ind { position: absolute; top: 2px; bottom: 2px; left: 0; width: 0; border-radius: 7px; background: var(--card); box-shadow: 0 0 0 .5px rgba(0, 0, 0, .04), 0 2px 6px rgba(0, 0, 0, .12); will-change: transform, width; }
+.seg button { position: relative; z-index: 1; font: inherit; font-size: 13px; height: 28px; padding: 0 12px; border: 0; border-radius: 7px; background: none; color: var(--label); cursor: pointer; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; }
+.seg button[aria-selected="true"], .seg button[aria-pressed="true"] { font-weight: 600; }
+.seg .k { font-size: 11px; color: var(--label3); font-variant-numeric: tabular-nums; }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--label3); opacity: .55; flex: none; }
+.dot.data { background: var(--tint); opacity: 1; }
+.dot.warn { background: var(--orange); opacity: 1; }
+.dot.err { background: var(--red); opacity: 1; }
+.badge { font-size: 11px; font-weight: 700; min-width: 17px; height: 17px; padding: 0 5px; border-radius: 9px; background: var(--red); color: #fff; display: inline-grid; place-items: center; }
+
+.frame input, .frame select, .frame textarea {
+  font: inherit; font-size: 13.5px; color: var(--label); width: 100%; height: 30px; padding: 4px 8px;
+  background: var(--field); border: .5px solid var(--sep); border-radius: 6px; box-shadow: inset 0 .5px 1px rgba(0, 0, 0, .05);
+  font-variant-numeric: tabular-nums; min-width: 0;
+}
+.frame textarea { height: auto; resize: vertical; padding-block: 6px; line-height: 1.4; }
+.frame input::placeholder, .frame textarea::placeholder { color: var(--label3); }
+.frame input:focus, .frame select:focus, .frame textarea:focus { outline: 3px solid var(--focus); outline-offset: 1px; }
+.frame .warnf { border-color: var(--orange); background: var(--orange-bg); }
+.frame .bad { border-color: var(--red); box-shadow: 0 0 0 1px var(--red); }
+
+/* Tipografia y agrupacion */
+.page { padding: 8px 24px 28px; display: flex; flex-direction: column; gap: 18px; }
+.lt { font-size: 28px; line-height: 1.12; font-weight: 700; letter-spacing: -0.022em; margin: 0; text-wrap: balance; }
+.sub { font-size: 14px; color: var(--label2); margin: 3px 0 0; }
+.sh { font-size: 13px; font-weight: 600; color: var(--label2); margin: 0 4px 7px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.sh .btn { font-weight: 500; }
+.group { background: var(--card); border-radius: 11px; box-shadow: var(--shadow); min-width: 0; }
+.group.pad { padding: 12px 14px; }
+.callout { border-radius: 9px; padding: 8px 11px; font-size: 13px; }
+.callout.orange { background: var(--orange-bg); color: var(--orange); }
+.callout.red { background: var(--red-bg); color: var(--red); }
+.callout.tint { background: var(--tint-bg); color: var(--tint); }
+.mono { font-family: var(--mono); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.avt { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 650; flex: none; background: var(--fill); color: var(--label2); }
+.avt.lg { width: 56px; height: 56px; font-size: 19px; background: var(--brand); color: #fff; }
+.pill { font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+.pill.green { background: var(--green-bg); color: var(--green); }
+.pill.tint { background: var(--tint-bg); color: var(--tint); }
+.pill.gray { background: var(--fill); color: var(--label2); }
+.pill.orange { background: var(--orange-bg); color: var(--orange); }
+
+/* Listas con separadores con sangria */
+.list { list-style: none; margin: 0; padding: 0; }
+.row { display: flex; align-items: center; gap: 12px; padding: 9px 14px; min-height: 52px; position: relative; cursor: pointer; transition: transform .1s ease-out; }
+.row + .row::before { content: ""; position: absolute; top: 0; right: 0; left: 58px; border-top: .5px solid var(--sep); }
+.row:hover { background: var(--fill2); }
+.row:first-child { border-radius: 11px 11px 0 0; } .row:last-child { border-radius: 0 0 11px 11px; } .row:only-child { border-radius: 11px; }
+.row .main { min-width: 0; flex: 1; }
+.row .t { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row .s { font-size: 12.5px; color: var(--label2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chev { color: var(--label3); }
+
+.cols { display: grid; gap: 18px; grid-template-columns: minmax(0, 1fr); }
+@container main (min-width: 980px) { .cols.home { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); } .cols.ficha { grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); } }
+
+/* Tabla de pacientes */
+table.tbl { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 13.5px; }
+table.tbl th { text-align: left; font-size: 12px; font-weight: 600; color: var(--label2); padding: 9px 12px; border-bottom: .5px solid var(--sep); white-space: nowrap; }
+table.tbl th button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+table.tbl td { padding: 0 12px; height: 44px; border-bottom: .5px solid var(--sep); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+table.tbl tbody tr { cursor: pointer; }
+table.tbl tbody tr:hover td { background: var(--fill2); }
+table.tbl tbody tr:last-child td { border-bottom: 0; }
+table.tbl .who { display: flex; align-items: center; gap: 10px; min-width: 0; }
+table.tbl .who span { overflow: hidden; text-overflow: ellipsis; }
+@container main (max-width: 760px) { table.tbl .hide-s { display: none; } }
+
+/* RX y tablas OD/OI */
+table.eye { width: 100%; border-collapse: collapse; table-layout: fixed; }
+table.eye th { font-size: 11.5px; font-weight: 600; color: var(--label2); text-align: left; padding: 0 3px 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+table.eye td { padding: 2px 3px; }
+table.eye th:first-child, table.eye td:first-child { width: 36px; padding-left: 0; }
+.eb { display: inline-grid; place-items: center; width: 30px; height: 22px; border-radius: 6px; font-size: 11px; font-weight: 700; background: var(--tint-bg); color: var(--tint); letter-spacing: .02em; }
+.eb.oi { background: var(--fill); color: var(--label2); }
+.rxmini { display: grid; grid-template-columns: auto repeat(4, minmax(0, 1fr)); gap: 3px 12px; font-size: 13px; align-items: center; }
+.rxmini .h { font-size: 11px; color: var(--label2); font-weight: 600; }
+.rxmini .v { font-family: var(--mono); font-size: 13px; font-variant-numeric: tabular-nums; }
+.kv { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px 14px; font-size: 13px; margin: 0; }
+.kv dt { color: var(--label2); }
+.kv dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+
+/* Consulta */
+.cpage { padding: 12px 18px 18px; }
+.grid { display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr); }
+@container main (min-width: 720px) { .g2 { grid-template-columns: repeat(2, minmax(0, 1fr)); } .span2, .g-rx .fin { grid-column: 1 / -1; } }
+@container main (min-width: 1380px) { .g-rx { grid-template-columns: repeat(3, minmax(0, 1fr)); } .g-rx .fin { grid-column: span 2; } }
+.box { min-width: 0; }
+.box .group { padding: 10px 12px 12px; }
+.box.key .group { box-shadow: 0 0 0 1.5px var(--tint), 0 1px 3px rgba(0, 0, 0, .06); }
+.f { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.f label, .lbl { font-size: 12px; font-weight: 600; color: var(--label2); }
+.req { color: var(--red); }
+.hint { font-size: 11.5px; color: var(--label2); }
+.msg { font-size: 12px; color: var(--red); font-weight: 600; }
+.r2, .r3, .r4 { display: grid; gap: 10px; }
+.r2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.r3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.r4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@container main (max-width: 719px) { .r3, .r4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.stack { display: flex; flex-direction: column; gap: 10px; }
+.docs { display: grid; gap: 6px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@container main (min-width: 960px) { .docs { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.doc { position: relative; display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 10px; border-radius: 8px; background: var(--fill2); cursor: pointer; font-size: 13px; }
+.doc input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.doc small { margin-left: auto; color: var(--label2); font-size: 11.5px; }
+.doc .avt { width: 24px; height: 24px; font-size: 10px; }
+.doc:has(input:checked) { background: var(--tint); color: var(--on-tint); font-weight: 600; }
+.doc:has(input:checked) small { color: var(--on-tint); opacity: .8; }
+.doc:has(input:checked) .avt { background: rgba(255, 255, 255, .25); color: var(--on-tint); }
+.doc:has(input:focus-visible) { outline: 3px solid var(--focus); outline-offset: 2px; }
+.chk { border-radius: 9px; background: var(--fill2); padding: 8px; min-width: 0; }
+.chk.bad { box-shadow: 0 0 0 1.5px var(--red); }
+.chk h4 { margin: 0 0 6px; font-size: 12.5px; display: flex; align-items: center; gap: 7px; }
+.chk ul { list-style: none; margin: 6px 0 0; padding: 0; display: grid; max-height: 150px; overflow: auto; }
+.chk li label { display: flex; gap: 7px; align-items: center; font-size: 13px; padding: 3px 4px; border-radius: 5px; cursor: pointer; }
+.chk li label:hover { background: var(--fill2); }
+.frame .chk input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--tint); box-shadow: none; }
+.chk code { font-size: 11.5px; color: var(--label2); }
+.sugg { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+table.lines { width: 100%; border-collapse: collapse; table-layout: fixed; }
+table.lines th { font-size: 11.5px; font-weight: 600; color: var(--label2); text-align: left; padding: 0 3px 4px; }
+table.lines td { padding: 2px 3px; }
+table.lines td.x { width: 32px; }
+.del { font: inherit; width: 28px; height: 30px; border: 0; border-radius: 6px; background: none; color: var(--label3); cursor: pointer; }
+.del:hover { color: var(--red); background: var(--red-bg); }
+.tot { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; font-weight: 650; font-variant-numeric: tabular-nums; }
+table.mb { width: 100%; border-collapse: collapse; table-layout: fixed; }
+table.mb td { padding: 2px 3px; }
+table.mb td:first-child { font-size: 12.5px; font-weight: 600; color: var(--label2); width: 28%; }
+table.mb th { font-size: 11.5px; color: var(--label2); font-weight: 600; text-align: left; padding: 0 3px 4px; }
+
+/* Inspector */
+.inspector { width: 288px; flex: none; border-left: .5px solid var(--sep); background: var(--win); overflow-y: auto; padding: 64px 14px 16px; display: flex; flex-direction: column; gap: 14px; }
+.frame[data-inspector="off"] .inspector { display: none; }
+.frame[data-inspector="overlay"] .inspector { position: absolute; right: 8px; top: 60px; bottom: 8px; padding-top: 14px; border: 0; border-radius: 12px; box-shadow: var(--lift); z-index: 6; background: var(--mat); backdrop-filter: blur(30px) saturate(180%); -webkit-backdrop-filter: blur(30px) saturate(180%); animation: in-right .32s cubic-bezier(.2, .9, .25, 1); }
+@keyframes in-right { from { transform: translateX(24px); opacity: 0; } }
+.ins-h { display: flex; align-items: center; gap: 10px; }
+.ins-h b { font-size: 15px; letter-spacing: -0.01em; display: block; line-height: 1.2; }
+.ins-h small { color: var(--label2); font-size: 12px; }
+.rxh { display: flex; flex-direction: column; gap: 6px; }
+.rxh .it { background: var(--card); border-radius: 9px; box-shadow: var(--shadow); padding: 8px 10px; font-size: 12px; }
+.rxh .it header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px; color: var(--label2); }
+
+@media (prefers-reduced-motion: reduce) {
+  .frame *, .frame { transition: none !important; animation: none !important; }
+  .btn:active, .nav:active, .ib:active, .back:active, .row:active, .seg button:active { transform: none; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .frame .toolbar, .frame .sidebar, .frame[data-inspector="overlay"] .inspector { backdrop-filter: none; -webkit-backdrop-filter: none; background: var(--win); }
+}
+@media (prefers-contrast: more) {
+  .frame { --sep: rgba(60, 60, 67, .45); --label2: rgba(60, 60, 67, .9); }
+}
+</style>
+
+<svg width="0" height="0" style="position: absolute;" aria-hidden="true">
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="4"/><path d="M2 21c0-3.9 3.1-6 7-6s7 2.1 7 6"/><path d="M16 4.2a4 4 0 0 1 0 7.6M22 21c0-3-1.6-5-4.2-5.7"/></symbol>
+  <symbol id="i-cal" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M3 10h18M8 3v4M16 3v4"/></symbol>
+  <symbol id="i-clip" viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="17" rx="2.5"/><path d="M9 4V3h6v1M9 11h6M9 15h4"/></symbol>
+  <symbol id="i-cart" viewBox="0 0 24 24"><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2 3h3l2.6 12.2h11.7L22 7H6.1"/></symbol>
+  <symbol id="i-box" viewBox="0 0 24 24"><path d="M3 7.5 12 3l9 4.5v9L12 21l-9-4.5z"/><path d="M3 7.5 12 12l9-4.5M12 12v9"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><path d="M5 20V11M11 20V5M17 20v-7M3 20.5h18"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+  <symbol id="i-side" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M9 4v16"/></symbol>
+  <symbol id="i-insp" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M15 4v16"/></symbol>
+  <symbol id="i-print" viewBox="0 0 24 24"><path d="M6 9V3h12v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M6 14h12v7H6z"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3.5 2.5 20.5h19z"/><path d="M12 10v4.5M12 17.5v.01"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+</svg>
+
+<div class="wrap">
+  <div class="bar">
+    <div style="min-width: 0;">
+      <h1>Rediseño Óptica Andina</h1>
+      <p>Prototipo con las Human Interface Guidelines de Apple. Datos de ejemplo; nada se guarda.</p>
+    </div>
+    <span class="ctl">Pantalla
+      <span class="pseg" role="group" aria-label="Simular pantalla">
+        <button type="button" id="sz-laptop" data-w="1366" data-h="657" aria-pressed="true">Laptop 1366×768</button>
+        <button type="button" id="sz-monitor" data-w="1920" data-h="969" aria-pressed="false">Monitor 1920×1080</button>
+        <button type="button" id="sz-fit" data-w="0" data-h="0" aria-pressed="false">Esta ventana</button>
+      </span>
+    </span>
+    <span class="ctl">Apariencia
+      <span class="pseg" role="group" aria-label="Apariencia">
+        <button type="button" data-ap="auto" aria-pressed="true">Auto</button>
+        <button type="button" data-ap="light" aria-pressed="false">Clara</button>
+        <button type="button" data-ap="dark" aria-pressed="false">Oscura</button>
+      </span>
+    </span>
+    <span class="fit" id="fitInfo" aria-live="polite">Midiendo…</span>
+  </div>
+
+  <div class="stage" id="stage">
+    <div class="frame" id="frame" data-appearance="auto" data-sidebar="on" data-inspector="off">
+      <nav class="sidebar" aria-label="Menú">
+        <div class="brand"><span class="mk">OA</span><b>Óptica Andina<small>Matriz Quito</small></b></div>
+        <button type="button" class="nav" data-go="inicio"><svg class="i"><use href="#i-home"/></svg>Inicio<span class="cnt">3</span></button>
+        <div class="navh">Atención clínica</div>
+        <button type="button" class="nav" data-go="pacientes"><svg class="i"><use href="#i-users"/></svg>Pacientes</button>
+        <button type="button" class="nav" data-go="none"><svg class="i"><use href="#i-cal"/></svg>Agenda<span class="cnt">8</span></button>
+        <button type="button" class="nav" data-go="none"><svg class="i"><use href="#i-clip"/></svg>Órdenes de trabajo</button>
+        <div class="navh">Operación diaria</div>
+        <button type="button" class="nav" data-go="none"><svg class="i"><use href="#i-cart"/></svg>Ventas</button>
+        <button type="button" class="nav" data-go="none"><svg class="i"><use href="#i-box"/></svg>Inventario</button>
+        <div class="navh">Gestión</div>
+        <button type="button" class="nav" data-go="none"><svg class="i"><use href="#i-chart"/></svg>Reportes</button>
+        <button type="button" class="nav" data-go="none"><svg class="i"><use href="#i-gear"/></svg>Configuración</button>
+        <div class="side-foot"><span class="avt">AR</span><span>Ana Ruiz<br><small style="color: var(--label2);">Recepción</small></span></div>
+      </nav>
+
+      <div class="window">
+        <header class="toolbar" id="toolbar"></header>
+        <main class="content" id="content">
+
+          <!-- INICIO -->
+          <section class="page" data-screen="inicio" hidden>
+            <div><h2 class="lt">Martes, 11 de noviembre</h2><p class="sub">Buenos días, Ana. Hoy se completaron 3 consultas.</p></div>
+            <div class="cols home">
+              <div class="stack" style="gap: 18px;">
+                <div>
+                  <div class="sh">Recién terminada <span class="pill green">hace 6 min</span></div>
+                  <div class="group pad stack" style="gap: 12px;">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                      <span class="avt" style="background: var(--brand); color: #fff;">MP</span>
+                      <div style="min-width: 0; flex: 1;"><div style="font-size: 16px; font-weight: 650; letter-spacing: -0.01em;">María Fernanda Pérez López</div><div class="s" style="font-size: 12.5px; color: var(--label2);">Consulta #4.512 · Dr. Andrés Mora · 10:48</div></div>
+                    </div>
+                    <div class="rxmini" role="table" aria-label="RX final">
+                      <span></span><span class="h">Esfera</span><span class="h">Cilindro</span><span class="h">Eje</span><span class="h">ADD</span>
+                      <span class="eb">OD</span><span class="v">-1.25</span><span class="v">-0.50</span><span class="v">90</span><span class="v">—</span>
+                      <span class="eb oi">OI</span><span class="v">-1.00</span><span class="v">-0.25</span><span class="v">85</span><span class="v">—</span>
+                    </div>
+                    <dl class="kv">
+                      <dt>Lente</dt><dd>Policarbonato · filtro luz azul + antirreflejo</dd>
+                      <dt>Diagnóstico</dt><dd>H52.1 Miopía, H52.2 Astigmatismo</dd>
+                      <dt>Anotado</dt><dd>Armazón Ray-Ban RB5154 · lunas policarbonato</dd>
+                    </dl>
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                      <button type="button" class="btn pro"><svg class="i"><use href="#i-cart"/></svg>Iniciar venta</button>
+                      <button type="button" class="btn"><svg class="i"><use href="#i-clip"/></svg>Orden de trabajo</button>
+                      <button type="button" class="btn plain" data-go="consulta">Ver consulta</button>
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <div class="sh">Completadas hoy</div>
+                  <ul class="list group">
+                    <li class="row" data-go="ficha"><span class="avt">MP</span><div class="main"><div class="t">María Fernanda Pérez López</div><div class="s">10:48 · Dr. Andrés Mora · OD -1.25 -0.50 x 90</div></div><span class="pill tint">Nueva</span><svg class="i chev"><use href="#i-chev"/></svg></li>
+                    <li class="row" data-go="ficha"><span class="avt">JC</span><div class="main"><div class="t">Jorge Luis Cárdenas</div><div class="s">09:55 · Dra. Lucía Cevallos · OD +1.75 ADD +2.00</div></div><span class="pill green">Orden creada</span><svg class="i chev"><use href="#i-chev"/></svg></li>
+                    <li class="row" data-go="ficha"><span class="avt">SV</span><div class="main"><div class="t">Sofía Valencia Ortiz</div><div class="s">09:10 · Dr. Andrés Mora · OD -3.00 -1.25 x 175</div></div><span class="pill gray">Vendida</span><svg class="i chev"><use href="#i-chev"/></svg></li>
+                  </ul>
+                </div>
+              </div>
+              <div class="stack" style="gap: 18px;">
+                <div>
+                  <div class="sh">Esta semana</div>
+                  <div class="group pad">
+                    <div style="display: flex; align-items: flex-end; gap: 10px; height: 120px;" id="weekChart" role="img" aria-label="Consultas por día: lunes 9, martes 3 hasta ahora; pronóstico miércoles 8, jueves 10, viernes 12, sábado 6"></div>
+                    <div style="display: flex; gap: 14px; margin-top: 10px; font-size: 12px; color: var(--label2);"><span><span class="dot data" style="display: inline-block; margin-right: 5px;"></span>Realizadas</span><span><span class="dot" style="display: inline-block; margin-right: 5px; opacity: 1; background: var(--fill);"></span>Pronóstico</span></div>
+                  </div>
+                </div>
+                <div class="r2" style="gap: 12px;">
+                  <div class="group pad"><div class="hint">Pacientes registrados</div><div style="font-size: 24px; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums;">3.512</div></div>
+                  <div class="group pad"><div class="hint">Citas de hoy</div><div style="font-size: 24px; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums;">8 <small style="font-size: 13px; font-weight: 500; color: var(--label2);">5 pendientes</small></div></div>
+                </div>
+                <div class="callout tint">Ánimo, Ana: cada paciente que sale viendo mejor empezó con una buena atención en recepción.</div>
+              </div>
+            </div>
+          </section>
+
+          <!-- PACIENTES -->
+          <section class="page" data-screen="pacientes" hidden>
+            <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+              <div><h2 class="lt">Pacientes</h2><p class="sub" id="patCount">3.512 registrados</p></div>
+              <div class="seg" role="group" aria-label="Ordenar" id="sortSeg"><span class="ind" aria-hidden="true"></span><button type="button" aria-pressed="true" data-sort="rec">Recientes</button><button type="button" aria-pressed="false" data-sort="az">A–Z</button></div>
+            </div>
+            <div class="group" style="overflow: hidden;">
+              <table class="tbl">
+                <thead><tr><th style="width: 34%;">Paciente</th><th style="width: 16%;">Cédula</th><th class="hide-s" style="width: 16%;">Teléfono</th><th style="width: 16%;">Última consulta</th><th class="hide-s" style="width: 10%;">Consultas</th><th style="width: 36px;"></th></tr></thead>
+                <tbody id="patRows"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- FICHA -->
+          <section class="page" data-screen="ficha" hidden>
+            <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+              <span class="avt lg">MP</span>
+              <div style="min-width: 0; flex: 1;">
+                <h2 class="lt" style="font-size: 24px;">María Fernanda Pérez López</h2>
+                <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px;"><span class="pill gray">C.I. 1700000001</span><span class="pill gray">42 años</span><span class="pill gray">099 000 0001</span><span class="pill gray">PAC-03 418</span></div>
+              </div>
+            </div>
+            <div class="callout orange" style="display: flex; gap: 8px; align-items: center;"><svg class="i"><use href="#i-alert"/></svg><span><b>Antecedentes:</b> diabetes tipo 2; usa lentes desde 2015.</span></div>
+            <div class="seg" role="tablist" aria-label="Ficha" id="fichaSeg" style="align-self: flex-start;"><span class="ind" aria-hidden="true"></span><button type="button" role="tab" aria-selected="true" data-f="hist">Historial</button><button type="button" role="tab" aria-selected="false" data-f="cert">Certificados</button><button type="button" role="tab" aria-selected="false" data-f="datos">Datos personales</button></div>
+            <div data-fp="hist" class="cols ficha">
+              <div>
+                <div class="sh">2026</div>
+                <ul class="list group">
+                  <li class="row" data-go="consulta"><span class="eb">#4512</span><div class="main"><div class="t">11/11/2026 · Dr. Andrés Mora</div><div class="s mono">OD -1.25 -0.50 x 90 · OI -1.00 -0.25 x 85</div></div><span class="pill orange">Borrador</span><svg class="i chev"><use href="#i-chev"/></svg></li>
+                </ul>
+                <div class="sh" style="margin-top: 16px;">2025</div>
+                <ul class="list group">
+                  <li class="row" data-go="consulta"><span class="eb oi">#3977</span><div class="main"><div class="t">02/09/2025 · Dra. Lucía Cevallos</div><div class="s mono">OD -1.00 -0.50 x 90 · OI -0.75</div></div><span class="pill green">Completada</span><svg class="i chev"><use href="#i-chev"/></svg></li>
+                  <li class="row" data-go="consulta"><span class="eb oi">#3410</span><div class="main"><div class="t">14/01/2025 · Dr. Andrés Mora</div><div class="s">Control · sin cambio de receta</div></div><span class="pill green">Completada</span><svg class="i chev"><use href="#i-chev"/></svg></li>
+                </ul>
+              </div>
+              <div>
+                <div class="sh">Observaciones del sistema anterior</div>
+                <div class="group pad" style="font-size: 13px; color: var(--label2);">2019: Vendido armazón metálico + lunas CR-39. Reclamo por rayadura a los 3 meses, se cambió en garantía.</div>
+              </div>
+            </div>
+            <div data-fp="cert" hidden>
+              <ul class="list group">
+                <li class="row"><span class="eb oi">PDF</span><div class="main"><div class="t">Certificado visual · 02/09/2025</div><div class="s">Consulta #3977 · Dra. Lucía Cevallos</div></div><button type="button" class="btn sm">Descargar</button></li>
+              </ul>
+            </div>
+            <div data-fp="datos" hidden>
+              <div class="group pad" style="max-width: 640px;">
+                <dl class="kv" style="gap: 10px 20px;">
+                  <dt>Nombres</dt><dd>María Fernanda</dd><dt>Apellidos</dt><dd>Pérez López</dd>
+                  <dt>Nacimiento</dt><dd>14/03/1984</dd><dt>Ocupación</dt><dd>Contadora</dd>
+                  <dt>Dirección</dt><dd>Av. Amazonas N24 y Colón, Quito</dd><dt>Recomienda</dt><dd>Hermana (paciente)</dd>
+                  <dt>Contífico</dt><dd><span class="pill green">Sincronizado</span></dd>
+                </dl>
+              </div>
+            </div>
+          </section>
+
+          <!-- CONSULTA -->
+          <section class="cpage" data-screen="consulta" hidden>
+            <div class="cp" data-cp="motivo" hidden>
+              <div class="grid g2">
+                <div class="box span2"><div class="sh">Médico que atiende <span class="hint">Se trae su registro SENESCYT al elegirlo</span></div>
+                  <div class="group"><div class="docs" role="radiogroup" aria-label="Médico">
+                    <label class="doc"><input type="radio" name="doc" checked><span class="avt">AM</span>Dr. Andrés Mora<small>Optometrista</small></label>
+                    <label class="doc"><input type="radio" name="doc"><span class="avt">LC</span>Dra. Lucía Cevallos<small>Optometrista</small></label>
+                    <label class="doc"><input type="radio" name="doc"><span class="avt">JV</span>Dr. Jorge Vaca<small>Oftalmólogo</small></label>
+                    <label class="doc"><input type="radio" name="doc"><span class="avt">PS</span>Dra. Paola Sánchez<small>Optometrista</small></label>
+                  </div></div>
+                </div>
+                <div class="box"><div class="sh">Datos de la consulta</div><div class="group"><div class="r2">
+                  <div class="f"><label for="fecha">Fecha <span class="req">*</span></label><input id="fecha" value="11/11/2026"></div>
+                  <div class="f"><label for="sen">Registro SENESCYT</label><input id="sen" value="1027-2019-2045678"></div>
+                  <div class="f"><label for="ult">Último control</label><input id="ult" value="02/09/2025"></div>
+                  <div class="f"><label for="pla">Plantilla de impresión</label><select id="pla"><option>Certificado Óptica Andina</option><option>Receta simple</option></select></div>
+                </div></div></div>
+                <div class="box"><div class="sh">Motivo</div><div class="group stack">
+                  <div class="f"><label for="mot">Motivo de consulta</label><textarea id="mot" rows="3">Visión borrosa de lejos al conducir de noche. Control anual; cansancio visual en el computador.</textarea></div>
+                </div></div>
+              </div>
+            </div>
+            <div class="cp" data-cp="rx">
+              <div class="grid g2 g-rx">
+                <div class="box"><div class="sh">Lecturas iniciales</div><div class="group" id="b-top"></div></div>
+                <div class="box"><div class="sh">RX en uso <span style="display: flex; gap: 4px;"><button type="button" class="btn plain sm">Historial</button><button type="button" class="btn plain sm"><svg class="i"><use href="#i-plus"/></svg>RX</button></span></div><div class="group" id="b-uso"></div></div>
+                <div class="box"><div class="sh">Subjetivo</div><div class="group" id="b-subj"></div></div>
+                <div class="box"><div class="sh">Visión de cerca</div><div class="group" id="b-vc"></div></div>
+                <div class="box key fin"><div class="sh">RX final <span class="hint">Lo que se imprime en el certificado</span></div><div class="group"><div style="display: grid; grid-template-columns: minmax(0, 2.6fr) minmax(0, 1fr); gap: 12px; align-items: start;"><div id="b-fin"></div><div class="f"><label for="rxo">Observaciones</label><textarea id="rxo" rows="3" placeholder="Aplican a ambos ojos. No se imprimen."></textarea></div></div></div></div>
+              </div>
+            </div>
+            <div class="cp" data-cp="dx" hidden>
+              <div class="grid g2">
+                <div class="box"><div class="sh">Diagnóstico <span class="btn plain sm" role="button" tabindex="0">+ Manual</span></div><div class="group stack">
+                  <div class="sugg"><span class="hint">Sugeridos por las medidas:</span><button type="button" class="btn sm" data-sug="H52.1">H52.1 Miopía</button><button type="button" class="btn sm" data-sug="H52.2">H52.2 Astigmatismo</button></div>
+                  <div class="r2" id="dxEyes"></div>
+                  <span class="msg" id="dxMsg">Elija al menos un diagnóstico para completar la consulta.</span>
+                </div></div>
+                <div class="box"><div class="sh">Observaciones clínicas</div><div class="group stack">
+                  <div class="f"><label for="obs">Observaciones</label><textarea id="obs" rows="4" placeholder="Comentarios del caso, comparación con recetas previas."></textarea><span class="hint">No se imprimen en el certificado.</span></div>
+                  <div class="r2">
+                    <div class="f"><label for="kod">Queratometría OD</label><input id="kod" placeholder="K1 / K2 @ eje"></div>
+                    <div class="f"><label for="koi">Queratometría OI</label><input id="koi" placeholder="K1 / K2 @ eje"></div>
+                    <div class="f"><label for="eod">Examen externo OD</label><input id="eod"></div>
+                    <div class="f"><label for="eoi">Examen externo OI</label><input id="eoi"></div>
+                  </div>
+                </div></div>
+              </div>
+            </div>
+            <div class="cp" data-cp="lunas" hidden>
+              <div class="grid g2">
+                <div class="box"><div class="sh">Lunas recomendadas</div><div class="group stack">
+                  <div class="r3">
+                    <div class="f"><label for="mat">Material</label><select id="mat"><option>Policarbonato</option><option>CR-39</option><option>Alto índice 1.67</option></select></div>
+                    <div class="f"><label for="esp">Espesor</label><select id="esp"><option>Normal</option><option>Delgado</option></select></div>
+                    <div class="f"><label for="pro">Protección</label><select id="pro"><option>Filtro azul + antirreflejo</option><option>Antirreflejo</option><option>Fotocromático</option></select></div>
+                  </div>
+                  <div class="f"><label for="lob">Observación</label><textarea id="lob" rows="2">Uso permanente; preferir montura completa.</textarea></div>
+                </div></div>
+                <div class="box"><div class="sh">Recomendaciones médicas <button type="button" class="btn plain sm" id="addRec"><svg class="i"><use href="#i-plus"/></svg>Agregar</button></div><div class="group">
+                  <table class="lines"><thead><tr><th style="width: 38%;">Catálogo</th><th>Texto que se imprime</th><th style="width: 32px;"></th></tr></thead><tbody id="recRows"></tbody></table>
+                </div></div>
+              </div>
+            </div>
+            <div class="cp" data-cp="venta" hidden>
+              <div class="box"><div class="sh">Productos anotados <span class="hint">Informativo: no afecta caja ni inventario</span></div><div class="group">
+                <table class="lines"><thead><tr><th style="width: 15%;">Tipo</th><th>Descripción</th><th style="width: 11%;">Precio</th><th style="width: 9%;">% Desc.</th><th style="width: 11%;">Total</th><th style="width: 22%;">Nota</th><th style="width: 32px;"></th></tr></thead><tbody id="saleRows"></tbody></table>
+                <div class="tot"><button type="button" class="btn plain sm" id="addSale"><svg class="i"><use href="#i-plus"/></svg>Agregar producto</button><span id="saleTotal">Total $0.00</span></div>
+              </div></div>
+            </div>
+            <div class="cp" data-cp="mod" hidden>
+              <div class="seg" role="group" aria-label="Módulo" id="modSeg" style="margin-bottom: 12px;"><span class="ind" aria-hidden="true"></span><button type="button" aria-pressed="true" data-m="tv">Terapia visual</button><button type="button" aria-pressed="false" data-m="lc">Lentes de contacto</button><button type="button" aria-pressed="false" data-m="of">Oftalmoscopia</button><button type="button" aria-pressed="false" data-m="tr">Tratamiento</button></div>
+              <div data-mp="tv" class="grid g2" id="mp-tv"></div>
+              <div data-mp="lc" class="stack" hidden><div class="group pad"><div class="r4" id="lcFields"></div></div><div class="grid g2"><div class="group pad" id="lcTest"></div><div class="group pad" id="lcFinal"></div></div></div>
+              <div data-mp="of" class="group pad" hidden><div class="r3" style="margin-bottom: 10px;"><div class="f"><label for="fod">Fijación OD</label><input id="fod"></div><div class="f"><label for="foi">Fijación OI</label><input id="foi"></div><div class="f"><label for="vm">Valoración motora</label><input id="vm"></div></div><div id="ofTable"></div></div>
+              <div data-mp="tr" class="group pad" hidden><div class="r2"><div class="f"><label for="plan">Plan de tratamiento</label><textarea id="plan" rows="4"></textarea></div><div class="stack"><div class="f"><label for="hrs">Horas de uso</label><input id="hrs"></div><div class="f"><label for="lim">Método de limpieza</label><input id="lim"></div><div class="f"><label for="mod">Modalidad de uso</label><input id="mod"></div></div></div></div>
+            </div>
+          </section>
+        </main>
+      </div>
+
+      <aside class="inspector" id="inspector" aria-label="Paciente">
+        <div class="ins-h"><span class="avt lg" style="width: 44px; height: 44px; font-size: 15px;">MP</span><div style="min-width: 0;"><b>María Fernanda Pérez López</b><small>C.I. 1700000001 · 42 años</small></div></div>
+        <div class="callout orange" style="font-size: 12.5px;"><b>Antecedentes:</b> diabetes tipo 2; usa lentes desde 2015.</div>
+        <dl class="kv" style="font-size: 12.5px;">
+          <dt>Teléfono</dt><dd>099 000 0001</dd><dt>Ocupación</dt><dd>Contadora</dd><dt>Dirección</dt><dd>Av. Amazonas N24 y Colón</dd><dt>Recomienda</dt><dd>Hermana (paciente)</dd>
+        </dl>
+        <div>
+          <div class="sh" style="margin-left: 0;">Recetas anteriores</div>
+          <div class="rxh">
+            <div class="it"><header><span>02/09/2025 · #3977</span><button type="button" class="btn plain sm">Usar</button></header><div class="mono">OD -1.00 -0.50 x 90<br>OI -0.75</div></div>
+            <div class="it"><header><span>14/01/2025 · #3410</span><button type="button" class="btn plain sm">Usar</button></header><div class="mono">OD -0.75 -0.50 x 90<br>OI -0.50</div></div>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <div class="notes">
+    <div class="note">
+      <h2>Qué principios de las HIG aplica</h2>
+      <ul>
+        <li><b>Jerarquía:</b> un solo color de acento para lo que se puede pulsar. Títulos grandes que pasan a la barra al desplazarse.</li>
+        <li><b>Materiales:</b> la barra lateral y la de herramientas son translúcidas y el contenido pasa por debajo. Sin líneas duras: aparece una sombra suave al desplazar.</li>
+        <li><b>Orientación:</b> cada pantalla dice dónde está, con un botón “‹” para volver al lugar anterior.</li>
+        <li><b>Agrupación:</b> cada bloque lleva su título fuera de la tarjeta, como en Ajustes. Los datos OD y OI van juntos.</li>
+        <li><b>Respuesta inmediata:</b> los botones reaccionan al presionar. El control de pestañas se desliza con un resorte que se puede interrumpir.</li>
+      </ul>
+    </div>
+    <div class="note">
+      <h2>Qué gana cada pantalla</h2>
+      <ul>
+        <li><b>Inicio:</b> la consulta recién terminada arriba, con la venta y la orden a un clic. Ya no hay bloque oscuro de “Acciones rápidas”.</li>
+        <li><b>Pacientes:</b> búsqueda siempre visible en la barra (<kbd>Ctrl</kbd>+<kbd>K</kbd>) y filas de 44 px en vez de tarjetas.</li>
+        <li><b>Ficha:</b> historial agrupado por año, con la receta en una línea. Antecedentes en un aviso ámbar visible.</li>
+        <li><b>Consulta:</b> las seis secciones en un control segmentado dentro de la barra. El paciente y sus recetas anteriores están en un inspector a la derecha, fijo en monitores grandes y flotante en laptop.</li>
+      </ul>
+    </div>
+    <div class="note">
+      <h2>Accesibilidad y adaptación</h2>
+      <ul>
+        <li>Modo oscuro completo. Se activa solo según el sistema o se puede elegir.</li>
+        <li>Respeta “reducir movimiento”, “reducir transparencia” y “aumentar contraste” del sistema operativo.</li>
+        <li>Usa la tipografía del equipo (Segoe UI en Windows, SF Pro en Mac). Sigue el borde ámbar de foco que ya usa la óptica.</li>
+        <li>En pantallas angostas la barra lateral se oculta y las columnas se apilan.</li>
+      </ul>
+    </div>
+    <div class="note">
+      <h2>Cómo llevarlo al sistema</h2>
+      <ol>
+        <li><b>Base visual:</b> colores, tipografía y modo oscuro como variables en <code>app.css</code>. Los componentes <code>Button</code>, <code>Input</code> y <code>Toast</code> se ajustan.</li>
+        <li><b>Marco:</b> barra lateral y barra de herramientas nuevas en <code>AppShell</code> y <code>Sidebar</code>, con búsqueda global.</li>
+        <li><b>Consulta:</b> control segmentado, inspector y campos compactos (el plan ya aprobado, con este estilo).</li>
+        <li><b>Inicio, Pacientes y Ficha:</b> listas agrupadas y títulos grandes.</li>
+        <li><b>Resto de módulos:</b> se ajustan solos con la base visual; luego se revisan uno por uno.</li>
+      </ol>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var frame = document.getElementById('frame');
+  var content = document.getElementById('content');
+  var toolbar = document.getElementById('toolbar');
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function icon(id) { return '<svg class="i" aria-hidden="true"><use href="#i-' + id + '"/></svg>'; }
+
+  /* Resorte criticamente amortiguado: arranca del valor actual, se puede redirigir a mitad. */
+  function springIndicator(seg) {
+    var ind = seg.querySelector('.ind'); if (!ind) return function () {};
+    var s = { x: 0, w: 0, vx: 0, vw: 0, tx: 0, tw: 0, raf: 0, init: false };
+    var response = 0.32, k = Math.pow(2 * Math.PI / response, 2), c = 4 * Math.PI / response;
+    function apply() { ind.style.transform = 'translateX(' + s.x + 'px)'; ind.style.width = s.w + 'px'; }
+    function step(prev) {
+      return function (now) {
+        var dt = Math.min(0.032, (now - prev) / 1000); prev = now;
+        var ax = -k * (s.x - s.tx) - c * s.vx, aw = -k * (s.w - s.tw) - c * s.vw;
+        s.vx += ax * dt; s.vw += aw * dt; s.x += s.vx * dt; s.w += s.vw * dt;
+        if (Math.abs(s.x - s.tx) < 0.3 && Math.abs(s.vx) < 2 && Math.abs(s.w - s.tw) < 0.3) { s.x = s.tx; s.w = s.tw; s.vx = s.vw = 0; apply(); s.raf = 0; return; }
+        apply(); s.raf = requestAnimationFrame(step(now));
+      };
+    }
+    return function () {
+      var on = seg.querySelector('[aria-selected="true"],[aria-pressed="true"]'); if (!on || !on.offsetWidth) return;
+      s.tx = on.offsetLeft; s.tw = on.offsetWidth;
+      if (!s.init || reduce) { s.x = s.tx; s.w = s.tw; s.init = true; apply(); return; }
+      if (!s.raf) s.raf = requestAnimationFrame(step(performance.now()));
+    };
+  }
+
+  /* ---------- Navegacion entre pantallas ---------- */
+  var SCREENS = ['inicio', 'pacientes', 'ficha', 'consulta'];
+  var screen = 'inicio', history = [];
+  var TITLES = { inicio: 'Inicio', pacientes: 'Pacientes', ficha: 'María Fernanda Pérez López', consulta: 'Consulta #4.512' };
+
+  function go(name, opts) {
+    if (SCREENS.indexOf(name) < 0) return;
+    if (!(opts && opts.back) && screen !== name) history.push(screen);
+    screen = name;
+    document.querySelectorAll('[data-screen]').forEach(function (s) { s.hidden = s.dataset.screen !== name; });
+    document.querySelectorAll('.nav').forEach(function (n) {
+      var cur = n.dataset.go === name || (n.dataset.go === 'pacientes' && (name === 'ficha' || name === 'consulta'));
+      if (cur) n.setAttribute('aria-current', 'page'); else n.removeAttribute('aria-current');
+    });
+    var big = window.__size && window.__size.w >= 1600;
+    frame.dataset.sidebar = name === 'consulta' && !big ? 'off' : 'on';
+    frame.dataset.inspector = name === 'consulta' ? (big || (size.w === 0 && content.clientWidth > 1300) ? 'on' : 'off') : 'off';
+    renderToolbar();
+    content.scrollTop = 0; onScroll();
+    if (location.hash !== '#' + name) { try { location.hash = name; } catch (e) {} }
+    requestAnimationFrame(function () { syncSegs(); measure(); });
+  }
+
+  function renderToolbar() {
+    var h = '<button type="button" class="ib" id="tSide" aria-label="Mostrar u ocultar la barra lateral" aria-pressed="' + (frame.dataset.sidebar === 'on') + '">' + icon('side') + '</button>';
+    if (screen === 'inicio') {
+      h += '<div class="tb-title fade"><b>Inicio</b><small>Martes, 11 de noviembre</small></div><span class="tb-flex"></span>' +
+        '<span class="hint" style="white-space: nowrap;">Actualizado hace 1 min</span><button type="button" class="ib" aria-label="Actualizar consultas">' + icon('refresh') + '</button>' +
+        searchField() + '<button type="button" class="btn pro">' + icon('plus') + 'Nuevo paciente</button>';
+    } else if (screen === 'pacientes') {
+      h += '<div class="tb-title fade"><b>Pacientes</b><small>3.512 registrados</small></div><span class="tb-flex"></span>' + searchField() +
+        '<button type="button" class="btn pro">' + icon('plus') + 'Nuevo paciente</button>';
+    } else if (screen === 'ficha') {
+      h += backBtn() + '<div class="tb-title"><b>María Fernanda Pérez López</b><small>Ficha del paciente</small></div><span class="tb-flex"></span>' +
+        '<button type="button" class="btn">Editar</button><button type="button" class="btn pro" data-go="consulta">' + icon('plus') + 'Nueva consulta</button>';
+    } else {
+      h += backBtn() + '<div class="tb-title" style="flex: 0 1 auto;"><b>Consulta #4.512</b><small><span style="color: var(--green);">✓</span> Guardado 10:42 · borrador</small></div><span class="tb-flex"></span>' +
+        '<div class="seg" role="tablist" aria-label="Secciones de la consulta" id="cSeg"><span class="ind" aria-hidden="true"></span>' +
+        CTABS.map(function (t, i) {
+          return '<button type="button" role="tab" id="ct-' + t.id + '" aria-selected="' + (t.id === ctab) + '" tabindex="' + (t.id === ctab ? 0 : -1) + '" data-ct="' + t.id + '" title="Alt+' + (i + 1) + '">' +
+            '<span class="dot ' + (t.state || '') + '" aria-hidden="true"></span>' + t.label + (t.count ? '<span class="badge" aria-label="' + t.count + ' error">' + t.count + '</span>' : '') + '</button>';
+        }).join('') + '</div><span class="tb-flex"></span>' +
+        '<button type="button" class="ib" aria-label="Imprimir">' + icon('print') + '</button>' +
+        '<button type="button" class="ib" id="tInsp" aria-label="Datos del paciente" aria-pressed="' + (frame.dataset.inspector !== 'off') + '">' + icon('insp') + '</button>' +
+        '<button type="button" class="btn pro" id="completeBtn">' + icon('check') + 'Completar</button>';
+    }
+    toolbar.innerHTML = h;
+    segSprings.c = document.getElementById('cSeg') ? springIndicator(document.getElementById('cSeg')) : null;
+  }
+  function backBtn() {
+    var prev = history[history.length - 1] || (screen === 'consulta' ? 'ficha' : 'pacientes');
+    var label = prev === 'ficha' ? 'María Fernanda' : TITLES[prev];
+    return '<button type="button" class="back" id="tBack">' + icon('back') + label + '</button>';
+  }
+  function searchField() {
+    return '<label class="search">' + icon('search') + '<input id="q" type="search" placeholder="Buscar paciente o cédula" aria-label="Buscar paciente"><kbd>Ctrl K</kbd></label>';
+  }
+
+  toolbar.addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b) return;
+    if (b.id === 'tSide') { frame.dataset.sidebar = frame.dataset.sidebar === 'on' ? 'off' : 'on'; b.setAttribute('aria-pressed', String(frame.dataset.sidebar === 'on')); syncSegs(); measure(); }
+    else if (b.id === 'tBack') { go(history.pop() || (screen === 'consulta' ? 'ficha' : 'pacientes'), { back: true }); }
+    else if (b.id === 'tInsp') { toggleInspector(); }
+    else if (b.id === 'completeBtn') { complete(); }
+    else if (b.dataset.ct) { showCt(b.dataset.ct, false); }
+    else if (b.dataset.go) { go(b.dataset.go); }
+  });
+  toolbar.addEventListener('input', function (e) {
+    if (e.target.id !== 'q') return;
+    if (screen !== 'pacientes') { var v = e.target.value; go('pacientes'); var q = document.getElementById('q'); q.value = v; q.focus(); }
+    filterPatients(document.getElementById('q').value);
+  });
+  document.addEventListener('click', function (e) {
+    var t = e.target.closest('[data-go]');
+    if (t && frame.contains(t) && !toolbar.contains(t) && t.dataset.go !== 'none') go(t.dataset.go);
+  });
+  document.addEventListener('keydown', function (e) {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+      e.preventDefault(); if (screen === 'ficha' || screen === 'consulta') go('pacientes'); var q = document.getElementById('q'); if (q) q.focus();
+    } else if (e.altKey && /^[1-6]$/.test(e.key) && screen === 'consulta') { e.preventDefault(); showCt(CTABS[Number(e.key) - 1].id, true); }
+    else if (e.key === 'Escape' && frame.dataset.inspector === 'overlay') toggleInspector();
+  });
+
+  function onScroll() { toolbar.classList.toggle('edge', content.scrollTop > 6); }
+  content.addEventListener('scroll', onScroll, { passive: true });
+
+  function toggleInspector() {
+    var docked = window.__size && window.__size.w >= 1600 || (size.w === 0 && content.clientWidth > 1300);
+    frame.dataset.inspector = frame.dataset.inspector === 'off' ? (docked ? 'on' : 'overlay') : 'off';
+    var b = document.getElementById('tInsp'); if (b) b.setAttribute('aria-pressed', String(frame.dataset.inspector !== 'off'));
+    requestAnimationFrame(function () { syncSegs(); measure(); });
+  }
+
+  /* ---------- Consulta ---------- */
+  var CTABS = [
+    { id: 'motivo', label: 'Motivo', state: 'data' },
+    { id: 'rx', label: 'Refracción', state: 'warn' },
+    { id: 'dx', label: 'Diagnóstico', state: 'err', count: 1 },
+    { id: 'lunas', label: 'Lunas', state: 'data' },
+    { id: 'venta', label: 'Venta', state: 'data' },
+    { id: 'mod', label: 'Módulos', state: '' }
+  ];
+  var ctab = 'rx';
+  var segSprings = {};
+  function showCt(id, focus) {
+    ctab = id;
+    document.querySelectorAll('[data-cp]').forEach(function (p) { p.hidden = p.dataset.cp !== id; });
+    document.querySelectorAll('#cSeg [data-ct]').forEach(function (b) { var on = b.dataset.ct === id; b.setAttribute('aria-selected', String(on)); b.tabIndex = on ? 0 : -1; });
+    content.scrollTop = 0;
+    if (segSprings.c) segSprings.c();
+    if (focus) { var f = document.querySelector('[data-cp="' + id + '"] input:not([type="radio"]):not([type="checkbox"]), [data-cp="' + id + '"] select, [data-cp="' + id + '"] textarea'); if (f) f.focus(); }
+    measure();
+  }
+  function refreshTab(id, patch) {
+    var t = CTABS.find(function (x) { return x.id === id; }); Object.assign(t, patch);
+    var b = document.getElementById('ct-' + id); if (!b) return;
+    b.innerHTML = '<span class="dot ' + (t.state || '') + '" aria-hidden="true"></span>' + t.label + (t.count ? '<span class="badge">' + t.count + '</span>' : '');
+    if (segSprings.c) segSprings.c();
+  }
+  function complete() {
+    if (CTABS[2].count) { showCt('dx'); var first = document.querySelector('#dxEyes input[type="checkbox"]'); if (first) first.focus(); }
+  }
+
+  function eyeTable(title, cols, vals, opts) {
+    opts = opts || {};
+    var h = '<table class="eye"><thead><tr><th></th>' + cols.map(function (c) { return '<th title="' + c + '">' + c + '</th>'; }).join('') + '</tr></thead><tbody>';
+    ['OD', 'OI'].forEach(function (eye, r) {
+      h += '<tr><td><span class="eb ' + (r ? 'oi' : '') + '">' + eye + '</span></td>';
+      cols.forEach(function (c, j) {
+        var v = (vals[r] || [])[j] || '', w = opts.warn && opts.warn[r + ':' + j];
+        h += '<td><input aria-label="' + title + ' ' + c + ' ' + eye + '" value="' + v + '"' + (w ? ' class="warnf" title="' + w + '"' : '') + '></td>';
+      });
+      h += '</tr>';
+    });
+    return h + '</tbody></table>' + (opts.after || '');
+  }
+  document.getElementById('b-top').innerHTML = eyeTable('Lecturas', ['Lectura comp.', 'Queratometría', 'AV.SC lejos', 'Retinoscopia', 'AV.CC'], [['-1.25 -0.50 x 90', '43.25/44.00', '20/60', '-1.00 -0.50 x 90', '20/20'], ['-1.00 -0.25 x 85', '43.50/44.00', '20/50', '-0.75', '20/20']]);
+  document.getElementById('b-uso').innerHTML = eyeTable('RX en uso', ['Esfera', 'Cilindro', 'Eje', 'AV.CC', 'ADD'], [['-1.00', '-0.50', '90', '20/25', ''], ['-0.75', '', '', '20/25', '']], { after: '<input aria-label="Observación RX en uso" placeholder="Observación (montura, tiempo de uso…)" style="margin-top: 6px;">' });
+  document.getElementById('b-subj').innerHTML = eyeTable('Subjetivo', ['Esfera', 'Cilindro', 'Eje', 'AV lejos'], [['-1.25', '-0.50', '90', '20/20'], ['-1.00', '-0.25', '85', '20/20']]);
+  document.getElementById('b-vc').innerHTML = eyeTable('Visión de cerca', ['Esfera', 'Cilindro', 'Eje', 'AV.CC', 'DP'], [[], []]);
+  document.getElementById('b-fin').innerHTML = eyeTable('RX final', ['Esfera', 'Cilindro', 'Eje', 'Prisma', 'Base', 'AV', 'ADD', 'DP'], [['-1.25', '-0.50', '90', '', '', '20/20', '', '32'], ['-1.00', '-0.25', '', '', '', '20/20', '', '31']], { warn: { '1:2': 'Cilindro sin eje: el servidor no deja completar así' } });
+
+  var DX = ['H52.1 Miopía', 'H52.2 Astigmatismo', 'H52.0 Hipermetropía', 'H52.4 Presbicia', 'H04.1 Ojo seco', 'H10.1 Conjuntivitis alérgica', 'H25.0 Catarata senil incipiente', 'H40.0 Sospecha de glaucoma'];
+  var dxEyes = document.getElementById('dxEyes');
+  dxEyes.innerHTML = ['OD', 'OI'].map(function (eye, i) {
+    return '<div class="chk bad"><h4><span class="eb ' + (i ? 'oi' : '') + '">' + eye + '</span>' + (i ? 'Ojo izquierdo' : 'Ojo derecho') + '</h4><input aria-label="Filtrar diagnósticos ' + eye + '" placeholder="Filtrar…" style="height: 28px;"><ul>' +
+      DX.map(function (d) { var p = d.split(' '); return '<li><label><input type="checkbox" data-code="' + p[0] + '"><code>' + p[0] + '</code>' + p.slice(1).join(' ') + '</label></li>'; }).join('') + '</ul></div>';
+  }).join('');
+  dxEyes.addEventListener('input', function (e) {
+    if (e.target.type === 'checkbox') return updateDx();
+    var q = e.target.value.toLowerCase();
+    e.target.parentNode.querySelectorAll('li').forEach(function (li) { li.hidden = !!q && li.textContent.toLowerCase().indexOf(q) < 0; });
+  });
+  document.querySelector('.sugg').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-sug]'); if (!b) return;
+    dxEyes.querySelectorAll('input[data-code="' + b.dataset.sug + '"]').forEach(function (c) { c.checked = true; }); updateDx();
+  });
+  function updateDx() {
+    var any = !!dxEyes.querySelector('input[type="checkbox"]:checked');
+    dxEyes.querySelectorAll('.chk').forEach(function (c) { c.classList.toggle('bad', !any); });
+    document.getElementById('dxMsg').hidden = any;
+    refreshTab('dx', { state: any ? 'data' : 'err', count: any ? 0 : 1 });
+  }
+
+  var REC = ['Uso permanente de la corrección', 'Pausas visuales 20-20-20 frente al computador', 'Control en 12 meses', 'Lágrimas artificiales 3 veces al día'];
+  function recRow(cat, txt) {
+    return '<tr><td><select aria-label="Catálogo"><option value="">Elegir…</option>' + REC.map(function (r) { return '<option' + (r === cat ? ' selected' : '') + '>' + r + '</option>'; }).join('') + '</select></td><td><input aria-label="Texto" value="' + (txt || '') + '"></td><td class="x"><button type="button" class="del" aria-label="Quitar">✕</button></td></tr>';
+  }
+  var recRows = document.getElementById('recRows');
+  recRows.innerHTML = recRow(REC[0], 'Uso permanente de la corrección.') + recRow(REC[1], 'Pausas visuales cada 20 minutos frente al computador.') + recRow(REC[2], 'Control en 12 meses.');
+  recRows.addEventListener('change', function (e) { if (e.target.tagName === 'SELECT') e.target.closest('tr').querySelector('input').value = e.target.value ? e.target.value + '.' : ''; });
+  document.getElementById('addRec').onclick = function () { recRows.insertAdjacentHTML('beforeend', recRow('', '')); };
+
+  var TYPES = ['Armazón', 'Lunas', 'Lentes de contacto', 'Otro'];
+  function saleRow(t, d, p, pct, n) {
+    return '<tr><td><select aria-label="Tipo">' + TYPES.map(function (x) { return '<option' + (x === t ? ' selected' : '') + '>' + x + '</option>'; }).join('') + '</select></td><td><input aria-label="Descripción" value="' + (d || '') + '"></td><td><input aria-label="Precio" inputmode="decimal" data-p value="' + (p || '') + '"></td><td><input aria-label="% descuento" inputmode="decimal" data-d value="' + (pct || '') + '"></td><td><input aria-label="Total" readonly data-t></td><td><input aria-label="Nota" value="' + (n || '') + '"></td><td class="x"><button type="button" class="del" aria-label="Quitar">✕</button></td></tr>';
+  }
+  var saleRows = document.getElementById('saleRows');
+  saleRows.innerHTML = saleRow('Armazón', 'Ray-Ban RB5154 Clubmaster 51', '145.00', '10', 'Color carey') + saleRow('Lunas', 'Policarbonato filtro azul + AR', '120.00', '', '');
+  function recalc() {
+    var sum = 0;
+    saleRows.querySelectorAll('tr').forEach(function (tr) {
+      var p = parseFloat(tr.querySelector('[data-p]').value) || 0, d = parseFloat(tr.querySelector('[data-d]').value) || 0;
+      var t = Math.round(p * (1 - Math.min(d, 100) / 100) * 100) / 100; sum += t; tr.querySelector('[data-t]').value = p ? t.toFixed(2) : '';
+    });
+    document.getElementById('saleTotal').textContent = 'Total $' + sum.toFixed(2);
+  }
+  saleRows.addEventListener('input', recalc);
+  document.getElementById('addSale').onclick = function () { saleRows.insertAdjacentHTML('beforeend', saleRow('Otro', '', '', '', '')); };
+  content.addEventListener('click', function (e) { var del = e.target.closest('.del'); if (del) { del.closest('tr').remove(); recalc(); measure(); } });
+  recalc();
+
+  var MB = [
+    { t: 'Motilidad ocular', rows: [['Ducciones', ['OD', 'OI']], ['Versiones', ['Horizontales', 'Verticales']], ['Seguimientos', ['Horizontales', 'Verticales']], ['Sacádicos', ['Horizontales', 'Verticales']]] },
+    { t: 'Binocularidad y vergencias', rows: [['Hirschberg', ['Evaluación']], ['Cover test', ['VL', 'VP']], ['PPC', ['Objeto real', 'Luz', 'Filtro rojo']], ['Worth 4 puntos', ['Resultado']], ['Estereopsis', ['Resultado']]] },
+    { t: 'Acomodación', rows: [['Amplitud (A.A.)', ['OD', 'OI']], ['MEM', ['OD', 'OI']], ['ARN / ARP', ['ARN', 'ARP']], ['Flippers MAF', ['OD', 'OI']]] },
+    { t: 'Reflejos pupilares', rows: [['Directo y consensual', ['OD', 'OI']]] }
+  ];
+  document.getElementById('mp-tv').innerHTML = MB.map(function (b) {
+    return '<div class="box"><div class="sh">' + b.t + '</div><div class="group pad"><table class="mb"><tbody>' + b.rows.map(function (r) {
+      var n = r[1].length;
+      return '<tr><td>' + r[0] + '</td>' + r[1].map(function (c, i) { var span = n === 1 ? 3 : (n === 2 && i === 1 ? 2 : 1); return '<td colspan="' + span + '"><input aria-label="' + r[0] + ' ' + c + '" placeholder="' + c + '"></td>'; }).join('') + '</tr>';
+    }).join('') + '</tbody></table></div></div>';
+  }).join('');
+  document.getElementById('lcFields').innerHTML = ['Diámetro pupilar', 'Diámetro corneal', 'Apertura palpebral', 'Tensión palpebral', 'DHIV', 'Ojo dominante', 'BUT', 'Test de Schirmer', 'Tinción', 'Frecuencia de parpadeo', 'Estado', 'Observaciones'].map(function (l, i) { return '<div class="f"><label for="lc' + i + '">' + l + '</label><input id="lc' + i + '"></div>'; }).join('');
+  document.getElementById('lcTest').innerHTML = '<div class="sh" style="margin-left: 0;">Lente de prueba</div>' + eyeTable('Lente de prueba', ['Curva base', 'Poder', '%H2O', 'Material', 'Diámetro', 'Sobre-refr.', 'AV'], [[], []]);
+  document.getElementById('lcFinal').innerHTML = '<div class="sh" style="margin-left: 0;">Lente definitivo</div>' + eyeTable('Lente definitivo', ['Curva base', 'Poder', 'Diámetro', '%H2O', 'Material'], [[], []]);
+  var dist = ['6 m', '3 m', '1 m', '40 cm', '33 cm', '25 cm'], ofr = ['Reflejo rojo', 'Medios', 'Papila', 'Mácula', 'Vasos'];
+  document.getElementById('ofTable').innerHTML = '<table class="mb"><thead><tr><th></th>' + dist.map(function (d) { return '<th>' + d + '</th>'; }).join('') + '</tr></thead><tbody>' + ofr.map(function (r) { return '<tr><td>' + r + '</td>' + dist.map(function (d) { return '<td><input aria-label="' + r + ' ' + d + '"></td>'; }).join('') + '</tr>'; }).join('') + '</tbody></table>';
+
+  /* Enter pasa al siguiente campo dentro de la seccion; al final, a la siguiente seccion. */
+  content.addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter' || e.shiftKey || screen !== 'consulta' || /TEXTAREA|BUTTON/.test(e.target.tagName)) return;
+    var panel = e.target.closest('[data-cp]'); if (!panel) return;
+    e.preventDefault();
+    var list = Array.prototype.filter.call(panel.querySelectorAll('input:not([type="radio"]):not([type="checkbox"]):not([readonly]), select, textarea'), function (el) { return el.offsetParent !== null; });
+    var i = list.indexOf(e.target);
+    if (i >= 0 && i < list.length - 1) { list[i + 1].focus(); if (list[i + 1].select) list[i + 1].select(); }
+    else { var k = CTABS.findIndex(function (t) { return t.id === ctab; }); if (k < CTABS.length - 1) showCt(CTABS[k + 1].id, true); else document.getElementById('completeBtn').focus(); }
+  });
+
+  /* ---------- Pacientes ---------- */
+  var PATS = [
+    ['María Fernanda Pérez López', '1700000001', '099 000 0001', '11/11/2026', 6], ['Jorge Luis Cárdenas', '1700000002', '098 000 0002', '11/11/2026', 3],
+    ['Sofía Valencia Ortiz', '1700000003', '097 000 0003', '11/11/2026', 2], ['Andrés Patricio Guerrero', '1700000004', '099 000 0004', '08/11/2026', 9],
+    ['Carmen Elena Yépez', '1700000005', '096 000 0005', '05/11/2026', 4], ['Luis Alberto Montalvo', '1700000006', '099 000 0006', '30/10/2026', 1],
+    ['Gabriela Torres Andrade', '1700000007', '098 000 0007', '22/10/2026', 5], ['Diego Fernando Salazar', '1700000008', '097 000 0008', '14/10/2026', 2],
+    ['Rosa María Chiriboga', '1700000009', '099 000 0009', '02/10/2026', 7], ['Pablo Esteban Herrera', '1700000010', '096 000 0010', '18/09/2026', 1],
+    ['Valeria Naranjo Espinosa', '1700000011', '098 000 0011', '03/09/2026', 3], ['Héctor Iván Rosero', '1700000012', '099 000 0012', '21/08/2026', 2]
+  ];
+  var sort = 'rec';
+  function initials(n) { var p = n.split(' '); return (p[0][0] + (p[2] || p[1])[0]).toUpperCase(); }
+  function filterPatients(q) {
+    q = (q || '').toLowerCase().trim();
+    var rows = PATS.filter(function (p) { return !q || p[0].toLowerCase().indexOf(q) >= 0 || p[1].indexOf(q) >= 0; });
+    if (sort === 'az') rows = rows.slice().sort(function (a, b) { return a[0].localeCompare(b[0], 'es'); });
+    document.getElementById('patRows').innerHTML = rows.length ? rows.map(function (p) {
+      return '<tr data-go="ficha" tabindex="0"><td><span class="who"><span class="avt" style="width: 28px; height: 28px; font-size: 11px;">' + initials(p[0]) + '</span><span>' + p[0] + '</span></span></td><td>' + p[1] + '</td><td class="hide-s">' + p[2] + '</td><td>' + p[3] + '</td><td class="hide-s">' + p[4] + '</td><td><svg class="i chev"><use href="#i-chev"/></svg></td></tr>';
+    }).join('') : '<tr><td colspan="6" style="height: 88px; text-align: center; color: var(--label2);">Ningún paciente coincide con “' + q.replace(/</g, '') + '”. Revise la cédula o regístrelo como nuevo.</td></tr>';
+    document.getElementById('patCount').textContent = q ? rows.length + ' de 3.512 coinciden' : '3.512 registrados';
+  }
+  filterPatients('');
+  document.getElementById('patRows').addEventListener('keydown', function (e) { if (e.key === 'Enter' && e.target.dataset.go) go('ficha'); });
+
+  /* ---------- Segmentados ---------- */
+  function wireSeg(id, attr, onPick) {
+    var seg = document.getElementById(id), spring = springIndicator(seg); segSprings[id] = spring;
+    seg.addEventListener('click', function (e) {
+      var b = e.target.closest('button'); if (!b) return;
+      seg.querySelectorAll('button').forEach(function (x) { x.setAttribute(attr, String(x === b)); });
+      spring(); onPick(b);
+    });
+  }
+  wireSeg('sortSeg', 'aria-pressed', function (b) { sort = b.dataset.sort; var q = document.getElementById('q'); filterPatients(q ? q.value : ''); });
+  wireSeg('fichaSeg', 'aria-selected', function (b) { document.querySelectorAll('[data-fp]').forEach(function (p) { p.hidden = p.dataset.fp !== b.dataset.f; }); measure(); });
+  wireSeg('modSeg', 'aria-pressed', function (b) { document.querySelectorAll('[data-mp]').forEach(function (p) { p.hidden = p.dataset.mp !== b.dataset.m; }); measure(); });
+  function syncSegs() { Object.keys(segSprings).forEach(function (k) { if (segSprings[k]) segSprings[k](); }); }
+
+  /* ---------- Grafico semanal ---------- */
+  var WEEK = [['Lun', 9, 0], ['Mar', 3, 0], ['Mié', 8, 1], ['Jue', 10, 1], ['Vie', 12, 1], ['Sáb', 6, 1]];
+  document.getElementById('weekChart').innerHTML = WEEK.map(function (d) {
+    var h = Math.round(d[1] / 12 * 92);
+    return '<div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end;"><span style="font-size: 11px; color: var(--label2); font-variant-numeric: tabular-nums;">' + d[1] + '</span><span style="width: 100%; max-width: 34px; height: ' + h + 'px; border-radius: 5px; background: ' + (d[2] ? 'var(--fill)' : 'var(--tint)') + ';"></span><span style="font-size: 11px; color: var(--label2);">' + d[0] + '</span></div>';
+  }).join('');
+
+  /* ---------- Tamano simulado, apariencia y medicion ---------- */
+  var stage = document.getElementById('stage'), info = document.getElementById('fitInfo');
+  var size = { w: 1366, h: 657 }; window.__size = size;
+  function layout() {
+    var avail = stage.clientWidth;
+    if (!size.w) {
+      var hh = Math.max(560, Math.min(window.innerHeight - 150, 1100));
+      frame.style.width = avail + 'px'; frame.style.height = hh + 'px'; frame.style.transform = 'none'; stage.style.height = hh + 'px';
+    } else {
+      var s = Math.min(1, avail / size.w);
+      frame.style.width = size.w + 'px'; frame.style.height = size.h + 'px'; frame.style.transform = 'scale(' + s + ')'; stage.style.height = Math.ceil(size.h * s) + 'px';
+    }
+    requestAnimationFrame(function () { syncSegs(); measure(); });
+  }
+  function measure() {
+    requestAnimationFrame(function () {
+      var extra = content.scrollHeight - content.clientHeight;
+      var where = size.w ? (size.w === 1366 ? 'laptop' : 'monitor') : 'esta ventana';
+      var name = screen === 'consulta' ? 'Consulta · ' + CTABS.find(function (t) { return t.id === ctab; }).label : TITLES[screen];
+      if (screen === 'ficha') name = 'Ficha';
+      info.className = 'fit ' + (extra <= 1 ? 'ok' : 'no');
+      info.textContent = extra <= 1 ? name + ': cabe completa en ' + where : name + ': se desplaza ' + extra + ' px en ' + where;
+    });
+  }
+  document.querySelectorAll('[data-w]').forEach(function (b) {
+    b.onclick = function () {
+      document.querySelectorAll('[data-w]').forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); });
+      size.w = Number(b.dataset.w); size.h = Number(b.dataset.h);
+      layout(); go(screen, { back: true });
+    };
+  });
+  document.querySelectorAll('[data-ap]').forEach(function (b) {
+    b.onclick = function () {
+      document.querySelectorAll('[data-ap]').forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); });
+      frame.dataset.appearance = b.dataset.ap;
+    };
+  });
+  window.addEventListener('resize', layout);
+  window.addEventListener('hashchange', function () { var h = location.hash.slice(1); if (h && h !== screen) go(h, { back: true }); });
+  if (window.innerWidth < 760) { size.w = 0; size.h = 0; document.querySelectorAll('[data-w]').forEach(function (x) { x.setAttribute('aria-pressed', String(x.id === 'sz-fit')); }); }
+
+  layout();
+  var start = location.hash.slice(1);
+  go(SCREENS.indexOf(start) >= 0 ? start : 'inicio', { back: true });
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { syncSegs(); measure(); });
+})();
+</script>

@@ -11,6 +11,7 @@ import {
     FileText,
     FlaskConical,
     LayoutDashboard,
+    LayoutPanelTop,
     Megaphone,
     Package,
     Settings,
@@ -258,6 +259,22 @@ const sections = [
         ],
     },
     {
+        icon: LayoutPanelTop,
+        title: 'Diseño de pantalla: Clásico o Compacto',
+        color: 'text-sky-600',
+        summary:
+            'Cada usuario elige como ve el sistema. Los datos, permisos e impresiones son los mismos en los dos diseños; solo cambia el orden en pantalla.',
+        bullets: [
+            'Para cambiar: al pie del menu, en «Diseño de pantalla», pulse Clásico o Compacto. El cambio es inmediato y se recuerda en cualquier equipo.',
+            'Puede cambiar con una consulta abierta: lo escrito no se pierde.',
+            'Compacto: la consulta se divide en pestañas (Motivo, Refracción, Diagnóstico, Lunas, Venta y Módulos) y la refracción completa cabe en una pantalla.',
+            'En cada pestaña, un punto rojo con número indica errores por corregir y un punto ámbar, medidas para revisar.',
+            'Atajos del Compacto: Ctrl + K busca un paciente desde cualquier pantalla; Alt + 1…6 abre cada pestaña de la consulta; Enter pasa al siguiente campo.',
+            'En laptop la barra lateral se oculta sola dentro de la consulta. El botón junto al título la vuelve a mostrar.',
+            'El administrador elige el diseño con el que arrancan los usuarios nuevos en Configuración.',
+        ],
+    },
+    {
         icon: WifiOff,
         title: 'Si aparece un error al cargar',
         color: 'text-amber-600',
@@ -329,7 +346,7 @@ function HelpPage() {
         <div className="mx-auto max-w-5xl p-6">
             <div className="mb-6">
                 <div className="flex items-center gap-3">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#1a2a4a] text-white shadow-sm">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-navy text-white shadow-sm">
                         <BookOpen size={24} />
                     </div>
                     <div>
@@ -362,7 +379,7 @@ function HelpPage() {
                     value={search}
                     onChange={(event) => setSearch(event.target.value)}
                     placeholder="Buscar en la ayuda: pacientes, agenda, caja, inventario..."
-                    className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none transition focus:border-[#1a2a4a] focus:ring-2 focus:ring-[#1a2a4a]/20"
+                    className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none transition focus:border-navy focus:ring-2 focus:ring-navy/20"
                 />
             </div>
 

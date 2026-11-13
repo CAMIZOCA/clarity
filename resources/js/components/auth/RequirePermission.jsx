@@ -20,7 +20,7 @@ export default function RequirePermission({ permission, children }) {
                 <Lock size={28} className="mx-auto mb-3 text-slate-400" />
                 <p className="font-semibold text-gray-900">No tiene acceso a esta sección</p>
                 <p className="mt-1 text-sm text-gray-500">Si lo necesita, pida al administrador que revise los permisos de su usuario.</p>
-                <Link to="/dashboard" className="mt-4 inline-block text-sm font-medium text-[#1a2a4a] underline underline-offset-2">
+                <Link to="/dashboard" className="mt-4 inline-block text-sm font-medium text-navy underline underline-offset-2">
                     Volver al resumen
                 </Link>
             </div>

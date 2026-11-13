@@ -121,7 +121,7 @@ export default function UserFormPage() {
                     <ArrowLeft size={24} />
                 </button>
                 <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                    <User size={24} className="text-[#1a2a4a]" />
+                    <User size={24} className="text-navy" />
                     {isEdit ? 'Editar Usuario' : 'Nuevo Usuario'}
                 </h1>
             </div>
@@ -179,7 +179,7 @@ export default function UserFormPage() {
                         id="user-role"
                         value={form.role}
                         onChange={e => set('role', e.target.value)}
-                        className="min-h-11 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm touch-manipulation focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]"
+                        className="min-h-11 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm touch-manipulation focus:outline-none focus:ring-2 focus:ring-navy"
                     >
                         {ROLE_OPTIONS.map(option => (
                             <option key={option.value} value={option.value}>{option.label}</option>

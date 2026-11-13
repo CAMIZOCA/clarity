@@ -71,7 +71,7 @@ export default function PatientAutocomplete({
                     value={query}
                     onChange={e => { dirtyRef.current = true; setQuery(e.target.value); }}
                     placeholder={placeholder}
-                    className="w-full min-h-11 pl-10 pr-4 py-3 text-lg rounded-xl border border-gray-300 touch-manipulation focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] focus:bg-[#fef08a]/20"
+                    className="w-full min-h-11 pl-10 pr-4 py-3 text-lg rounded-xl border border-gray-300 touch-manipulation focus:outline-none focus:ring-2 focus:ring-navy focus:bg-accent-yellow/20"
                 />
                 {loading && (
                     <div className="absolute right-3 animate-spin text-gray-400">
@@ -97,8 +97,8 @@ export default function PatientAutocomplete({
                             <li key={p.id}
                                 onClick={() => handleSelect(p)}
                                 className="flex items-center gap-3 px-4 py-3 hover:bg-blue-50 cursor-pointer border-b last:border-0">
-                                <div className="w-9 h-9 rounded-full bg-[#1a2a4a]/10 flex items-center justify-center">
-                                    <User size={18} className="text-[#1a2a4a]" />
+                                <div className="w-9 h-9 rounded-full bg-navy/10 flex items-center justify-center">
+                                    <User size={18} className="text-navy" />
                                 </div>
                                 <div>
                                     <p className="font-medium text-gray-900">{displayName(p)}</p>

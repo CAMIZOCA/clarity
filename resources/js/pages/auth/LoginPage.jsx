@@ -64,14 +64,14 @@ export default function LoginPage() {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-[#1a2a4a] to-[#243660] flex items-center justify-center p-4">
+        <div className="min-h-screen bg-gradient-to-br from-navy to-navy-light flex items-center justify-center p-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8">
                 {/* Logo */}
                 <div className="text-center mb-8">
                     {logoUrl ? (
                         <img src={logoUrl} alt="Logo de la clínica" className="mx-auto max-h-24 max-w-[12rem] object-contain mb-4" />
                     ) : (
-                        <div className="inline-flex items-center justify-center w-16 h-16 bg-[#1a2a4a] rounded-2xl mb-4">
+                        <div className="inline-flex items-center justify-center w-16 h-16 bg-navy rounded-2xl mb-4">
                             <svg viewBox="0 0 24 24" className="w-9 h-9 fill-white">
                                 <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
                             </svg>
@@ -90,7 +90,7 @@ export default function LoginPage() {
                             onChange={e => setEmail(e.target.value)}
                             autoComplete="username"
                             required
-                            className="w-full px-4 py-3 text-base rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] focus:bg-[#fef08a]/20"
+                            className="w-full px-4 py-3 text-base rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-navy focus:bg-accent-yellow/20"
                             placeholder="correo@clinica.com"
                         />
                     </div>
@@ -104,7 +104,7 @@ export default function LoginPage() {
                                 onChange={e => setPassword(e.target.value)}
                                 autoComplete="current-password"
                                 required
-                                className="w-full px-4 py-3 pr-12 text-base rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] focus:bg-[#fef08a]/20"
+                                className="w-full px-4 py-3 pr-12 text-base rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-navy focus:bg-accent-yellow/20"
                                 placeholder="••••••••"
                             />
                             <button type="button" onClick={() => setShowPass(!showPass)}
@@ -119,7 +119,7 @@ export default function LoginPage() {
                             type="checkbox"
                             checked={remember}
                             onChange={e => setRemember(e.target.checked)}
-                            className="w-4 h-4 rounded border-gray-300 text-[#1a2a4a] focus:ring-[#1a2a4a]"
+                            className="w-4 h-4 rounded border-gray-300 text-navy focus:ring-navy"
                         />
                         Recordarme en este equipo
                     </label>

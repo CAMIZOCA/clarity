@@ -62,7 +62,7 @@ export default function UserListPage() {
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
                 <table className="w-full">
                     <thead>
-                        <tr className="bg-[#1a2a4a] text-white">
+                        <tr className="bg-navy text-white">
                             <th className="px-6 py-4 text-left text-sm font-semibold">Usuario</th>
                             <th className="px-6 py-4 text-left text-sm font-semibold">Rol</th>
                             <th className="px-6 py-4 text-left text-sm font-semibold">Código</th>
@@ -73,7 +73,7 @@ export default function UserListPage() {
                     <tbody>
                         {loading ? (
                             <tr><td colSpan={5} className="py-16 text-center">
-                                <div className="animate-spin h-8 w-8 border-4 border-[#1a2a4a] border-t-transparent rounded-full mx-auto" />
+                                <div className="animate-spin h-8 w-8 border-4 border-navy border-t-transparent rounded-full mx-auto" />
                             </td></tr>
                         ) : users.length === 0 ? (
                             <tr><td colSpan={5} className="py-16 text-center">
@@ -84,8 +84,8 @@ export default function UserListPage() {
                             <tr key={u.id} className={`border-t border-gray-100 hover:bg-blue-50/40 transition-colors ${i % 2 === 0 ? '' : 'bg-gray-50/50'}`}>
                                 <td className="px-6 py-4">
                                     <div className="flex items-center gap-3">
-                                        <div className="w-9 h-9 rounded-full bg-[#1a2a4a]/10 flex items-center justify-center">
-                                            {u.roles?.includes('admin') ? <Shield size={16} className="text-[#1a2a4a]" /> : <User size={16} className="text-[#1a2a4a]" />}
+                                        <div className="w-9 h-9 rounded-full bg-navy/10 flex items-center justify-center">
+                                            {u.roles?.includes('admin') ? <Shield size={16} className="text-navy" /> : <User size={16} className="text-navy" />}
                                         </div>
                                         <div>
                                             <p className="font-medium text-gray-900">{u.name}</p>

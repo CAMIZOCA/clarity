@@ -99,7 +99,7 @@ export default function StockPage() {
                         onClick={() => setTab(key)}
                         className={`px-5 py-2.5 text-sm font-medium rounded-t-lg transition-colors ${
                             tab === key
-                                ? 'bg-white border border-b-white text-[#1a2a4a] -mb-px'
+                                ? 'bg-white border border-b-white text-navy -mb-px'
                                 : 'text-gray-500 hover:text-gray-700'
                         }`}
                     >
@@ -118,12 +118,12 @@ export default function StockPage() {
                             value={filterBodega}
                             onChange={e => setFilterBodega(e.target.value)}
                             placeholder="Filtrar por bodega..."
-                            className="py-2.5 px-3 text-sm rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] bg-white"
+                            className="py-2.5 px-3 text-sm rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-navy bg-white"
                         />
                         <select
                             value={filterCategory}
                             onChange={e => setFilterCategory(e.target.value)}
-                            className="py-2.5 px-3 text-sm rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] bg-white"
+                            className="py-2.5 px-3 text-sm rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-navy bg-white"
                         >
                             <option value="">Todas las categorías</option>
                             <option value="armazon">Armazón</option>
@@ -149,7 +149,7 @@ export default function StockPage() {
                     <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
                         <table className="w-full text-sm">
                             <thead>
-                                <tr className="bg-[#1a2a4a] text-white">
+                                <tr className="bg-navy text-white">
                                     <th className="px-5 py-4 text-left font-semibold">Producto / Variante</th>
                                     <th className="px-5 py-4 text-left font-semibold">Bodega</th>
                                     <th className="px-5 py-4 text-center font-semibold">Cantidad</th>
@@ -163,7 +163,7 @@ export default function StockPage() {
                                 {loading ? (
                                     <tr>
                                         <td colSpan={7} className="py-16 text-center">
-                                            <div className="animate-spin h-8 w-8 border-4 border-[#1a2a4a] border-t-transparent rounded-full mx-auto" />
+                                            <div className="animate-spin h-8 w-8 border-4 border-navy border-t-transparent rounded-full mx-auto" />
                                         </td>
                                     </tr>
                                 ) : inventory.length === 0 ? (
@@ -209,7 +209,7 @@ export default function StockPage() {
                 <>
                     {loading ? (
                         <div className="flex items-center justify-center h-48">
-                            <div className="animate-spin h-10 w-10 border-4 border-[#1a2a4a] border-t-transparent rounded-full" />
+                            <div className="animate-spin h-10 w-10 border-4 border-navy border-t-transparent rounded-full" />
                         </div>
                     ) : (
                         <>

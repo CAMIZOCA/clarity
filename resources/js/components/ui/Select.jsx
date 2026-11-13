@@ -13,8 +13,8 @@ const Select = forwardRef(function Select({
             <select
                 ref={ref}
                 className={`w-full rounded-lg border text-base py-2.5 px-3 bg-white transition-colors
-                    focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] focus:border-transparent
-                    focus:bg-[#fef08a]/20
+                    focus:outline-none focus:ring-2 focus:ring-navy focus:border-transparent
+                    focus:bg-accent-yellow/20
                     ${error ? 'border-red-400 bg-red-50' : 'border-gray-300'}`}
                 {...props}
             >

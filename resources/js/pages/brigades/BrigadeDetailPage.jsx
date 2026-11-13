@@ -55,7 +55,7 @@ export default function BrigadeDetailPage() {
 
     if (!brigade) return (
         <div className="flex items-center justify-center h-64">
-            <div className="animate-spin h-10 w-10 border-4 border-[#1a2a4a] border-t-transparent rounded-full" />
+            <div className="animate-spin h-10 w-10 border-4 border-navy border-t-transparent rounded-full" />
         </div>
     );
 
@@ -83,7 +83,7 @@ export default function BrigadeDetailPage() {
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200">
                 <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
                     <h2 className="font-semibold text-gray-900 flex items-center gap-2">
-                        <Users size={18} className="text-[#1a2a4a]" /> Pacientes ({patients.length})
+                        <Users size={18} className="text-navy" /> Pacientes ({patients.length})
                     </h2>
                     <Button size="sm" onClick={() => setShowAdd(v => !v)}>
                         <UserPlus size={16} /> Agregar paciente
@@ -105,11 +105,11 @@ export default function BrigadeDetailPage() {
                     ) : patients.map(p => (
                         <div key={p.id} className="px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
                             <div className="flex items-center gap-3">
-                                <div className="w-9 h-9 rounded-full bg-[#1a2a4a]/10 flex items-center justify-center">
-                                    <span className="text-[#1a2a4a] font-semibold text-sm">{p.nombre[0]}</span>
+                                <div className="w-9 h-9 rounded-full bg-navy/10 flex items-center justify-center">
+                                    <span className="text-navy font-semibold text-sm">{p.nombre[0]}</span>
                                 </div>
                                 <div>
-                                    <Link to={`/pacientes/${p.id}`} className="font-medium text-gray-900 hover:text-[#1a2a4a]">{p.nombre}</Link>
+                                    <Link to={`/pacientes/${p.id}`} className="font-medium text-gray-900 hover:text-navy">{p.nombre}</Link>
                                     <p className="text-sm text-gray-500">CI: {p.cedula}</p>
                                 </div>
                             </div>

@@ -1,0 +1,170 @@
+/*
+ * Plantilla "Compacto" (Human Interface Guidelines).
+ *
+ * Todo cuelga de `[data-ui="compacto"] .ui-app`: el atributo lo pone
+ * UiTemplateContext (y app.blade.php desde el servidor) y `.ui-app` es la raiz
+ * de AppShell, asi que el login, la landing y el diseño "Clasico" no cambian.
+ *
+ * Funciona redefiniendo las variables con las que Tailwind 4 pinta sus clases
+ * (`--color-navy`, `--color-gray-*`, `--radius-*`...). Por eso las pantallas
+ * deben usar tokens (`bg-navy`, `text-gray-700`) y no hex fijos (`bg-[#1a2a4a]`):
+ * lo vigila tests/Unit/NoHardcodedBrandColorsTest.php.
+ *
+ * Las reglas van fuera de capas a proposito (como el foco ambar de app.css): asi
+ * le ganan a `@layer utilities` sin `!important`. Solo en pantalla: lo impreso
+ * (POS, Caja) sale igual en las dos plantillas.
+ */
+@media screen {
+    [data-ui='compacto'] .ui-app {
+        /* Un solo color de acento para todo lo que se puede pulsar. El azul
+           marino de la marca queda en el logo (`--color-brand`). */
+        --color-brand: #1a2a4a;
+        --color-navy: #1f5fbf;
+        --color-navy-light: #1a52a6;
+        --color-navy-hover: #1a52a6;
+
+        /* Neutros del sistema (grises frios de Apple). */
+        --color-gray-50: #f5f5f7;
+        --color-gray-100: #ececf0;
+        --color-gray-200: #e1e1e6;
+        --color-gray-300: #cdcdd3;
+        --color-gray-400: #a3a3aa;
+        --color-gray-500: #7a7a82;
+        --color-gray-600: #5c5c63;
+        --color-gray-700: #44444a;
+        --color-gray-800: #2c2c30;
+        --color-gray-900: #1c1c1e;
+        --color-slate-50: #f5f5f7;
+        --color-slate-100: #ececf0;
+        --color-slate-200: #e1e1e6;
+        --color-slate-300: #cdcdd3;
+        --color-slate-400: #a3a3aa;
+        --color-slate-500: #7a7a82;
+        --color-slate-600: #5c5c63;
+        --color-slate-700: #44444a;
+        --color-slate-800: #2c2c30;
+        --color-slate-900: #1c1c1e;
+
+        /* Esquinas mas contenidas y sombras de "material", no de tarjeta flotante. */
+        --radius-xl: 0.625rem;
+        --radius-2xl: 0.75rem;
+        --radius-3xl: 1rem;
+        --shadow-sm: 0 0 0 0.5px rgb(0 0 0 / 0.06), 0 1px 2px rgb(0 0 0 / 0.05);
+        --shadow: 0 0 0 0.5px rgb(0 0 0 / 0.06), 0 1px 3px rgb(0 0 0 / 0.07);
+        --shadow-md: 0 0 0 0.5px rgb(0 0 0 / 0.06), 0 4px 12px rgb(0 0 0 / 0.08);
+        --shadow-lg: 0 0 0 0.5px rgb(0 0 0 / 0.08), 0 10px 28px rgb(0 0 0 / 0.12);
+
+        /* Tipografia del sistema: Segoe UI Variable en Windows, SF Pro en Mac. */
+        --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI Variable Text', 'Segoe UI', system-ui,
+            sans-serif;
+        font-family: var(--font-sans);
+        letter-spacing: -0.003em;
+        background-color: #f2f2f7;
+    }
+
+    /* Titulos de pagina: tamaño contenido y tracking negativo (optical sizing). */
+    [data-ui='compacto'] .ui-app :is(.text-4xl, .text-3xl) {
+        font-size: 1.75rem;
+        line-height: 1.15;
+        letter-spacing: -0.022em;
+    }
+
+    [data-ui='compacto'] .ui-app .text-2xl {
+        font-size: 1.375rem;
+        letter-spacing: -0.018em;
+    }
+
+    /* Barras de material: translucidas, el contenido pasa por debajo. */
+    [data-ui='compacto'] .ui-app .material-toolbar {
+        background: rgb(246 246 248 / 0.78);
+    }
+
+    [data-ui='compacto'] .ui-app .ui-sidebar {
+        background: rgb(236 236 241 / 0.82);
+        backdrop-filter: blur(30px) saturate(180%);
+        -webkit-backdrop-filter: blur(30px) saturate(180%);
+    }
+
+    [data-ui='compacto'] .ui-app .material-sheet {
+        background: rgb(255 255 255 / 0.94);
+    }
+
+    /* Respuesta inmediata: el boton se hunde al presionar, no al soltar. */
+    [data-ui='compacto'] .ui-app button:not(:disabled):active {
+        transform: scale(0.97);
+        transition: transform 100ms ease-out;
+    }
+}
+
+/*
+ * Densidad: solo con raton y pantalla de escritorio. En tablet y celular los
+ * controles conservan los 44 px tactiles.
+ */
+@media screen and (min-width: 1024px) and (pointer: fine) {
+    [data-ui='compacto'] .ui-app .min-h-11 {
+        min-height: 2rem;
+    }
+
+    [data-ui='compacto'] .ui-app :is(input:not([type='checkbox'], [type='radio'], [type='range'], [type='file']), select) {
+        padding-top: 0.25rem;
+        padding-bottom: 0.25rem;
+        font-size: 0.84375rem;
+        line-height: 1.35;
+    }
+
+    [data-ui='compacto'] .ui-app textarea {
+        padding-top: 0.375rem;
+        padding-bottom: 0.375rem;
+        font-size: 0.84375rem;
+        line-height: 1.4;
+    }
+
+    [data-ui='compacto'] .ui-app .text-base {
+        font-size: 0.875rem;
+    }
+
+    [data-ui='compacto'] .ui-app .p-6 {
+        padding: 1rem;
+    }
+
+    [data-ui='compacto'] .ui-app .p-5 {
+        padding: 0.875rem;
+    }
+
+    [data-ui='compacto'] .ui-app .p-4 {
+        padding: 0.75rem;
+    }
+
+    [data-ui='compacto'] .ui-app .mb-6 {
+        margin-bottom: 1rem;
+    }
+
+    [data-ui='compacto'] .ui-app .gap-6 {
+        gap: 1rem;
+    }
+
+    [data-ui='compacto'] .ui-app .max-w-7xl {
+        max-width: 112rem;
+    }
+}
+
+@media screen and (prefers-reduced-transparency: reduce) {
+    [data-ui='compacto'] .ui-app :is(.material-toolbar, .ui-sidebar) {
+        background: #f6f6f8;
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
+    }
+}
+
+@media screen and (prefers-contrast: more) {
+    [data-ui='compacto'] .ui-app {
+        --color-gray-200: #c4c4cb;
+        --color-gray-500: #5c5c63;
+    }
+}
+
+@media screen and (prefers-reduced-motion: reduce) {
+    [data-ui='compacto'] .ui-app button:not(:disabled):active {
+        transform: none;
+    }
+}

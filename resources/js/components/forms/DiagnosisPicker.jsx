@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { useWatch } from 'react-hook-form';
 import { Lightbulb, Search } from 'lucide-react';
 import { analyzeRefraction, DIAGNOSIS_CRITERIA, rankDiagnosisOptions } from '../../utils/diagnosisSuggestions';
+import { useUiTemplate } from '../../contexts/UiTemplateContext';
 
 const EYES = [
     { key: 'od', label: 'OD', title: 'Ojo derecho', badge: 'bg-blue-600', tint: 'border-blue-200 bg-blue-50/40' },
@@ -91,6 +92,9 @@ function SuggestionSummary({ analysis }) {
 
 function EyeChecklist({ eye, ranked, checkedIndex, fields, register, onToggle }) {
     const [query, setQuery] = useState('');
+    // Compacto: la lista se desplaza dentro de su caja para que el diagnostico
+    // y las observaciones quepan en la misma pantalla.
+    const { isCompact } = useUiTemplate();
     const selectedCount = ranked.filter(({ option }) => checkedIndex.has(checklistKey(eye.key, option.id))).length;
     const visible = query.trim()
         ? ranked.filter(({ option }) => normalize(`${option.code ?? ''} ${option.label}`).includes(normalize(query.trim())))
@@ -117,7 +121,7 @@ function EyeChecklist({ eye, ranked, checkedIndex, fields, register, onToggle })
                     />
                 </label>
             )}
-            <ul className="divide-y divide-slate-200 overflow-hidden rounded-xl border border-slate-200 bg-white">
+            <ul className={`divide-y divide-slate-200 rounded-xl border border-slate-200 bg-white ${isCompact ? 'max-h-72 overflow-y-auto overscroll-contain' : 'overflow-hidden'}`}>
                 {visible.map(({ option, level }) => {
                     const index = checkedIndex.get(checklistKey(eye.key, option.id));
                     const checked = index !== undefined;
@@ -130,7 +134,7 @@ function EyeChecklist({ eye, ranked, checkedIndex, fields, register, onToggle })
                                     type="checkbox"
                                     checked={checked}
                                     onChange={(event) => onToggle(eye.key, option, event.target.checked)}
-                                    className="h-4 w-4 shrink-0 accent-[#1a2a4a]"
+                                    className="h-4 w-4 shrink-0 accent-navy"
                                 />
                                 <span className="min-w-0 flex-1 text-sm text-slate-800">
                                     {option.label}

@@ -135,13 +135,13 @@ export default function SalesHistoryPage() {
                             placeholder="Buscar por número o cliente..."
                             value={filters.search}
                             onChange={e => setFilter('search', e.target.value)}
-                            className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]"
+                            className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-navy"
                         />
                     </div>
                     <select
                         value={filters.status}
                         onChange={e => setFilter('status', e.target.value)}
-                        className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]"
+                        className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-navy"
                     >
                         <option value="">Todos los estados</option>
                         {Object.entries(STATUS_BADGES).map(([k, v]) => (
@@ -152,14 +152,14 @@ export default function SalesHistoryPage() {
                         type="date"
                         value={filters.date_from}
                         onChange={e => setFilter('date_from', e.target.value)}
-                        className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]"
+                        className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-navy"
                         placeholder="Desde"
                     />
                     <input
                         type="date"
                         value={filters.date_to}
                         onChange={e => setFilter('date_to', e.target.value)}
-                        className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]"
+                        className="border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-navy"
                         placeholder="Hasta"
                     />
                 </div>
@@ -352,7 +352,7 @@ export default function SalesHistoryPage() {
                                 type="number" min={0.01} step="0.01"
                                 value={abonoAmount}
                                 onChange={e => setAbonoAmount(e.target.value)}
-                                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-lg font-semibold text-center focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]"
+                                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-lg font-semibold text-center focus:outline-none focus:ring-2 focus:ring-navy"
                                 autoFocus
                             />
                         </div>
@@ -362,7 +362,7 @@ export default function SalesHistoryPage() {
                                 {PAYMENT_METHODS.map(m => (
                                     <button key={m.key} onClick={() => setAbonoMethod(m.key)}
                                         className={`py-2 rounded-xl border-2 text-sm font-medium transition-all
-                                            ${abonoMethod === m.key ? 'border-[#1a2a4a] bg-[#1a2a4a] text-white' : 'border-gray-200 text-gray-600 hover:border-[#1a2a4a]'}`}>
+                                            ${abonoMethod === m.key ? 'border-navy bg-navy text-white' : 'border-gray-200 text-gray-600 hover:border-navy'}`}>
                                         {m.label}
                                     </button>
                                 ))}
@@ -375,7 +375,7 @@ export default function SalesHistoryPage() {
                                     type="text"
                                     value={abonoRef}
                                     onChange={e => setAbonoRef(e.target.value)}
-                                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]"
+                                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-navy"
                                     placeholder="Número de referencia"
                                 />
                             </div>

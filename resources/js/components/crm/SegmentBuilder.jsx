@@ -45,7 +45,7 @@ export default function SegmentBuilder({ criteria, onChange, preview, onCalculat
                         key={opt.key}
                         className={`flex items-center gap-3 p-3 rounded-lg border transition-colors cursor-pointer
                             ${criteria[opt.key] !== undefined
-                                ? 'border-[#1a2a4a] bg-blue-50'
+                                ? 'border-navy bg-blue-50'
                                 : 'border-gray-200 hover:border-gray-300'
                             }`}
                         onClick={() => opt.type === 'checkbox' && handleToggle(opt.key)}
@@ -54,7 +54,7 @@ export default function SegmentBuilder({ criteria, onChange, preview, onCalculat
                             <>
                                 <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0
                                     ${criteria[opt.key]
-                                        ? 'bg-[#1a2a4a] border-[#1a2a4a]'
+                                        ? 'bg-navy border-navy'
                                         : 'border-gray-300'
                                     }`}>
                                     {criteria[opt.key] && (
@@ -69,7 +69,7 @@ export default function SegmentBuilder({ criteria, onChange, preview, onCalculat
                             <>
                                 <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0
                                     ${criteria[opt.key] !== undefined
-                                        ? 'bg-[#1a2a4a] border-[#1a2a4a]'
+                                        ? 'bg-navy border-navy'
                                         : 'border-gray-300'
                                     }`}>
                                     {criteria[opt.key] !== undefined && (
@@ -86,7 +86,7 @@ export default function SegmentBuilder({ criteria, onChange, preview, onCalculat
                                     value={criteria[opt.key] ?? ''}
                                     onClick={(e) => e.stopPropagation()}
                                     onChange={(e) => handleNumberChange(opt.key, e.target.value)}
-                                    className="w-24 px-2 py-1 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]"
+                                    className="w-24 px-2 py-1 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy"
                                 />
                             </>
                         )}
@@ -109,9 +109,9 @@ export default function SegmentBuilder({ criteria, onChange, preview, onCalculat
 
                 {preview && (
                     <div className="flex items-center gap-2 text-sm text-gray-600">
-                        <Users size={16} className="text-[#1a2a4a]" />
+                        <Users size={16} className="text-navy" />
                         <span>
-                            <strong className="text-[#1a2a4a]">{preview.count}</strong> destinatarios
+                            <strong className="text-navy">{preview.count}</strong> destinatarios
                             {preview.sample && preview.sample.length > 0 && (
                                 <span className="text-gray-400 ml-1">
                                     ({preview.sample.join(', ')}{preview.count > preview.sample.length ? '...' : ''})

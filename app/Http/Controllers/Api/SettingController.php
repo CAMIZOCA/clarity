@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Enums\Permission;
 use App\Http\Controllers\Controller;
 use App\Models\Setting;
+use App\Models\User;
 use App\Services\ContificoService;
 use App\Services\OpenAiService;
 use Illuminate\Http\JsonResponse;
@@ -88,6 +89,8 @@ class SettingController extends Controller
             'appointment_reminder_hours' => 'sometimes|integer|min:1|max:168',
             // Se guarda cifrada; ver OpenAiService::storeApiKey().
             'openai_api_key' => 'sometimes|nullable|string|max:255',
+            // Plantilla de pantalla para quien no eligio una (users.ui_template = null).
+            'ui_template_default' => ['sometimes', 'string', Rule::in(User::UI_TEMPLATES)],
             'required_fields' => 'sometimes|array',
             'advanced_form_fields' => 'sometimes|array',
             'advanced_form_fields.*' => 'string|max:120',
@@ -140,6 +143,7 @@ class SettingController extends Controller
 
             if ($key === OpenAiService::SETTING_KEY) {
                 $this->openAi->storeApiKey($value);
+
                 continue;
             }
 

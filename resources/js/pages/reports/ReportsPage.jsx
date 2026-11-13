@@ -66,7 +66,7 @@ export default function ReportsPage() {
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de reporte</label>
                         <select value={tab} onChange={e => { setTab(e.target.value); setData(null); }}
-                            className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]">
+                            className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy">
                             <option value="consultations">Consultas por período</option>
                             <option value="diagnoses">Diagnósticos más frecuentes</option>
                             <option value="patients">Resumen de pacientes</option>
@@ -75,12 +75,12 @@ export default function ReportsPage() {
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Desde</label>
                         <input type="date" value={from} onChange={e => setFrom(e.target.value)}
-                            className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]" />
+                            className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy" />
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Hasta</label>
                         <input type="date" value={to} onChange={e => setTo(e.target.value)}
-                            className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]" />
+                            className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy" />
                     </div>
                     <Button onClick={fetchReport} loading={loading}>
                         <Search size={18} /> Generar reporte
@@ -91,7 +91,7 @@ export default function ReportsPage() {
             {/* Resultados */}
             {loading && (
                 <div className="flex justify-center py-16">
-                    <div className="animate-spin h-10 w-10 border-4 border-[#1a2a4a] border-t-transparent rounded-full" />
+                    <div className="animate-spin h-10 w-10 border-4 border-navy border-t-transparent rounded-full" />
                 </div>
             )}
 
@@ -119,7 +119,7 @@ function ConsultationsReport({ data }) {
         <div>
             <div className="grid grid-cols-2 border-b border-gray-100">
                 <div className="p-6 border-r border-gray-100 text-center">
-                    <p className="text-4xl font-bold text-[#1a2a4a]">{data.total}</p>
+                    <p className="text-4xl font-bold text-navy">{data.total}</p>
                     <p className="text-sm text-gray-500 mt-1">Total consultas</p>
                 </div>
                 <div className="p-6 text-center">
@@ -137,7 +137,7 @@ function ConsultationsReport({ data }) {
                             <div key={d.dia} className="flex items-center gap-3">
                                 <span className="w-28 text-sm text-gray-600 shrink-0">{format(new Date(d.dia + 'T12:00'), "d MMM", { locale: es })}</span>
                                 <div className="flex-1 bg-gray-100 rounded-full h-5 overflow-hidden">
-                                    <div className="bg-[#1a2a4a] h-full rounded-full transition-all"
+                                    <div className="bg-navy h-full rounded-full transition-all"
                                         style={{ width: `${(d.total / maxVal) * 100}%` }} />
                                 </div>
                                 <span className="w-6 text-sm font-semibold text-gray-700 text-right">{d.total}</span>
@@ -171,7 +171,7 @@ function DiagnosesReport({ data }) {
                                 <td className="py-2 text-right font-semibold">{d.total}</td>
                                 <td className="py-2 pl-3">
                                     <div className="bg-gray-100 rounded-full h-2">
-                                        <div className="bg-[#1a2a4a] h-2 rounded-full" style={{ width: `${(d.total / max) * 100}%` }} />
+                                        <div className="bg-navy h-2 rounded-full" style={{ width: `${(d.total / max) * 100}%` }} />
                                     </div>
                                 </td>
                             </tr>

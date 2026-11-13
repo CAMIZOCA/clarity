@@ -1,5 +1,6 @@
 import React from 'react';
 import { AlertTriangle, CheckCircle, Stethoscope } from 'lucide-react';
+import { useUiTemplate } from '../../contexts/UiTemplateContext';
 
 /**
  * Medico de la consulta como tarjetas a la vista, en lugar de un <select>.
@@ -17,6 +18,8 @@ import { AlertTriangle, CheckCircle, Stethoscope } from 'lucide-react';
 export default function DoctorPicker({ name, label, register, onChange, options, value, extraDoctor, error }) {
     const doctors = extraDoctor ? [...options, { ...extraDoctor, unavailable: true }] : options;
     const selected = doctors.find((doctor) => String(doctor.id) === String(value ?? ''));
+    // Compacto: tarjetas de una linea, cuatro por fila en pantallas anchas.
+    const { isCompact } = useUiTemplate();
     const { onChange: registerOnChange, ...field } = register(name);
 
     const handleChange = (event) => {
@@ -50,7 +53,7 @@ export default function DoctorPicker({ name, label, register, onChange, options,
                     No hay usuarios con rol Optometrista. Créelos en Administración &gt; Usuarios.
                 </p>
             ) : (
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <div className={isCompact ? 'grid grid-cols-1 gap-1.5 sm:grid-cols-2 xl:grid-cols-4' : 'grid grid-cols-1 gap-2 sm:grid-cols-2'}>
                     {doctors.map((doctor, index) => {
                         const checked = String(doctor.id) === String(value ?? '');
                         // `goToField` busca por id: la tarjeta marcada o, sin ninguna, la primera.
@@ -59,10 +62,10 @@ export default function DoctorPicker({ name, label, register, onChange, options,
                         return (
                             <label
                                 key={doctor.id}
-                                className={`relative flex min-h-11 cursor-pointer items-center gap-3 rounded-xl border px-3 py-2 text-sm transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-[#1a2a4a] has-[:disabled]:cursor-default ${
+                                className={`relative flex min-h-11 cursor-pointer items-center gap-3 rounded-xl border px-3 py-2 text-sm transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-navy has-[:disabled]:cursor-default ${
                                     checked
-                                        ? 'border-[#1a2a4a] bg-[#1a2a4a] text-white shadow-sm'
-                                        : 'border-slate-300 bg-white text-slate-700 hover:border-[#1a2a4a]/60 hover:bg-slate-50'
+                                        ? 'border-navy bg-navy text-white shadow-sm'
+                                        : 'border-slate-300 bg-white text-slate-700 hover:border-navy/60 hover:bg-slate-50'
                                 }`}
                             >
                                 <input

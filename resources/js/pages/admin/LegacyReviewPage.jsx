@@ -189,7 +189,7 @@ function PreviewModal({ open, preview, loading, applying, caseInfo, onCancel, on
                     </div>
 
                     <label className="flex items-start gap-2 text-slate-700">
-                        <input type="checkbox" className="mt-1 h-4 w-4 accent-[#1a2a4a]" checked={understood} onChange={e => setUnderstood(e.target.checked)} />
+                        <input type="checkbox" className="mt-1 h-4 w-4 accent-navy" checked={understood} onChange={e => setUnderstood(e.target.checked)} />
                         <span>Revisé los cambios y quiero corregir {formatNumber(preview.consultations)} consultas.</span>
                     </label>
 
@@ -481,7 +481,7 @@ export default function LegacyReviewPage() {
                                     type="button"
                                     disabled={!card.filter}
                                     onClick={() => card.filter && setStatus(card.filter)}
-                                    className={`rounded-lg border p-3 text-left transition-colors ${card.filter && status === card.filter ? 'border-[#1a2a4a] bg-slate-50' : 'border-slate-200 hover:bg-slate-50'} disabled:cursor-default disabled:hover:bg-white`}
+                                    className={`rounded-lg border p-3 text-left transition-colors ${card.filter && status === card.filter ? 'border-navy bg-slate-50' : 'border-slate-200 hover:bg-slate-50'} disabled:cursor-default disabled:hover:bg-white`}
                                 >
                                     <p className="text-xs text-slate-500">{card.label}</p>
                                     <p className={`text-2xl font-bold ${tone(card.tone).text}`}>{formatNumber(cardValue(summary, card.match))}</p>
@@ -508,7 +508,7 @@ export default function LegacyReviewPage() {
                                     value={search}
                                     onChange={e => setSearch(e.target.value)}
                                     placeholder="Paciente, cédula, código o N° del Access"
-                                    className="w-full rounded-lg border border-slate-300 py-2 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]"
+                                    className="w-full rounded-lg border border-slate-300 py-2 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-navy"
                                 />
                             </div>
                         </div>
@@ -532,10 +532,10 @@ export default function LegacyReviewPage() {
                             <span className="font-semibold">{formatNumber(count)}</span> seleccionadas
                             {selection.mode === 'all' && <span className="text-slate-500"> · todas las preseleccionadas del filtro</span>}
                             <span className="ml-3 inline-flex gap-2">
-                                <button type="button" className="text-[#1a2a4a] underline" onClick={() => setSelection(emptySelection())}>
+                                <button type="button" className="text-navy underline" onClick={() => setSelection(emptySelection())}>
                                     Preseleccionadas
                                 </button>
-                                <button type="button" className="text-[#1a2a4a] underline" onClick={() => setSelection(emptySelection('manual'))}>
+                                <button type="button" className="text-navy underline" onClick={() => setSelection(emptySelection('manual'))}>
                                     Ninguna
                                 </button>
                             </span>
@@ -563,7 +563,7 @@ export default function LegacyReviewPage() {
                                             <input
                                                 type="checkbox"
                                                 aria-label="Seleccionar la página"
-                                                className="h-4 w-4 accent-[#1a2a4a]"
+                                                className="h-4 w-4 accent-navy"
                                                 checked={pageAllChecked}
                                                 disabled={pageSelectable.length === 0}
                                                 onChange={togglePage}
@@ -600,7 +600,7 @@ export default function LegacyReviewPage() {
                                                             <input
                                                                 type="checkbox"
                                                                 aria-label={`Seleccionar la consulta de ${row.patient?.nombre_completo}`}
-                                                                className="h-4 w-4 accent-[#1a2a4a]"
+                                                                className="h-4 w-4 accent-navy"
                                                                 checked={checked}
                                                                 disabled={!row.selectable}
                                                                 title={row.selectable ? '' : 'Esta consulta no tiene nada que se pueda mover'}
@@ -620,7 +620,7 @@ export default function LegacyReviewPage() {
                                                                 href={`/consulta/${row.id}/ver`}
                                                                 target="_blank"
                                                                 rel="noreferrer"
-                                                                className="mt-1 inline-flex items-center gap-1 text-xs text-[#1a2a4a] underline"
+                                                                className="mt-1 inline-flex items-center gap-1 text-xs text-navy underline"
                                                             >
                                                                 Ver consulta <ExternalLink size={12} />
                                                             </a>

@@ -121,7 +121,7 @@ function NewReminderModal({ open, onClose, onCreated }) {
                         <select
                             value={form.type}
                             onChange={e => set('type', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] text-sm"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy text-sm"
                         >
                             {Object.entries(TYPE_LABELS).map(([v, l]) => (
                                 <option key={v} value={v}>{l}</option>
@@ -133,7 +133,7 @@ function NewReminderModal({ open, onClose, onCreated }) {
                         <select
                             value={form.channel}
                             onChange={e => set('channel', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] text-sm"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy text-sm"
                         >
                             <option value="whatsapp">WhatsApp</option>
                             <option value="email">Email</option>
@@ -151,7 +151,7 @@ function NewReminderModal({ open, onClose, onCreated }) {
                         onChange={e => set('message', e.target.value)}
                         rows={4}
                         placeholder="Hola {nombre}, te recordamos..."
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] text-sm resize-none"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy text-sm resize-none"
                     />
                     <div className="mt-1 flex flex-wrap gap-1">
                         <span className="text-xs text-gray-400">Variables:</span>
@@ -174,7 +174,7 @@ function NewReminderModal({ open, onClose, onCreated }) {
                         type="datetime-local"
                         value={form.scheduled_at}
                         onChange={e => set('scheduled_at', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] text-sm"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy text-sm"
                     />
                 </div>
 
@@ -292,7 +292,7 @@ function SendWhatsAppModal({ target, onClose, onSent }) {
                         <div className="flex items-center justify-between mb-1">
                             <label className="block text-sm font-medium text-gray-700">Plantilla</label>
                             {canEditTemplates && (
-                                <Link to="/crm/plantillas" className="text-xs text-[#1a2a4a] underline hover:no-underline">
+                                <Link to="/crm/plantillas" className="text-xs text-navy underline hover:no-underline">
                                     Editar plantillas
                                 </Link>
                             )}
@@ -300,7 +300,7 @@ function SendWhatsAppModal({ target, onClose, onSent }) {
                         <select
                             value={templateId}
                             onChange={e => handleTemplate(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] text-sm"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy text-sm"
                         >
                             <option value="">— Mensaje actual —</option>
                             {templates.map(t => (
@@ -320,7 +320,7 @@ function SendWhatsAppModal({ target, onClose, onSent }) {
                             rows={6}
                             disabled={loading}
                             placeholder={loading ? 'Preparando mensaje…' : ''}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] text-sm"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy text-sm"
                         />
                     </div>
 
@@ -380,7 +380,7 @@ function SearchBox({ value, onChange, placeholder }) {
                 value={value}
                 onChange={e => onChange(e.target.value)}
                 placeholder={placeholder}
-                className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]"
+                className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy"
             />
         </div>
     );
@@ -389,7 +389,7 @@ function SearchBox({ value, onChange, placeholder }) {
 function Spinner() {
     return (
         <div className="flex items-center justify-center h-48 text-gray-400">
-            <div className="animate-spin h-8 w-8 border-4 border-[#1a2a4a] border-t-transparent rounded-full" />
+            <div className="animate-spin h-8 w-8 border-4 border-navy border-t-transparent rounded-full" />
         </div>
     );
 }
@@ -560,7 +560,7 @@ function RemindersTab({ canSend, onSend, reloadKey }) {
                         <select
                             value={filters.status}
                             onChange={e => setFilter('status', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy"
                         >
                             <option value="">Todos</option>
                             {Object.entries(STATUS_CONFIG).map(([v, cfg]) => (
@@ -573,7 +573,7 @@ function RemindersTab({ canSend, onSend, reloadKey }) {
                         <select
                             value={filters.type}
                             onChange={e => setFilter('type', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy"
                         >
                             <option value="">Todos</option>
                             {Object.entries(TYPE_LABELS).map(([v, l]) => (
@@ -587,7 +587,7 @@ function RemindersTab({ canSend, onSend, reloadKey }) {
                             type="month"
                             value={filters.month}
                             onChange={e => setFilter('month', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-navy"
                         />
                     </div>
                 </div>
@@ -689,7 +689,7 @@ export default function RemindersPage() {
             {/* Header */}
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-[#1a2a4a] rounded-xl flex items-center justify-center">
+                    <div className="w-10 h-10 bg-navy rounded-xl flex items-center justify-center">
                         <Bell size={20} className="text-white" />
                     </div>
                     <div>
@@ -714,7 +714,7 @@ export default function RemindersPage() {
                             type="button"
                             onClick={() => setTab(t.key)}
                             className={`inline-flex items-center gap-2 px-4 py-2 -mb-px border-b-2 text-sm font-medium transition-colors ${
-                                active ? 'border-[#1a2a4a] text-[#1a2a4a]' : 'border-transparent text-gray-500 hover:text-gray-700'
+                                active ? 'border-navy text-navy' : 'border-transparent text-gray-500 hover:text-gray-700'
                             }`}
                         >
                             <Icon size={15} /> {t.label}

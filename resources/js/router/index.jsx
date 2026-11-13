@@ -51,7 +51,7 @@ const LegacyReviewPage = lazy(() => import('../pages/admin/LegacyReviewPage'));
 
 const Loader = () => (
     <div className="flex items-center justify-center h-64">
-        <div className="animate-spin h-10 w-10 border-4 border-[#1a2a4a] border-t-transparent rounded-full" />
+        <div className="animate-spin h-10 w-10 border-4 border-navy border-t-transparent rounded-full" />
     </div>
 );
 

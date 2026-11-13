@@ -495,7 +495,7 @@ export default function OrdenTrabajoPdf({ orden, paciente, consulta, settings, o
                     <div className="flex items-center gap-3">
                         <button
                             onClick={handleDownload}
-                            className="flex items-center gap-2 px-4 py-2 bg-[#1a2a4a] text-white rounded-lg hover:bg-[#243a6a] transition-colors text-sm font-medium"
+                            className="flex items-center gap-2 px-4 py-2 bg-navy text-white rounded-lg hover:bg-navy-light transition-colors text-sm font-medium"
                         >
                             <Download size={16} /> Descargar PDF
                         </button>

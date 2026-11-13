@@ -288,7 +288,7 @@ export default function LabOrdersPage() {
             {/* Header */}
             <div className="flex items-center gap-3 flex-wrap">
                 <div className="flex items-center gap-2">
-                    <FlaskConical size={24} className="text-[#1a2a4a]" />
+                    <FlaskConical size={24} className="text-navy" />
                     <h1 className="text-xl font-bold text-gray-900">Órdenes de Laboratorio</h1>
                 </div>
 
@@ -321,7 +321,7 @@ export default function LabOrdersPage() {
 
                     <button
                         onClick={() => setShowModal(true)}
-                        className="flex items-center gap-1.5 px-4 py-2 bg-[#1a2a4a] text-white rounded-lg text-sm font-semibold hover:bg-[#223260] transition-colors"
+                        className="flex items-center gap-1.5 px-4 py-2 bg-navy text-white rounded-lg text-sm font-semibold hover:bg-navy-light transition-colors"
                     >
                         <Plus size={16} />
                         Nueva Orden
@@ -332,7 +332,7 @@ export default function LabOrdersPage() {
             {/* Kanban board */}
             {loading ? (
                 <div className="flex-1 flex items-center justify-center">
-                    <div className="animate-spin h-10 w-10 border-4 border-[#1a2a4a] border-t-transparent rounded-full" />
+                    <div className="animate-spin h-10 w-10 border-4 border-navy border-t-transparent rounded-full" />
                 </div>
             ) : (
                 <div
@@ -361,7 +361,7 @@ export default function LabOrdersPage() {
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
                         <div className="flex items-center justify-between px-6 py-4 border-b">
                             <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                                <FlaskConical size={20} className="text-[#1a2a4a]" />
+                                <FlaskConical size={20} className="text-navy" />
                                 Nueva Orden de Laboratorio
                             </h2>
                             <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">
@@ -454,7 +454,7 @@ export default function LabOrdersPage() {
                             <button
                                 onClick={handleSave}
                                 disabled={saving}
-                                className="flex items-center gap-2 px-5 py-2 bg-[#1a2a4a] text-white rounded-lg text-sm font-semibold hover:bg-[#223260] disabled:opacity-50 transition-colors"
+                                className="flex items-center gap-2 px-5 py-2 bg-navy text-white rounded-lg text-sm font-semibold hover:bg-navy-light disabled:opacity-50 transition-colors"
                             >
                                 {saving ? (
                                     <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />

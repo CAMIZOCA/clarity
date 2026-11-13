@@ -97,7 +97,7 @@ export default function BranchesPage() {
                 <h1 className="text-2xl font-bold text-gray-800">Sucursales</h1>
                 <button
                     onClick={openNew}
-                    className="bg-[#1a2a4a] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#243660] transition-colors"
+                    className="bg-navy text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-navy-light transition-colors"
                 >
                     + Nueva Sucursal
                 </button>
@@ -107,7 +107,7 @@ export default function BranchesPage() {
 
             {loading ? (
                 <div className="flex justify-center items-center h-40">
-                    <div className="animate-spin h-8 w-8 border-4 border-[#1a2a4a] border-t-transparent rounded-full" />
+                    <div className="animate-spin h-8 w-8 border-4 border-navy border-t-transparent rounded-full" />
                 </div>
             ) : (
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -153,7 +153,7 @@ export default function BranchesPage() {
                                     <td className="px-4 py-3">
                                         <button
                                             onClick={() => openEdit(branch)}
-                                            className="text-[#1a2a4a] hover:underline text-sm font-medium"
+                                            className="text-navy hover:underline text-sm font-medium"
                                         >
                                             Editar
                                         </button>
@@ -183,31 +183,31 @@ export default function BranchesPage() {
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Nombre *</label>
                                     <input name="name" value={form.name} onChange={handleChange} required
-                                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]" />
+                                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy" />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Código *</label>
                                     <input name="code" value={form.code} onChange={handleChange} required maxLength={10}
-                                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]" />
+                                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy" />
                                 </div>
                             </div>
 
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Dirección</label>
                                 <input name="address" value={form.address} onChange={handleChange}
-                                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]" />
+                                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy" />
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Ciudad</label>
                                     <input name="city" value={form.city} onChange={handleChange}
-                                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]" />
+                                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy" />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Provincia</label>
                                     <input name="province" value={form.province} onChange={handleChange}
-                                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]" />
+                                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy" />
                                 </div>
                             </div>
 
@@ -215,12 +215,12 @@ export default function BranchesPage() {
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
                                     <input name="phone" value={form.phone} onChange={handleChange}
-                                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]" />
+                                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy" />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
                                     <input name="email" type="email" value={form.email} onChange={handleChange}
-                                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]" />
+                                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy" />
                                 </div>
                             </div>
 
@@ -228,31 +228,31 @@ export default function BranchesPage() {
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">RUC</label>
                                     <input name="ruc" value={form.ruc} onChange={handleChange} maxLength={13}
-                                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]" />
+                                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy" />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Establecimiento SRI</label>
                                     <input name="sri_establishment" value={form.sri_establishment} onChange={handleChange} maxLength={3}
-                                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]" />
+                                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy" />
                                 </div>
                             </div>
 
                             <div className="flex gap-6">
                                 <label className="flex items-center gap-2 cursor-pointer">
                                     <input type="checkbox" name="is_active" checked={form.is_active} onChange={handleChange}
-                                        className="rounded border-gray-300 text-[#1a2a4a]" />
+                                        className="rounded border-gray-300 text-navy" />
                                     <span className="text-sm text-gray-700">Activa</span>
                                 </label>
                                 <label className="flex items-center gap-2 cursor-pointer">
                                     <input type="checkbox" name="is_main" checked={form.is_main} onChange={handleChange}
-                                        className="rounded border-gray-300 text-[#1a2a4a]" />
+                                        className="rounded border-gray-300 text-navy" />
                                     <span className="text-sm text-gray-700">Sucursal principal</span>
                                 </label>
                             </div>
 
                             <div className="flex gap-3 pt-2">
                                 <button type="submit" disabled={saving}
-                                    className="bg-[#1a2a4a] text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-[#243660] transition-colors disabled:opacity-50">
+                                    className="bg-navy text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-navy-light transition-colors disabled:opacity-50">
                                     {saving ? 'Guardando...' : 'Guardar'}
                                 </button>
                                 <button type="button" onClick={() => setShowModal(false)}

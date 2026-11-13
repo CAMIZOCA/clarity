@@ -117,7 +117,7 @@ export default function PwaManager() {
                     aria-label="Instalacion de la app"
                 >
                     <div className="flex items-start gap-3">
-                        <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[#1a2a4a] text-white">
+                        <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-navy text-white">
                             <Smartphone size={20} />
                         </div>
                         <div className="min-w-0 flex-1">
@@ -149,7 +149,7 @@ export default function PwaManager() {
                                     <button
                                         type="button"
                                         onClick={handleInstall}
-                                        className="inline-flex items-center gap-2 rounded-full bg-[#1a2a4a] px-4 py-2 text-sm font-bold text-white transition hover:bg-[#243660]"
+                                        className="inline-flex items-center gap-2 rounded-full bg-navy px-4 py-2 text-sm font-bold text-white transition hover:bg-navy-light"
                                     >
                                         <Download size={15} />
                                         Instalar app

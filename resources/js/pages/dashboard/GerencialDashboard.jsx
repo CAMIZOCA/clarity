@@ -203,7 +203,7 @@ export default function GerencialDashboard() {
             <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                        <BarChart2 size={26} className="text-[#1a2a4a]" />
+                        <BarChart2 size={26} className="text-navy" />
                         Dashboard Gerencial
                     </h1>
                     <p className="text-sm text-gray-500 mt-0.5 capitalize">
@@ -218,7 +218,7 @@ export default function GerencialDashboard() {
                 <div className="flex items-center gap-3">
                     <button
                         onClick={() => { setLoading(true); fetchData(); }}
-                        className="flex items-center gap-2 px-4 py-2 bg-[#1a2a4a] text-white rounded-lg text-sm font-medium hover:bg-[#253d6b] transition-colors"
+                        className="flex items-center gap-2 px-4 py-2 bg-navy text-white rounded-lg text-sm font-medium hover:bg-navy-light transition-colors"
                     >
                         <RefreshCw size={15} />
                         Actualizar
@@ -286,7 +286,7 @@ export default function GerencialDashboard() {
                             label="Pacientes nuevos"
                             value={todayKpis.new_patients ?? 0}
                             sub={`este mes: ${monthKpis.new_patients ?? 0}`}
-                            color="bg-[#1a2a4a]"
+                            color="bg-navy"
                         />
                         <KpiCard
                             icon={FlaskConical}
@@ -469,15 +469,15 @@ export default function GerencialDashboard() {
 
             {/* Footer links */}
             <div className="flex flex-wrap gap-3">
-                <Link to="/reportes-comerciales" className="text-sm text-[#1a2a4a] hover:underline flex items-center gap-1">
+                <Link to="/reportes-comerciales" className="text-sm text-navy hover:underline flex items-center gap-1">
                     Ver reportes detallados <ArrowRight size={14} />
                 </Link>
                 <span className="text-gray-300">|</span>
-                <Link to="/ventas" className="text-sm text-[#1a2a4a] hover:underline flex items-center gap-1">
+                <Link to="/ventas" className="text-sm text-navy hover:underline flex items-center gap-1">
                     Historial de ventas <ArrowRight size={14} />
                 </Link>
                 <span className="text-gray-300">|</span>
-                <Link to="/caja" className="text-sm text-[#1a2a4a] hover:underline flex items-center gap-1">
+                <Link to="/caja" className="text-sm text-navy hover:underline flex items-center gap-1">
                     Caja <ArrowRight size={14} />
                 </Link>
             </div>

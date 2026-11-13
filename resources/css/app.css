@@ -1,5 +1,7 @@
 @import 'tailwindcss';
 @import '@fontsource-variable/inter';
+/* Plantilla "Compacto": solo actua bajo <html data-ui="compacto"> dentro de .ui-app. */
+@import './ui-compacto.css';
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
@@ -8,6 +10,9 @@
 @source '../**/*.jsx';
 
 @theme {
+    /* `navy` es el color de accion: la plantilla Compacto lo redefine.
+       `brand` es el azul de la marca y no cambia (logo, avatar). */
+    --color-brand: #1a2a4a;
     --color-navy: #1a2a4a;
     --color-navy-light: #243660;
     --color-navy-hover: #2d4275;

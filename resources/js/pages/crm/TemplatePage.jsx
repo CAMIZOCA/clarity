@@ -81,7 +81,7 @@ function TemplateModal({ open, onClose, template, onSaved }) {
                         value={form.name}
                         onChange={e => set('name', e.target.value)}
                         placeholder="Ej: Recordatorio cita próxima semana"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] text-sm"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy text-sm"
                     />
                 </div>
 
@@ -91,7 +91,7 @@ function TemplateModal({ open, onClose, template, onSaved }) {
                         <select
                             value={form.type}
                             onChange={e => set('type', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] text-sm"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy text-sm"
                         >
                             {Object.entries(TYPE_LABELS).map(([v, l]) => (
                                 <option key={v} value={v}>{l}</option>
@@ -103,7 +103,7 @@ function TemplateModal({ open, onClose, template, onSaved }) {
                         <select
                             value={form.channel}
                             onChange={e => set('channel', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] text-sm"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy text-sm"
                         >
                             <option value="whatsapp">WhatsApp</option>
                             <option value="email">Email</option>
@@ -121,7 +121,7 @@ function TemplateModal({ open, onClose, template, onSaved }) {
                         onChange={e => set('body', e.target.value)}
                         rows={6}
                         placeholder="Hola {nombre}, te recordamos tu cita en {optica} el {fecha}."
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] text-sm resize-none"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy text-sm resize-none"
                     />
                     <div className="mt-1 flex flex-wrap gap-1">
                         <span className="text-xs text-gray-400">Variables:</span>
@@ -153,7 +153,7 @@ function TemplateModal({ open, onClose, template, onSaved }) {
                         id="active-toggle"
                         checked={form.is_active}
                         onChange={e => set('is_active', e.target.checked)}
-                        className="accent-[#1a2a4a]"
+                        className="accent-navy"
                     />
                     <label htmlFor="active-toggle" className="text-sm text-gray-700">Plantilla activa</label>
                 </div>
@@ -199,7 +199,7 @@ export default function TemplatePage() {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-[#1a2a4a] rounded-xl flex items-center justify-center">
+                    <div className="w-10 h-10 bg-navy rounded-xl flex items-center justify-center">
                         <FileText size={20} className="text-white" />
                     </div>
                     <div>
@@ -216,7 +216,7 @@ export default function TemplatePage() {
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
                 {loading ? (
                     <div className="flex items-center justify-center h-48 text-gray-400">
-                        <div className="animate-spin h-8 w-8 border-4 border-[#1a2a4a] border-t-transparent rounded-full" />
+                        <div className="animate-spin h-8 w-8 border-4 border-navy border-t-transparent rounded-full" />
                     </div>
                 ) : templates.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-48 text-gray-400 gap-3">
@@ -252,14 +252,14 @@ export default function TemplatePage() {
                                             <div className="flex items-center gap-2">
                                                 <button
                                                     onClick={() => setPreviewId(previewId === t.id ? null : t.id)}
-                                                    className="p-1.5 rounded-lg text-gray-400 hover:text-[#1a2a4a] hover:bg-gray-100 transition-colors"
+                                                    className="p-1.5 rounded-lg text-gray-400 hover:text-navy hover:bg-gray-100 transition-colors"
                                                     title="Vista previa"
                                                 >
                                                     <Eye size={15} />
                                                 </button>
                                                 <button
                                                     onClick={() => openEdit(t)}
-                                                    className="p-1.5 rounded-lg text-gray-400 hover:text-[#1a2a4a] hover:bg-gray-100 transition-colors"
+                                                    className="p-1.5 rounded-lg text-gray-400 hover:text-navy hover:bg-gray-100 transition-colors"
                                                     title="Editar"
                                                 >
                                                     <Edit2 size={15} />

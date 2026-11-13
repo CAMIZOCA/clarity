@@ -93,7 +93,7 @@ function EyeTable({ columns, rows }) {
                 <tbody>
                     {rows.map((row) => (
                         <tr key={row.label} className="border-b border-gray-50 last:border-0">
-                            <th className="py-2 pr-3 text-left font-semibold text-[#1a2a4a]">{row.label}</th>
+                            <th className="py-2 pr-3 text-left font-semibold text-navy">{row.label}</th>
                             {visible.map((column) => (
                                 <td key={column.key} className="py-2 pr-3 font-mono text-gray-900">{row.values[column.key] || '—'}</td>
                             ))}
@@ -256,7 +256,7 @@ export default function ConsultationViewPage() {
 
     if (!consultation || !view) return (
         <div className="flex items-center justify-center h-64">
-            <div className="animate-spin h-10 w-10 border-4 border-[#1a2a4a] border-t-transparent rounded-full" />
+            <div className="animate-spin h-10 w-10 border-4 border-navy border-t-transparent rounded-full" />
         </div>
     );
 
@@ -309,7 +309,7 @@ export default function ConsultationViewPage() {
                 </div>
             </div>
 
-            <div className="bg-[#1a2a4a] rounded-2xl p-5 mb-6 text-white">
+            <div className="bg-navy rounded-2xl p-5 mb-6 text-white">
                 <h2 className="text-xl font-semibold">{patientName}</h2>
                 <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">
                     {[
@@ -418,7 +418,7 @@ export default function ConsultationViewPage() {
                     <FieldList items={view.textItems('contactLens')} />
                     {view.contactLensTables.map((table) => (
                         <div key={table.title} className="mt-4 first:mt-0">
-                            <h3 className="mb-1 text-sm font-semibold text-[#1a2a4a]">{table.title}</h3>
+                            <h3 className="mb-1 text-sm font-semibold text-navy">{table.title}</h3>
                             <EyeTable columns={table.columns} rows={table.rows} />
                             {table.observation && (
                                 <div className="mt-2"><FieldList items={[table.observation]} /></div>
@@ -437,7 +437,7 @@ export default function ConsultationViewPage() {
                     <div className="space-y-5">
                         {view.motorBlocks.map((block) => (
                             <div key={block.title}>
-                                <h3 className="mb-2 text-sm font-semibold text-[#1a2a4a]">{block.title}</h3>
+                                <h3 className="mb-2 text-sm font-semibold text-navy">{block.title}</h3>
                                 <ul className="space-y-1.5 text-sm text-gray-900">
                                     {block.rows.map((row) => (
                                         <li key={row.label}>

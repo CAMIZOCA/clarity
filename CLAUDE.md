@@ -342,6 +342,45 @@ consultas importadas (a veces notas clinicas) y cada guardado lo dejaba en `null
 - Antes de mapear un modulo a columnas planas, comprobar que el formulario muestra lo que ya
   hay en ellas. Lo cubre `tests/Feature/ConsultationLensRecommendationTest.php`.
 
+### 17. Dos plantillas de pantalla: Clasico y Compacto
+
+Cada usuario elige su plantilla en «Diseño de pantalla» (pie del menu y `/perfil`):
+
+- **Clasico** es el diseño de siempre y el que tiene por defecto el personal.
+- **Compacto** sigue las HIG de Apple: es mas denso y divide la consulta en pestañas.
+
+Se guarda en `users.ui_template` (`PATCH /api/me/preferences`, sin `users.edit`). Si vale `null` se
+usa `settings.ui_template_default` (Configuracion > General). `app.blade.php` escribe
+`<html data-ui>` desde el servidor para que no parpadee, y `UiTemplateContext` lo mantiene al dia
+(`useUiTemplate()` → `isCompact`).
+
+- **Nunca hex fijos en clases**: `bg-[#1a2a4a]` no cambia con la plantilla. Usar los tokens
+  `navy`, `navy-light` y `accent-yellow`. `brand` es el azul de la marca, que no cambia en ninguna
+  plantilla. Lo vigila `tests/Unit/NoHardcodedBrandColorsTest.php`.
+- **La capa visual** es `resources/css/ui-compacto.css`. Redefine las variables de Tailwind
+  (`--color-navy`, `--color-gray-*`, `--radius-*`) bajo `[data-ui="compacto"] .ui-app` (`.ui-app`
+  es la raiz de AppShell), asi que el login, la landing y la impresion no cambian. Va fuera de
+  capas a proposito y bajo `@media screen`. La densidad (32 px) es solo con raton y desde 1024 px.
+  Como esas reglas le ganan a las clases de Tailwind, un `min-h-*` propio necesita `max-lg:` o
+  quedarse en `.min-h-11`.
+- **Con estructura propia en Compacto** estan el marco (`AppShell`/`Sidebar`, con `SKINS`), la
+  consulta, Inicio (`DashboardCompactView`), Pacientes (`PatientListCompactView`) y la Ficha
+  (`PatientDetailCompactView`). La pagina conserva todo el estado y las acciones, y la vista
+  Compacta solo pinta: un dato o una accion nueva se agrega en las dos vistas. La lista de lo que
+  cada vista debe tener esta en el comentario de cabecera de cada `*CompactView`.
+- **La consulta** usa las mismas 10 `CollapsibleSection` en las dos plantillas.
+  `ConsultationTabs.jsx` las agrupa en 6 pestañas por `sectionKey`; en Compacto las secciones de
+  pestañas inactivas no se montan, igual que una seccion colapsada. Una seccion nueva necesita su
+  `sectionKey` en `CONSULTATION_TABS` ademas de `FIELD_SECTION_RULES`, o no se ve en Compacto.
+  `goToField` sirve igual porque las pestañas escuchan `openCollapsibleSection`. Para la paridad de
+  campos: juntar los `name` de `form [name]` en Clasico (secciones y avanzados abiertos) y en
+  Compacto (recorriendo las 6 pestañas y las sub-pestañas de Modulos). Los dos conjuntos deben
+  coincidir; hoy son 204 campos en cada plantilla.
+- **Induccion**:
+  - `WhatsNewModal` sale una vez por equipo y nunca en `EDITING_PATHS`;
+  - `CompactTour` da pasos por pantalla la primera vez en Compacto;
+  - `/ayuda` tiene la seccion «Diseño de pantalla».
+
 ---
 
 ## Convenciones

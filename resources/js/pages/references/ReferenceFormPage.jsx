@@ -68,7 +68,7 @@ export default function ReferenceFormPage() {
             <div className="flex items-center gap-4 mb-6">
                 <button onClick={() => navigate(-1)} className="p-2 rounded-lg hover:bg-gray-100"><ArrowLeft size={24} /></button>
                 <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                    <FileText size={24} className="text-[#1a2a4a]" /> {isEdit ? 'Editar Referencia' : 'Nueva Referencia Oftalmológica'}
+                    <FileText size={24} className="text-navy" /> {isEdit ? 'Editar Referencia' : 'Nueva Referencia Oftalmológica'}
                 </h1>
             </div>
             <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 sm:p-6 space-y-5">
@@ -109,7 +109,7 @@ export default function ReferenceFormPage() {
                         value={form.observaciones}
                         onChange={e => set('observaciones', e.target.value)}
                         rows={3}
-                        className="w-full min-h-11 resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm touch-manipulation focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]"
+                        className="w-full min-h-11 resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm touch-manipulation focus:outline-none focus:ring-2 focus:ring-navy"
                     />
                 </div>
 

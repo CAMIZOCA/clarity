@@ -49,8 +49,8 @@ const Input = forwardRef(function Input({
                     enterKeyHint={resolvedEnterKeyHint}
                     onKeyDown={handleKeyDown}
                     className={`w-full rounded-lg border text-base py-2.5 transition-colors
-                        min-h-11 touch-manipulation focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] focus:border-transparent
-                        focus:bg-[#fef08a]/20
+                        min-h-11 touch-manipulation focus:outline-none focus:ring-2 focus:ring-navy focus:border-transparent
+                        focus:bg-accent-yellow/20
                         ${error ? 'border-red-400 bg-red-50' : 'border-gray-300 bg-white'}
                         ${prefix ? 'pl-8' : 'pl-3'}
                         ${suffix ? 'pr-8' : 'pr-3'}`}
