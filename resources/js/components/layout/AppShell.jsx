@@ -123,6 +123,8 @@ function CompactToolbar({ title, sidebarHidden, onToggleSidebar, onOpenMobileMen
 export default function AppShell() {
     const { user } = useAuth();
     const { isCompact } = useUiTemplate();
+    const { branches } = useBranch();
+    const hasBranchSelector = branches.length > 1;
     const location = useLocation();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const mainRef = useRef(null);
@@ -172,8 +174,10 @@ export default function AppShell() {
         <div className="ui-app flex h-[100dvh] bg-gray-50 lg:h-auto lg:min-h-[100dvh]">
             <Sidebar mobileOpen={mobileMenuOpen} onClose={handleMobileMenuClose} desktopHidden={desktopSidebarHidden} />
             <div className="flex min-w-0 min-h-0 flex-1 flex-col overflow-hidden lg:overflow-visible">
+                {/* Clasico: en escritorio la cabecera solo existe si hay selector de
+                    sucursal. Compacto: siempre, es la barra de herramientas (titulo y buscador). */}
                 <header
-                    className="material-toolbar scroll-edge relative sticky top-0 z-30 pt-[env(safe-area-inset-top)]"
+                    className={`material-toolbar scroll-edge relative sticky top-0 z-30 pt-[env(safe-area-inset-top)] ${isCompact || hasBranchSelector ? '' : 'lg:hidden'}`}
                     data-scrolled={scrolled}
                 >
                     {isCompact ? (
@@ -185,19 +189,17 @@ export default function AppShell() {
                         />
                     ) : (
                     <>
-                    <div className="flex items-center gap-3 px-4 py-3 lg:px-6">
+                    {/* Solo el boton del menu, y solo bajo `lg`: el texto fijo
+                        "Sistema Clinico" ocupaba espacio en todas las pantallas. */}
+                    <div className="flex items-center gap-3 px-4 py-2 lg:hidden">
                         <button
                             type="button"
                             onClick={handleMobileMenuOpen}
-                            className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-700 shadow-sm transition hover:bg-gray-50 lg:hidden"
+                            className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-700 shadow-sm transition hover:bg-gray-50"
                             aria-label="Abrir menu"
                         >
                             <Menu size={20} />
                         </button>
-                        <div className="min-w-0 flex-1">
-                            <p className="text-heading truncate text-sm font-semibold text-gray-900">Sistema Clinico</p>
-                            <p className="truncate text-xs text-gray-500">Accesos rapidos, pacientes y operacion diaria</p>
-                        </div>
                     </div>
                     <BranchSelector />
                     </>

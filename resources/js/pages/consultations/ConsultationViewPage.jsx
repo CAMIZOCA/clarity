@@ -12,7 +12,7 @@ import { formatOpticalForInput } from '../../utils/opticalFormat';
 import { toDisplayDate, getYear } from '../../utils/dates';
 import { MOTOR_BINOCULAR_BLOCKS, buildMotorBinocularDefaults } from '../../data/motorBinocularSchema';
 import {
-    PRELIMINARY_ROWS, REFRACTION_TABLES, RX_USO_COLUMNS, KERATOMETRY_ROWS, TEXT_SECTIONS,
+    PRELIMINARY_ROWS, REFRACTION_TABLES, RX_USO_COLUMNS, KERATOMETRY_ROWS, TEXT_SECTIONS, CONTACT_LENS_TABLES,
 } from '../../data/consultationViewSchema';
 
 /**
@@ -200,6 +200,21 @@ export default function ConsultationViewPage() {
             { label: 'Observación', value: c.luna_observacion },
         ];
 
+        const contactLensTables = CONTACT_LENS_TABLES.map((table) => ({
+            title: table.title,
+            columns: table.columns,
+            rows: EYES.map(([eye, label]) => ({
+                label,
+                values: Object.fromEntries(table.columns.map((column) => [
+                    column.key,
+                    String(getPath(c, `contact_lens_module.${table.key}.${eye}.${column.key}`) ?? '').trim(),
+                ])),
+            })),
+            observation: table.observation
+                ? { label: table.observation.label, value: getPath(c, table.observation.path) }
+                : null,
+        })).filter((table) => hasValues(table.rows) || !isBlank(table.observation?.value));
+
         const motor = buildMotorBinocularDefaults(c);
         const motorBlocks = MOTOR_BINOCULAR_BLOCKS.map((block) => ({
             title: block.title,
@@ -217,7 +232,7 @@ export default function ConsultationViewPage() {
 
         return {
             notes, textItems, preliminary, refraction, keratometry, diagnoses, recommendations,
-            lensItems, legacyLensItems, motorBlocks, rxUso: rxUsoTables(c, notes),
+            lensItems, legacyLensItems, contactLensTables, motorBlocks, rxUso: rxUsoTables(c, notes),
         };
     }, [consultation]);
 
@@ -398,8 +413,19 @@ export default function ConsultationViewPage() {
                 </Section>
             )}
 
-            {filled(view.textItems('contactLens')) && (
-                <Section title="Lentes de contacto"><FieldList items={view.textItems('contactLens')} /></Section>
+            {(filled(view.textItems('contactLens')) || view.contactLensTables.length > 0) && (
+                <Section title="Lentes de contacto">
+                    <FieldList items={view.textItems('contactLens')} />
+                    {view.contactLensTables.map((table) => (
+                        <div key={table.title} className="mt-4 first:mt-0">
+                            <h3 className="mb-1 text-sm font-semibold text-navy">{table.title}</h3>
+                            <EyeTable columns={table.columns} rows={table.rows} />
+                            {table.observation && (
+                                <div className="mt-2"><FieldList items={[table.observation]} /></div>
+                            )}
+                        </div>
+                    ))}
+                </Section>
             )}
 
             {filled(view.textItems('ophthalmoscopy')) && (

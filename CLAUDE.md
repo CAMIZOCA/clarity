@@ -241,6 +241,17 @@ varios campos para otra cosa. La importacion lo copio literal, asi que en las co
   AV.CC de la RX en uso. La AV.CC es la escrita dentro del texto de la receta ("... 20/20");
 - `ark_*` (rotulado "Queratometria") trae la refraccion, que aqui es la Retinoscopia, y
   `retinoscopia_*` trae el cover test ("ORTHO", "X").
+- `retinoscopia_esfera/cilindro/eje_*` (`RETINOSCOPIA_ESFERA/CILINDRO/EJE` del Access) son el
+  bloque **"Lentes de contacto blandos"**, no la retinoscopia. Ninguna pantalla las muestra: la
+  regla `lc_blandos` (migracion `2026_11_11_000001`, sin el Access) las copia como texto
+  ("-4.25 -0.75 x 0") a `contact_lens_module.final_lens.{od,oi}.poder` si esa casilla esta vacia.
+  Las filas viejas usaban esas casillas para notas ("Test de H +", "AE 20/30", una "N" sola): esas
+  se informan y se dejan. `final_lens` se guarda `{od:{curva_base,poder,diametro,h2o,material},
+  oi:{...}, observacion}`; el importador lo escribia con claves planas (`poder_od`) que el
+  formulario no lee, y la misma regla las anida. `test_lens` importado quedo plano (`bc_od`,
+  `sobreref_od`, `av_od`; 314 modulos, casi todo "N"/"OK") y la tabla "Lente de prueba" salia
+  vacia: lo corrige el caso `lc-lente-prueba` de la revision de datos heredados, y desde el
+  2026-11-13 el importador ya lo anida (`App\Support\LegacyContactLens::nestTestLens`).
 
 Lo corrige `LegacyConsultationRepairService` en dos pasos. Cada cambio queda en
 `consultation_legacy_repairs` con el valor anterior: eso permite `--revert` y evita que una
@@ -254,7 +265,33 @@ segunda pasada divida dos veces (2500 -> 25.00 -> 0.25).
   "Reescribir datos legacy" desmarcado) o con
   `consultations:repair-legacy-import --source=ruta.sqlite` (primero con `--dry-run`). Solo tocan
   un ojo que sigue como lo dejo la importacion; lo corregido a mano se respeta. Aplicado en la BD
-  local el 2026-10-13 (`avsc_origen` el 2026-11-08); en staging y produccion falta subir el `.sqlite`.
+  local el 2026-10-13; en staging y produccion falta subir el `.sqlite`. **`avsc_origen` no corre
+  si se importa con "Reescribir datos legacy" marcado** (es el default en Mantenimiento: activa
+  `--replace` y salta `repairFromSource`); al 2026-11-13 la BD local tenia 0 filas de esa regla y
+  ~4.400 consultas con la AV.SC en la AV.CC de la RX en uso.
+- **Desde la app, sin el Access**: "Revision de datos heredados" (`/admin/revision-datos`,
+  permiso `legacy.review`, `LegacyReviewController` -> `app/Services/LegacyReview/`). Cada tipo
+  de problema es un `LegacyReviewCase`; el primero, `AvscFromRxUsoCase`, lleva la AV de la AV.CC
+  de "RX en uso 1" (entrada `orden = 0` **y** columna plana `rx_uso_avcc_*`) a `avsc_*` y deja la
+  observacion intacta. La optica ve lo actual y lo propuesto; vienen marcadas las que no tienen
+  conflicto ni `activity_log` de edicion. El servidor vuelve a evaluar al aplicar (nunca escribe lo
+  que manda el navegador), genera un backup antes y registra cada valor en
+  `consultation_legacy_repairs` con la regla del caso (`revision_avsc`) y el `batch_id` de
+  `legacy_review_batches`. Deshacer un lote restaura un ojo solo si todos sus valores siguen como
+  los dejo el lote; la entrada de RX en uso se busca por `orden = 0` si guardar la recreo con otro id.
+  Escribe con `DB::table` y no mueve `updated_at`.
+  - Un caso extiende `BaseLegacyReviewCase` y se registra en el constructor de
+    `LegacyReviewService`. Declara tambien su presentacion (`statuses`, `flags`, `filters`,
+    `cards`, `columns`, `rowColumns`): `LegacyReviewPage.jsx` no tiene nada fijo de un caso. Una
+    fila con estado `igual` no se lista (cuenta en "ya correctas"). Un cambio con `id` null y
+    `create` crea la fila (modulo de lentes) al aplicar; deshacer la deja vacia.
+  - Casos de lentes de contacto: `lc-blandos-poder` (LC blandos del Access frente al Poder:
+    llenar si esta vacio; misma medida en otro formato, "-425-075x0", se propone sin marcar, con
+    eje 0 = 180; otra medida no se toca; lo que no es medida va a `contact_lens_module.observaciones`
+    como "LC blandos (sistema anterior) ..."), `lc-lente-prueba` (anida el `test_lens` plano) y
+    `lc-marca-material` (Material -> "Marca: ..." en `final_lens.observacion`; nada marcado,
+    incluye consultas nuevas). Las JSON se registran enteras: si se guardaron despues, deshacer
+    las salta.
 
 Las OBSERVACIONES del Access (lo vendido, cada reclamo) estan en `consultations.observaciones`
 desde la primera importacion. Se ven en el historial de la ficha del paciente y en la seccion
@@ -456,8 +493,14 @@ usa `settings.ui_template_default` (Configuracion > General). `app.blade.php` es
   contador de Agenda) y `consultations-forecast` pide `consultations.handoff`.
 - **Recepcion**: pacientes, consultas en lectura, agenda completa y ordenes de trabajo (ver, crear,
   editar, cambiar estado; no eliminar). Sin reportes, ventas, caja, inventario ni CRM
-  (migracion `2026_10_26_000002`). Ve un mensaje de animo por dia bajo la fecha del dashboard
+  (migracion `2026_10_26_000002`), salvo **Recordatorios** para mandar los WhatsApp:
+  `crm.reminders` abre esa pantalla y sus endpoints (lista, vista previa, contactos y elegir
+  plantilla) sin Campanas ni el menu Plantillas, que siguen con `crm.view`; enviar pide
+  `crm.send_messages` (migracion `2026_11_11_000002`). Ve un mensaje de animo por dia bajo la fecha del dashboard
   (`data/dailyMessages.js`, `messageOfTheDay`).
+- **Lente definitivo**: bajo su tabla hay "Observaciones del lente definitivo (marca, novedades)",
+  guardado en la JSON `final_lens.observacion` (sin columna; la marca no va en "Material"). La
+  ficha de lectura pinta las tablas de lente de prueba y definitivo (`CONTACT_LENS_TABLES`).
 - **Ficha de lectura de la consulta**: `/consulta/:id/ver` (`ConsultationViewPage`) muestra solo lo
   lleno, con rotulos de `data/consultationViewSchema.js`. Quien no tiene `consultations.edit` llega ahi
   desde la ficha del paciente y el dashboard (`utils/consultationLinks.js`) y `/consulta/:id` lo

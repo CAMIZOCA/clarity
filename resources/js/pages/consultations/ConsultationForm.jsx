@@ -441,6 +441,7 @@ function buildDefaultValues(patient, consultation, meta, defaultDoctor = null) {
             final_lens: {
                 od: { curva_base: '', poder: '', diametro: '', h2o: '', material: '' },
                 oi: { curva_base: '', poder: '', diametro: '', h2o: '', material: '' },
+                observacion: '',
             },
         },
         treatment_module: consultation?.treatment_module ?? {
@@ -2101,6 +2102,10 @@ export default function ConsultationForm({ patient, consultation, meta, readOnly
                             ))}
                         </tbody>
                     </table>
+                </div>
+                {/* Va en el JSON `final_lens` (sin columna nueva): la marca no es el material. */}
+                <div className="mt-4">
+                    <TextArea label="Observaciones del lente definitivo (marca, novedades)" name="contact_lens_module.final_lens.observacion" register={register} rows={2} />
                 </div>
             </CollapsibleSection>
 

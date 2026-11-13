@@ -9,6 +9,8 @@ use App\Models\ConsultationTreatmentModule;
 use App\Models\Patient;
 use App\Models\User;
 use App\Services\LegacyConsultationRepairService;
+use App\Services\LegacyReview\TrialLensFlatCase;
+use App\Support\LegacyContactLens;
 use App\Support\LegacyOpticalParser;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
@@ -701,22 +703,52 @@ class ImportOpticaAndinaSqlite extends Command
             'blando' => $this->v($row, 'LENTECONTACTO_PRUEBA_BLANDO'),
         ]);
 
-        $finalLens = $this->compactValues([
-            'poder_od' => $this->v($row, 'LENTECONTACTO_PEDIDO_PODER_OD'),
-            'poder_oi' => $this->v($row, 'LENTECONTACTO_PEDIDO_PODER_OI'),
-            'cb_od' => $this->v($row, 'LENTECONTACTO_PEDIDO_CB_OD'),
-            'cb_oi' => $this->v($row, 'LENTECONTACTO_PEDIDO_CB_OI'),
-            'diametro_od' => $this->v($row, 'LENTECONTACTO_PEDIDO_DIAMETRO_OD'),
-            'diametro_oi' => $this->v($row, 'LENTECONTACTO_PEDIDO_DIAMETRO_OI'),
-            'av_od' => $this->v($row, 'LENTECONTACTO_PEDIDO_AV_OD'),
-            'av_oi' => $this->v($row, 'LENTECONTACTO_PEDIDO_AV_OI'),
-            'color_od' => $this->v($row, 'LENTECONTACTO_PEDIDO_COLOR_OD'),
-            'color_oi' => $this->v($row, 'LENTECONTACTO_PEDIDO_COLOR_OI'),
-            'tipo_lente' => $this->v($row, 'LENTECONTACTO_PEDIDO_TIPO DE LENTE'),
-        ]);
+        // El formulario lee el lente definitivo como `final_lens.od.poder`. Si el
+        // pedido no trae poder, sale del bloque "LENTES DE CONTACTO BLANDOS",
+        // que el Access guarda en RETINOSCOPIA_ESFERA/CILINDRO/EJE.
+        $finalLens = [];
+        $notes = [];
+        foreach (['od' => 'OD', 'oi' => 'OI'] as $eye => $suffix) {
+            $eyeValues = [
+                'curva_base' => $this->v($row, "LENTECONTACTO_PEDIDO_CB_{$suffix}"),
+                'poder' => $this->v($row, "LENTECONTACTO_PEDIDO_PODER_{$suffix}") ?? LegacyOpticalParser::contactLensPower(
+                    $this->v($row, "RETINOSCOPIA_ESFERA_{$suffix}"),
+                    $this->v($row, "RETINOSCOPIA_CILINDRO_{$suffix}"),
+                    $this->v($row, "RETINOSCOPIA_EJE_{$suffix}"),
+                ),
+                'diametro' => $this->v($row, "LENTECONTACTO_PEDIDO_DIAMETRO_{$suffix}"),
+                'h2o' => null,
+                'material' => null,
+            ];
+            if ($this->hasAnyValue($eyeValues)) {
+                $finalLens[$eye] = $eyeValues;
+            }
 
+            foreach (['AV' => 'AV', 'COLOR' => 'Color'] as $column => $label) {
+                $value = $this->v($row, "LENTECONTACTO_PEDIDO_{$column}_{$suffix}");
+                if ($value !== null) {
+                    $notes[] = "{$suffix} {$label}: {$value}";
+                }
+            }
+        }
+        $lensType = $this->v($row, 'LENTECONTACTO_PEDIDO_TIPO DE LENTE');
+        if ($lensType !== null) {
+            $notes[] = "Tipo: {$lensType}";
+        }
+        if ($notes !== []) {
+            $finalLens['observacion'] = implode(' / ', $notes);
+        }
+
+        // El formulario lee `test_lens.od.curva_base`: guardado plano, la tabla salia vacia.
         if ($testLens !== []) {
-            $fields['test_lens'] = $testLens;
+            $nested = LegacyContactLens::nestTestLens($testLens);
+            $fields['test_lens'] = $nested['lens'];
+            if ($nested['notes'] !== []) {
+                $fields['observaciones'] = LegacyContactLens::appendNote(
+                    $fields['observaciones'],
+                    TrialLensFlatCase::NOTE_PREFIX.': '.implode(' / ', $nested['notes']),
+                );
+            }
         }
         if ($finalLens !== []) {
             $fields['final_lens'] = $finalLens;

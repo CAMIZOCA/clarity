@@ -39,7 +39,8 @@ class ConsultationController extends Controller
             $query->whereDate('fecha_consulta', '<=', $to);
         }
 
-        return response()->json($query->paginate(20));
+        $paginated = $query->paginate(20);
+        return response()->json($paginated->toArray());
     }
 
     public function store(StoreConsultationRequest $request): JsonResponse
@@ -59,14 +60,14 @@ class ConsultationController extends Controller
 
         $consultation = $this->consultationService->create($data, $request->user()->id);
 
-        return response()->json($this->consultationService->loadConsultation($consultation), 201);
+        return response()->json($this->consultationService->loadConsultation($consultation)->toArray(), 201);
     }
 
     public function show(Request $request, Consultation $consultation): JsonResponse
     {
         abort_unless($request->user()->can(Permission::CONSULTATIONS_VIEW->value), 403);
 
-        return response()->json($this->consultationService->loadConsultation($consultation));
+        return response()->json($this->consultationService->loadConsultation($consultation)->toArray());
     }
 
     public function update(UpdateConsultationRequest $request, Consultation $consultation): JsonResponse
@@ -78,7 +79,7 @@ class ConsultationController extends Controller
 
         $this->consultationService->update($consultation, $data, $request->user()->id);
 
-        return response()->json($this->consultationService->loadConsultation($consultation));
+        return response()->json($this->consultationService->loadConsultation($consultation)->toArray());
     }
 
     public function destroy(Request $request, Consultation $consultation): JsonResponse

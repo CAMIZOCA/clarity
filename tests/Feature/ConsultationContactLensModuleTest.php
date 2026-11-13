@@ -25,7 +25,7 @@ class ConsultationContactLensModuleTest extends TestCase
         app(PermissionRegistrar::class)->forgetCachedPermissions();
 
         $user = User::factory()->create();
-        foreach ([Permission::CONSULTATIONS_CREATE->value, Permission::CONSULTATIONS_EDIT->value] as $permission) {
+        foreach ([Permission::CONSULTATIONS_CREATE->value, Permission::CONSULTATIONS_EDIT->value, Permission::CONSULTATIONS_VIEW->value] as $permission) {
             SpatiePermission::firstOrCreate(['name' => $permission, 'guard_name' => 'web']);
             $user->givePermissionTo($permission);
         }
@@ -52,6 +52,29 @@ class ConsultationContactLensModuleTest extends TestCase
             'tincion' => 'Grado 1',
             'estado' => 'en_observacion',
         ]);
+    }
+
+    public function test_final_lens_power_and_observation_are_saved_and_returned(): void
+    {
+        $this->putJson("/api/consultations/{$this->consultation->id}", [
+            'estado' => 'borrador',
+            'contact_lens_module' => [
+                'final_lens' => [
+                    'od' => ['curva_base' => '8,6', 'poder' => '-4.25 -0.75 x 0', 'diametro' => '14,5', 'h2o' => '', 'material' => 'Silicona hidrogel'],
+                    'oi' => ['curva_base' => '8,6', 'poder' => '-2.75 -0.75 x 180', 'diametro' => '14,5', 'h2o' => '', 'material' => 'Silicona hidrogel'],
+                    'observacion' => 'Biofinity Toric, 2 cajas',
+                ],
+            ],
+        ])->assertOk();
+
+        $module = $this->consultation->fresh()->contactLensModule;
+        $this->assertSame('-4.25 -0.75 x 0', $module->final_lens['od']['poder']);
+        $this->assertSame('Biofinity Toric, 2 cajas', $module->final_lens['observacion']);
+
+        $this->getJson("/api/consultations/{$this->consultation->id}")
+            ->assertOk()
+            ->assertJsonPath('contact_lens_module.final_lens.observacion', 'Biofinity Toric, 2 cajas')
+            ->assertJsonPath('contact_lens_module.final_lens.oi.poder', '-2.75 -0.75 x 180');
     }
 
     public function test_an_unknown_estado_is_rejected(): void

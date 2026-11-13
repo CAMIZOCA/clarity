@@ -47,7 +47,14 @@ class LegacyConsultationRepairService
      */
     public const RULE_AVSC_SOURCE = 'avsc_origen';
 
-    public const DEFAULT_RULES = [self::RULE_DECIMALS, self::RULE_RX_USO, self::RULE_ARK];
+    /**
+     * Lentes de contacto blandos: el Access guarda su esfera, cilindro y eje en
+     * RETINOSCOPIA_ESFERA/CILINDRO/EJE, que la importacion copio a columnas que
+     * ninguna pantalla muestra. Pasan a "Poder" del lente definitivo.
+     */
+    public const RULE_SOFT_CONTACT_LENS = 'lc_blandos';
+
+    public const DEFAULT_RULES = [self::RULE_DECIMALS, self::RULE_RX_USO, self::RULE_ARK, self::RULE_SOFT_CONTACT_LENS];
 
     /** Reglas que necesitan el respaldo original: solo corren con `repairFromSource`. */
     public const SOURCE_RULES = [self::RULE_SUBJ_SOURCE, self::RULE_RX_USO_SOURCE, self::RULE_AVSC_SOURCE];
@@ -55,11 +62,23 @@ class LegacyConsultationRepairService
     public const RULES = [
         self::RULE_DECIMALS, self::RULE_RX_USO, self::RULE_ARK, self::RULE_SUBJ,
         self::RULE_SUBJ_SOURCE, self::RULE_RX_USO_SOURCE, self::RULE_AVSC_SOURCE,
+        self::RULE_SOFT_CONTACT_LENS,
     ];
 
     private const CONSULTATIONS = 'consultations';
 
     private const RX_USO_ENTRIES = 'consultation_rx_uso_entries';
+
+    private const CONTACT_LENS_MODULES = 'consultation_contact_lens_modules';
+
+    /** Casillas de cada ojo del lente definitivo en el formulario (`final_lens.od.*`). */
+    private const FINAL_LENS_FIELDS = ['curva_base', 'poder', 'diametro', 'h2o', 'material'];
+
+    /** Claves planas que dejaba el importador (`poder_od`) y su casilla. */
+    private const FLAT_FINAL_LENS_FIELDS = ['cb' => 'curva_base', 'poder' => 'poder', 'diametro' => 'diametro', 'h2o' => 'h2o', 'material' => 'material'];
+
+    /** Claves planas sin casilla en el formulario: van a la observacion del lente. */
+    private const FLAT_FINAL_LENS_NOTES = ['av' => 'AV', 'color' => 'Color'];
 
     /** Una esfera o cilindro mayor a esto no existe: el dato no se toca y se informa. */
     private const MAX_DIOPTERS = 30.0;
@@ -95,6 +114,7 @@ class LegacyConsultationRepairService
 
         $columns = array_values(array_unique([
             'id', ...self::DECIMAL_COLUMNS, ...self::TEXT_COLUMNS, ...$this->rxUsoColumns('rx_uso_'),
+            ...$this->softContactLensColumns(),
         ]));
 
         DB::table(self::CONSULTATIONS)
@@ -106,6 +126,12 @@ class LegacyConsultationRepairService
                     ->where('orden', 0)
                     ->get(['id', 'consultation_id', ...$this->rxUsoColumns('')])
                     ->groupBy('consultation_id');
+                $modules = in_array(self::RULE_SOFT_CONTACT_LENS, $rules, true)
+                    ? DB::table(self::CONTACT_LENS_MODULES)
+                        ->whereIn('consultation_id', $consultations->pluck('id'))
+                        ->get(['id', 'consultation_id', 'final_lens'])
+                        ->keyBy('consultation_id')
+                    : collect();
 
                 $changes = [];
                 foreach ($consultations as $consultation) {
@@ -114,6 +140,7 @@ class LegacyConsultationRepairService
 
                     foreach ($rules as $rule) {
                         $found = match ($rule) {
+                            self::RULE_SOFT_CONTACT_LENS => $this->softContactLensChanges($id, $row, $modules->get($id), $dryRun),
                             self::RULE_DECIMALS => $this->decimalChanges($id, $row),
                             self::RULE_RX_USO => [
                                 ...$this->rxUsoChanges($id, self::CONSULTATIONS, $id, $row, 'rx_uso_'),
@@ -675,6 +702,144 @@ class LegacyConsultationRepairService
         return $changes;
     }
 
+    /**
+     * Lleva la esfera, cilindro y eje de los lentes blandos del Access al
+     * "Poder" del lente definitivo (`final_lens.{ojo}.poder`), solo si esa
+     * casilla esta vacia. De paso deja `final_lens` en la forma que lee el
+     * formulario si el importador lo guardo con claves planas (`poder_od`).
+     *
+     * Un ojo cuyo texto no es una medida ("Test de H +", "AE 20/30") no se
+     * mueve y se informa. Si la consulta no tiene modulo de lentes de contacto
+     * se crea vacio (salvo en dry-run) y el cambio queda en su `final_lens`.
+     */
+    private function softContactLensChanges(int $consultationId, array $row, ?object $module, bool $dryRun): array
+    {
+        if ($module !== null && isset($this->done[$this->key(self::CONTACT_LENS_MODULES, $module->id, 'final_lens', self::RULE_SOFT_CONTACT_LENS)])) {
+            return [];
+        }
+
+        $current = $module?->final_lens !== null ? json_decode((string) $module->final_lens, true) : null;
+        $current = is_array($current) ? $current : [];
+        $lens = $this->nestedFinalLens($current);
+
+        foreach (array_keys(self::EYES) as $eye) {
+            $parts = [
+                $row["retinoscopia_esfera_{$eye}"] ?? null,
+                $row["retinoscopia_cilindro_{$eye}"] ?? null,
+                $row["retinoscopia_eje_{$eye}"] ?? null,
+            ];
+            $written = trim(implode(' ', array_filter($parts, 'filled')));
+            if ($written === '') {
+                continue;
+            }
+
+            $power = LegacyOpticalParser::contactLensPower(...$parts);
+            if ($power === null) {
+                $this->anomaly($consultationId, "retinoscopia_esfera/cilindro/eje_{$eye}", $written, 'No es una medida de lente de contacto: se deja donde esta');
+
+                continue;
+            }
+
+            if (blank($lens[$eye]['poder'] ?? null)) {
+                $lens[$eye] = $this->finalLensEye($lens[$eye] ?? []);
+                $lens[$eye]['poder'] = $power;
+            }
+        }
+
+        if ($lens == $current) {
+            return [];
+        }
+
+        $moduleId = $module?->id;
+        if ($moduleId === null) {
+            $moduleId = $dryRun ? 0 : (int) DB::table(self::CONTACT_LENS_MODULES)->insertGetId([
+                'consultation_id' => $consultationId,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+
+        return [$this->change(
+            self::CONTACT_LENS_MODULES,
+            (int) $moduleId,
+            'final_lens',
+            $module?->final_lens,
+            json_encode($lens, JSON_UNESCAPED_UNICODE),
+        )];
+    }
+
+    /**
+     * `{poder_od: "-200", cb_od: "8,6"}` -> `{od: {poder: "-200", curva_base: "8,6", ...}}`.
+     * Lo que no tiene casilla (AV, color, tipo de lente) pasa a `observacion`.
+     */
+    private function nestedFinalLens(array $current): array
+    {
+        $lens = $current;
+        $notes = [];
+
+        foreach ($current as $key => $value) {
+            if ($key === 'tipo_lente') {
+                unset($lens[$key]);
+                if (filled($value)) {
+                    $notes[] = 'Tipo: '.trim((string) $value);
+                }
+
+                continue;
+            }
+
+            if (! is_string($key) || ! preg_match('/^(cb|poder|diametro|h2o|material|av|color)_(od|oi)$/', $key, $matches)) {
+                continue;
+            }
+
+            unset($lens[$key]);
+            if (blank($value)) {
+                continue;
+            }
+
+            [, $flat, $eye] = $matches;
+            $value = trim((string) $value);
+            $field = self::FLAT_FINAL_LENS_FIELDS[$flat] ?? null;
+
+            if ($field !== null && blank($lens[$eye][$field] ?? null)) {
+                $lens[$eye] = $this->finalLensEye($lens[$eye] ?? []);
+                $lens[$eye][$field] = $value;
+            } else {
+                $label = self::FLAT_FINAL_LENS_NOTES[$flat] ?? $field;
+                $notes[] = strtoupper($eye)." {$label}: {$value}";
+            }
+        }
+
+        if ($notes !== []) {
+            $lens['observacion'] = implode(' / ', array_filter([
+                filled($lens['observacion'] ?? null) ? trim((string) $lens['observacion']) : null,
+                ...$notes,
+            ]));
+        }
+
+        return $lens;
+    }
+
+    /** Un ojo del lente definitivo con todas sus casillas. */
+    private function finalLensEye(mixed $eye): array
+    {
+        $eye = is_array($eye) ? $eye : [];
+
+        return $eye + array_fill_keys(self::FINAL_LENS_FIELDS, null);
+    }
+
+    /** @return list<string> */
+    private function softContactLensColumns(): array
+    {
+        $columns = [];
+        foreach (array_keys(self::EYES) as $eye) {
+            foreach (['esfera', 'cilindro', 'eje'] as $part) {
+                $columns[] = "retinoscopia_{$part}_{$eye}";
+            }
+        }
+
+        return $columns;
+    }
+
     /** Prepara el informe y carga de la bitacora lo que ya se aplico. */
     private function start(array $rules, int $examples): void
     {
@@ -761,7 +926,11 @@ class LegacyConsultationRepairService
             $summary['examples'][] = [
                 'consultation_id' => $consultationId,
                 'changes' => array_map(fn ($change) => [
-                    'column' => ($change['table'] === self::CONSULTATIONS ? '' : 'entrada.').$change['column'],
+                    'column' => match ($change['table']) {
+                        self::CONSULTATIONS => '',
+                        self::CONTACT_LENS_MODULES => 'lente_contacto.',
+                        default => 'entrada.',
+                    }.$change['column'],
                     'old' => $change['old'],
                     'new' => $change['new'],
                 ], $changes),
