@@ -79,6 +79,26 @@ class ImportOpticaAndinaMeasuresTest extends TestCase
         $this->assertSame('OD: prog ev gold / OI: No trajo', $entry->observacion);
     }
 
+    /** El formulario lee `test_lens.od.curva_base`: guardado plano, la tabla "Lente de prueba" salia vacia. */
+    public function test_the_trial_lens_is_stored_the_way_the_form_reads_it(): void
+    {
+        $pdo = new PDO('sqlite:'.$this->source);
+        foreach (['LENTECONTACTO_PRUEBA_BC_OD', 'LENTECONTACTO_PRUEBA_PODER_OD', 'LENTECONTACTO_PRUEBA_AV_OI', 'LENTECONTACTO_PRUEBA_CALIFICACION'] as $column) {
+            $pdo->exec("alter table \"HISTORIAL OPTAMOLOGIA\" add column \"{$column}\" text");
+        }
+        $pdo->exec("update \"HISTORIAL OPTAMOLOGIA\" set LENTECONTACTO_PRUEBA_BC_OD = '8,3', LENTECONTACTO_PRUEBA_PODER_OD = '-2 -2 x 180',
+            LENTECONTACTO_PRUEBA_AV_OI = '20/20', LENTECONTACTO_PRUEBA_CALIFICACION = 'Buena'");
+
+        $this->artisan('import:optica-andina-sqlite', ['database' => $this->source])->assertSuccessful();
+
+        $module = Consultation::where('legacy_id', '71001')->firstOrFail()->contactLensModule;
+        $this->assertSame('8,3', $module->test_lens['od']['curva_base']);
+        $this->assertSame('-2 -2 x 180', $module->test_lens['od']['poder']);
+        $this->assertSame('20/20', $module->test_lens['oi']['agudeza_visual']);
+        $this->assertArrayNotHasKey('bc_od', $module->test_lens);
+        $this->assertSame('Lente de prueba (sistema anterior): Calificación: Buena', $module->observaciones);
+    }
+
     /** Produccion (MariaDB) rechazo '0003-04-18' y toda la importacion quedo como fallida. */
     public function test_an_impossible_last_control_date_is_dropped_instead_of_failing(): void
     {

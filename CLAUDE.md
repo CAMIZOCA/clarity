@@ -248,8 +248,10 @@ varios campos para otra cosa. La importacion lo copio literal, asi que en las co
   Las filas viejas usaban esas casillas para notas ("Test de H +", "AE 20/30", una "N" sola): esas
   se informan y se dejan. `final_lens` se guarda `{od:{curva_base,poder,diametro,h2o,material},
   oi:{...}, observacion}`; el importador lo escribia con claves planas (`poder_od`) que el
-  formulario no lee, y la misma regla las anida. `test_lens` importado sigue plano (`bc_od`, casi
-  todo "N") y no se muestra.
+  formulario no lee, y la misma regla las anida. `test_lens` importado quedo plano (`bc_od`,
+  `sobreref_od`, `av_od`; 314 modulos, casi todo "N"/"OK") y la tabla "Lente de prueba" salia
+  vacia: lo corrige el caso `lc-lente-prueba` de la revision de datos heredados, y desde el
+  2026-11-13 el importador ya lo anida (`App\Support\LegacyContactLens::nestTestLens`).
 
 Lo corrige `LegacyConsultationRepairService` en dos pasos. Cada cambio queda en
 `consultation_legacy_repairs` con el valor anterior: eso permite `--revert` y evita que una
@@ -277,8 +279,19 @@ segunda pasada divida dos veces (2500 -> 25.00 -> 0.25).
   `consultation_legacy_repairs` con la regla del caso (`revision_avsc`) y el `batch_id` de
   `legacy_review_batches`. Deshacer un lote restaura un ojo solo si todos sus valores siguen como
   los dejo el lote; la entrada de RX en uso se busca por `orden = 0` si guardar la recreo con otro id.
-  Escribe con `DB::table` y no mueve `updated_at`. Un caso nuevo (fase 3: lentes de contacto) se
-  registra en el constructor de `LegacyReviewService`.
+  Escribe con `DB::table` y no mueve `updated_at`.
+  - Un caso extiende `BaseLegacyReviewCase` y se registra en el constructor de
+    `LegacyReviewService`. Declara tambien su presentacion (`statuses`, `flags`, `filters`,
+    `cards`, `columns`, `rowColumns`): `LegacyReviewPage.jsx` no tiene nada fijo de un caso. Una
+    fila con estado `igual` no se lista (cuenta en "ya correctas"). Un cambio con `id` null y
+    `create` crea la fila (modulo de lentes) al aplicar; deshacer la deja vacia.
+  - Casos de lentes de contacto: `lc-blandos-poder` (LC blandos del Access frente al Poder:
+    llenar si esta vacio; misma medida en otro formato, "-425-075x0", se propone sin marcar, con
+    eje 0 = 180; otra medida no se toca; lo que no es medida va a `contact_lens_module.observaciones`
+    como "LC blandos (sistema anterior) ..."), `lc-lente-prueba` (anida el `test_lens` plano) y
+    `lc-marca-material` (Material -> "Marca: ..." en `final_lens.observacion`; nada marcado,
+    incluye consultas nuevas). Las JSON se registran enteras: si se guardaron despues, deshacer
+    las salta.
 
 Las OBSERVACIONES del Access (lo vendido, cada reclamo) estan en `consultations.observaciones`
 desde la primera importacion. Se ven en el historial de la ficha del paciente y en la seccion
