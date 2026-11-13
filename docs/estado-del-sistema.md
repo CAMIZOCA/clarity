@@ -73,7 +73,7 @@ Estado: ✅ completo · 🟡 parcial · ⚠️ sin UI
 | Sucursales | `/admin/sucursales` | `BranchController` | ✅ |
 | Bodegas | `/admin/bodegas` | `WarehouseController` | ✅ |
 | Backups / mantenimiento | `/admin/mantenimiento` | `SystemMaintenanceController` | ✅ |
-| Revision de datos heredados | `/admin/revision-datos` | `LegacyReviewController` + `LegacyReviewService` | ✅ caso AV.SC/AV.CC |
+| Revision de datos heredados | `/admin/revision-datos` | `LegacyReviewController` + `LegacyReviewService` | ✅ AV.SC/AV.CC y 3 casos de lentes de contacto |
 | Auditoria | ⚠️ sin UI | `AuditController` (spatie/activitylog) | 🟡 |
 | Asistente IA (Claude) | boton flotante global | `AiController` + `AiService` | ✅ |
 | IA por voz (OpenAI) | solo config en Ajustes | `OpenAiService` | 🟡 |
@@ -207,6 +207,9 @@ Ordenados por impacto.
    valide la regla `ark`. Quedan para revision manual ~150 textos del Access que no se leen como
    una refraccion. La AV.SC lejos guardada como AV.CC de la RX en uso (~4.400 consultas) se
    corrige desde "Revision de datos heredados", sin el Access; falta aplicarlo en produccion.
+   Igual los lentes de contacto (LC blandos, lente de prueba invisible, marca en Material). La
+   regla `lc_blandos` y "Observaciones del lente definitivo" (commit e13a9ad) tampoco estaban
+   desplegadas en produccion al 2026-11-13.
 2. **IA por voz** — diseñado y con la configuracion lista; falta captura, transcripcion y
    autocompletado. Especificacion completa en [ai-consulta-por-voz.md](ai-consulta-por-voz.md).
 3. **`mail_password` en texto plano** en `settings`. `openai_api_key` ya usa `Crypt::encryptString`

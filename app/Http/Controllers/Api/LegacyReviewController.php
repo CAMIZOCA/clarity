@@ -10,7 +10,6 @@ use App\Services\LegacyReview\LegacyReviewCase;
 use App\Services\LegacyReview\LegacyReviewService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 use RuntimeException;
 
 /**
@@ -133,7 +132,7 @@ class LegacyReviewController extends Controller
             "{$prefix}search" => ['nullable', 'string', 'max:100'],
             "{$prefix}from" => ['nullable', 'date_format:Y-m-d'],
             "{$prefix}to" => ['nullable', 'date_format:Y-m-d'],
-            "{$prefix}status" => ['nullable', Rule::in(LegacyReviewService::STATUS_FILTERS)],
+            "{$prefix}status" => ['nullable', 'string', 'max:40'],
         ];
     }
 

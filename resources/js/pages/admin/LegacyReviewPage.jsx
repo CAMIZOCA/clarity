@@ -26,44 +26,35 @@ import { toDisplayDate, toDisplayDateTime } from '../../utils/dates';
  * para no cargar miles de filas: se guardan solo las excepciones (`except`) y
  * las no preseleccionadas marcadas a mano (`include`). El servidor vuelve a
  * evaluar todo al aplicar.
+ *
+ * Todo lo propio de un caso (estados, avisos, filtros, contadores, columnas)
+ * viene del servidor (`LegacyReviewCase`); aqui solo se pinta.
  */
 
-const STATUS_OPTIONS = [
-    { value: 'todas', label: 'Todas las candidatas' },
-    { value: 'preseleccionadas', label: 'Preseleccionadas' },
-    { value: 'mover', label: 'Para mover' },
-    { value: 'editadas', label: 'Editadas en el sistema' },
-    { value: 'nota_con_av', label: 'Observación con AV' },
-    { value: 'duplicado', label: 'Duplicadas' },
-    { value: 'conflicto', label: 'Con conflicto' },
-];
-
-const STATUS_STYLE = {
-    mover: { label: 'Mover', className: 'bg-emerald-100 text-emerald-800' },
-    duplicado: { label: 'Duplicado', className: 'bg-slate-100 text-slate-700' },
-    conflicto: { label: 'Conflicto', className: 'bg-red-100 text-red-800' },
-    sin_dato: { label: 'Sin dato', className: 'bg-slate-50 text-slate-400' },
+/** Clases por tono: `badge` para el estado de un ojo, `pill` para un aviso, `text` para un contador. */
+const TONES = {
+    ok: { badge: 'bg-emerald-100 text-emerald-800', pill: 'bg-emerald-50 text-emerald-700 border-emerald-200', text: 'text-emerald-700' },
+    warn: { badge: 'bg-amber-100 text-amber-800', pill: 'bg-amber-50 text-amber-800 border-amber-200', text: 'text-amber-700' },
+    danger: { badge: 'bg-red-100 text-red-800', pill: 'bg-red-50 text-red-700 border-red-200', text: 'text-red-700' },
+    muted: { badge: 'bg-slate-100 text-slate-600', pill: 'bg-slate-50 text-slate-600 border-slate-200', text: 'text-slate-500' },
+    default: { badge: 'bg-slate-100 text-slate-700', pill: 'bg-slate-50 text-slate-700 border-slate-200', text: 'text-slate-900' },
 };
 
-const FLAG_STYLE = {
-    importacion: { label: 'Escrita por la importación', className: 'bg-emerald-50 text-emerald-700 border-emerald-200', title: 'La bitácora de la importación muestra que este valor lo puso ella.' },
-    sin_bitacora: { label: 'Sin bitácora', className: 'bg-slate-50 text-slate-600 border-slate-200', title: 'No hay registro de quién escribió el valor; revisar antes de mover.' },
-    editada: { label: 'Editada en el sistema', className: 'bg-amber-50 text-amber-800 border-amber-200', title: 'Alguien guardó esta consulta en el sistema nuevo. No viene seleccionada.' },
-    nota_con_av: { label: 'Observación con AV', className: 'bg-amber-50 text-amber-800 border-amber-200', title: 'La observación de la RX en uso trae una agudeza (posible AV con lentes). No se modifica.' },
-    varias_rx: { label: 'Varias RX en uso', className: 'bg-slate-50 text-slate-600 border-slate-200', title: 'Solo se toca la RX en uso 1.' },
-    recorte: { label: 'Se recorta a 20 caracteres', className: 'bg-red-50 text-red-700 border-red-200', title: 'El valor es más largo que la columna de destino.' },
-};
+const tone = (name) => TONES[name] ?? TONES.default;
 
-const SUMMARY_CARDS = [
-    { key: 'candidates', label: 'Candidatas', filter: 'todas' },
-    { key: 'preselected', label: 'Preseleccionadas', filter: 'preseleccionadas', tone: 'text-emerald-700' },
-    { key: 'editadas', label: 'Editadas en el sistema', filter: 'editadas', tone: 'text-amber-700' },
-    { key: 'nota_con_av', label: 'Observación con AV', filter: 'nota_con_av', tone: 'text-amber-700' },
-    { key: 'conflicto', label: 'Con conflicto', filter: 'conflicto', tone: 'text-red-700' },
-    { key: 'applied', label: 'Ya corregidas', filter: null, tone: 'text-slate-500' },
-];
+/** Numero de un contador segun su `match` (`['all']`, `['status', x]`, `['flag', y]`...). */
+function cardValue(summary, match = []) {
+    if (!summary) return 0;
+    switch (match[0]) {
+        case 'preselected': return summary.preselected;
+        case 'applied': return summary.applied;
+        case 'status': return summary.statuses?.[match[1]] ?? 0;
+        case 'flag': return summary.flags?.[match[1]] ?? 0;
+        default: return summary.candidates;
+    }
+}
 
-const EMPTY_SELECTION = { mode: 'all', except: new Set(), include: new Set(), ids: new Set() };
+const emptySelection = (mode = 'all') => ({ mode, except: new Set(), include: new Set(), ids: new Set() });
 
 function useDebounced(value, delay) {
     const [debounced, setDebounced] = useState(value);
@@ -122,7 +113,11 @@ function ValueChange({ current, proposed }) {
     );
 }
 
-function PreviewModal({ open, preview, loading, applying, caseLabel, onCancel, onConfirm }) {
+function PreviewModal({ open, preview, loading, applying, caseInfo, onCancel, onConfirm }) {
+    const caseLabel = caseInfo?.label;
+    const columns = caseInfo?.columns ?? [];
+    const rowColumns = caseInfo?.row_columns ?? [];
+    const flagStyles = caseInfo?.flags ?? {};
     const [understood, setUnderstood] = useState(false);
     useEffect(() => { if (open) setUnderstood(false); }, [open]);
 
@@ -149,8 +144,8 @@ function PreviewModal({ open, preview, loading, applying, caseLabel, onCancel, o
                     {Object.keys(preview.flags ?? {}).length > 0 && (
                         <div className="flex flex-wrap gap-2">
                             {Object.entries(preview.flags).map(([flag, count]) => {
-                                const style = FLAG_STYLE[flag];
-                                return style ? <Pill key={flag} className={style.className} title={style.title}>{style.label}: {formatNumber(count)}</Pill> : null;
+                                const style = flagStyles[flag];
+                                return style ? <Pill key={flag} className={tone(style.tone).pill} title={style.title}>{style.label}: {formatNumber(count)}</Pill> : null;
                             })}
                         </div>
                     )}
@@ -162,17 +157,25 @@ function PreviewModal({ open, preview, loading, applying, caseLabel, onCancel, o
                                     <tr>
                                         <th className="px-2 py-1.5 text-left">Paciente</th>
                                         <th className="px-2 py-1.5 text-left">Ojo</th>
-                                        <th className="px-2 py-1.5 text-left">AV.SC lejos</th>
-                                        <th className="px-2 py-1.5 text-left">AV.CC (RX en uso 1)</th>
+                                        {columns.map(column => <th key={column.key} className="px-2 py-1.5 text-left">{column.label}</th>)}
+                                        {rowColumns.map(column => <th key={column.key} className="px-2 py-1.5 text-left">{column.label}</th>)}
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {preview.examples.flatMap(row => ['od', 'oi'].map(eye => (
-                                        <tr key={`${row.id}-${eye}`} className="border-t border-slate-100">
-                                            <td className="px-2 py-1">{eye === 'od' ? row.patient?.nombre_completo : ''}</td>
+                                    {preview.examples.flatMap(row => ['od', 'oi'].map((eye, index) => (
+                                        <tr key={`${row.id}-${eye}`} className="border-t border-slate-100 align-top">
+                                            <td className="px-2 py-1">{index === 0 ? row.patient?.nombre_completo : ''}</td>
                                             <td className="px-2 py-1 font-semibold uppercase">{eye}</td>
-                                            <td className="px-2 py-1"><ValueChange current={row.eyes[eye].current.avsc} proposed={row.eyes[eye].proposed.avsc} /></td>
-                                            <td className="px-2 py-1"><ValueChange current={row.eyes[eye].current.avcc} proposed={row.eyes[eye].proposed.avcc} /></td>
+                                            {columns.map(column => (
+                                                <td key={column.key} className="px-2 py-1">
+                                                    <ValueChange current={row.eyes?.[eye]?.current?.[column.key]} proposed={row.eyes?.[eye]?.proposed?.[column.key]} />
+                                                </td>
+                                            ))}
+                                            {rowColumns.map(column => (
+                                                <td key={column.key} className="px-2 py-1">
+                                                    {index === 0 && <ValueChange current={row.fields?.[column.key]?.current} proposed={row.fields?.[column.key]?.proposed} />}
+                                                </td>
+                                            ))}
                                         </tr>
                                     )))}
                                 </tbody>
@@ -249,7 +252,7 @@ export default function LegacyReviewPage() {
     const { addToast } = useToast();
     const [cases, setCases] = useState([]);
     const [caseKey, setCaseKey] = useState(null);
-    const [caseInfo, setCaseInfo] = useState(null);
+    const caseInfo = useMemo(() => cases.find(item => item.key === caseKey) ?? null, [cases, caseKey]);
 
     const [search, setSearch] = useState('');
     const debouncedSearch = useDebounced(search, 350);
@@ -266,7 +269,7 @@ export default function LegacyReviewPage() {
     const [loadError, setLoadError] = useState(null);
     const requestId = useRef(0);
 
-    const [selection, setSelection] = useState(EMPTY_SELECTION);
+    const [selection, setSelection] = useState(emptySelection);
 
     const [previewOpen, setPreviewOpen] = useState(false);
     const [preview, setPreview] = useState(null);
@@ -308,10 +311,19 @@ export default function LegacyReviewPage() {
 
     useEffect(() => { loadBatches(); }, [loadBatches]);
 
+    // Otro caso tiene otras columnas y otros filtros: se limpia lo del anterior.
+    const changeCase = (key) => {
+        setCaseKey(key);
+        setStatus('todas');
+        setRows([]);
+        setSummary(null);
+        setPagination(null);
+    };
+
     // Cambiar filtros o caso vuelve a la pagina 1 y a la seleccion por defecto.
     useEffect(() => {
         setPage(1);
-        setSelection({ mode: 'all', except: new Set(), include: new Set(), ids: new Set() });
+        setSelection(emptySelection());
     }, [filters, caseKey]);
 
     const loadRows = useCallback(() => {
@@ -325,7 +337,6 @@ export default function LegacyReviewPage() {
                 setRows(getList(r));
                 setPagination(getPagination(r));
                 setSummary(r.data?.summary ?? null);
-                setCaseInfo(r.data?.case ?? null);
             })
             .catch(e => {
                 if (id !== requestId.current) return;
@@ -417,7 +428,7 @@ export default function LegacyReviewPage() {
                     10000,
                     { label: 'Deshacer', onClick: () => revert(batch) },
                 );
-                setSelection({ mode: 'all', except: new Set(), include: new Set(), ids: new Set() });
+                setSelection(emptySelection());
                 loadRows();
                 loadBatches();
             })
@@ -426,6 +437,10 @@ export default function LegacyReviewPage() {
     };
 
     const columns = caseInfo?.columns ?? [];
+    const rowColumns = caseInfo?.row_columns ?? [];
+    const statusStyles = caseInfo?.statuses ?? {};
+    const flagStyles = caseInfo?.flags ?? {};
+    const cards = caseInfo?.cards ?? [];
 
     return (
         <div className="min-h-full bg-slate-50 px-4 py-6 md:px-8">
@@ -450,7 +465,7 @@ export default function LegacyReviewPage() {
                         <select
                             id="legacy-case"
                             value={caseKey ?? ''}
-                            onChange={e => setCaseKey(e.target.value)}
+                            onChange={e => changeCase(e.target.value)}
                             className="rounded-lg border border-slate-300 px-3 py-2 text-sm md:min-w-[28rem]"
                         >
                             {cases.map(item => <option key={item.key} value={item.key}>{item.label}</option>)}
@@ -459,20 +474,25 @@ export default function LegacyReviewPage() {
                     {caseInfo?.description && <p className="text-sm text-slate-600">{caseInfo.description}</p>}
 
                     {summary && (
-                        <div className="grid grid-cols-2 gap-3 md:grid-cols-6">
-                            {SUMMARY_CARDS.map(card => (
+                        <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
+                            {cards.map(card => (
                                 <button
-                                    key={card.key}
+                                    key={card.label}
                                     type="button"
                                     disabled={!card.filter}
                                     onClick={() => card.filter && setStatus(card.filter)}
                                     className={`rounded-lg border p-3 text-left transition-colors ${card.filter && status === card.filter ? 'border-[#1a2a4a] bg-slate-50' : 'border-slate-200 hover:bg-slate-50'} disabled:cursor-default disabled:hover:bg-white`}
                                 >
                                     <p className="text-xs text-slate-500">{card.label}</p>
-                                    <p className={`text-2xl font-bold ${card.tone ?? 'text-slate-900'}`}>{formatNumber(summary[card.key])}</p>
+                                    <p className={`text-2xl font-bold ${tone(card.tone).text}`}>{formatNumber(cardValue(summary, card.match))}</p>
                                 </button>
                             ))}
                         </div>
+                    )}
+                    {summary?.ok > 0 && (
+                        <p className="text-xs text-slate-500">
+                            {formatNumber(summary.ok)} consultas ya están correctas y no se listan.
+                        </p>
                     )}
                 </section>
 
@@ -500,7 +520,7 @@ export default function LegacyReviewPage() {
                                 onChange={e => setStatus(e.target.value)}
                                 className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
                             >
-                                {STATUS_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+                                {(caseInfo?.filters ?? []).map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
                             </select>
                         </div>
                         <DateInput control={control} name="from" label="Desde" />
@@ -512,10 +532,10 @@ export default function LegacyReviewPage() {
                             <span className="font-semibold">{formatNumber(count)}</span> seleccionadas
                             {selection.mode === 'all' && <span className="text-slate-500"> · todas las preseleccionadas del filtro</span>}
                             <span className="ml-3 inline-flex gap-2">
-                                <button type="button" className="text-[#1a2a4a] underline" onClick={() => setSelection({ mode: 'all', except: new Set(), include: new Set(), ids: new Set() })}>
+                                <button type="button" className="text-[#1a2a4a] underline" onClick={() => setSelection(emptySelection())}>
                                     Preseleccionadas
                                 </button>
-                                <button type="button" className="text-[#1a2a4a] underline" onClick={() => setSelection({ mode: 'manual', except: new Set(), include: new Set(), ids: new Set() })}>
+                                <button type="button" className="text-[#1a2a4a] underline" onClick={() => setSelection(emptySelection('manual'))}>
                                     Ninguna
                                 </button>
                             </span>
@@ -553,21 +573,21 @@ export default function LegacyReviewPage() {
                                         <th className="px-3 py-2 text-left">Consulta</th>
                                         <th className="px-3 py-2 text-left">Ojo</th>
                                         {columns.map(column => <th key={column.key} className="px-3 py-2 text-left">{column.label}</th>)}
-                                        <th className="px-3 py-2 text-left">Observación RX en uso</th>
+                                        {rowColumns.map(column => <th key={column.key} className="px-3 py-2 text-left">{column.label}</th>)}
                                         <th className="px-3 py-2 text-left">Avisos</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {!loading && rows.length === 0 && (
                                         <tr>
-                                            <td colSpan={6 + columns.length} className="px-4 py-10 text-center text-slate-500">
+                                            <td colSpan={5 + columns.length + rowColumns.length} className="px-4 py-10 text-center text-slate-500">
                                                 No hay consultas para revisar con estos filtros.
                                             </td>
                                         </tr>
                                     )}
                                     {rows.map(row => ['od', 'oi'].map((eye, index) => {
                                         const eyeData = row.eyes?.[eye] ?? {};
-                                        const statusStyle = STATUS_STYLE[eyeData.status] ?? STATUS_STYLE.sin_dato;
+                                        const statusStyle = statusStyles[eyeData.status] ?? { label: eyeData.status ?? '—', tone: 'muted' };
                                         const checked = isChecked(row, selection);
                                         return (
                                             <tr
@@ -595,7 +615,7 @@ export default function LegacyReviewPage() {
                                                         </td>
                                                         <td rowSpan={2} className="px-3 py-2 align-top">
                                                             <p className="text-slate-900">{toDisplayDate(row.fecha_consulta)}</p>
-                                                            <p className="text-xs text-slate-500">N° Access {row.legacy_id}</p>
+                                                            <p className="text-xs text-slate-500">{row.legacy_id ? `N° Access ${row.legacy_id}` : 'Sistema nuevo'}</p>
                                                             <a
                                                                 href={`/consulta/${row.id}/ver`}
                                                                 target="_blank"
@@ -609,7 +629,7 @@ export default function LegacyReviewPage() {
                                                 )}
                                                 <td className="px-3 py-1.5">
                                                     <span className="mr-2 font-semibold uppercase text-slate-700">{eye}</span>
-                                                    <span className={`rounded px-1.5 py-0.5 text-[11px] ${statusStyle.className}`}>{statusStyle.label}</span>
+                                                    <span className={`rounded px-1.5 py-0.5 text-[11px] ${tone(statusStyle.tone).badge}`}>{statusStyle.label}</span>
                                                 </td>
                                                 {columns.map(column => (
                                                     <td key={column.key} className="px-3 py-1.5">
@@ -618,16 +638,16 @@ export default function LegacyReviewPage() {
                                                 ))}
                                                 {index === 0 && (
                                                     <>
-                                                        <td rowSpan={2} className="max-w-[16rem] px-3 py-2 align-top text-xs text-slate-600">
-                                                            <span className={row.flags?.includes('nota_con_av') ? 'rounded bg-amber-50 px-1 text-amber-900' : ''}>
-                                                                {row.observacion || '—'}
-                                                            </span>
-                                                        </td>
+                                                        {rowColumns.map(column => (
+                                                            <td key={column.key} rowSpan={2} className="max-w-[18rem] px-3 py-2 align-top text-xs text-slate-600">
+                                                                <ValueChange current={row.fields?.[column.key]?.current} proposed={row.fields?.[column.key]?.proposed} />
+                                                            </td>
+                                                        ))}
                                                         <td rowSpan={2} className="px-3 py-2 align-top">
                                                             <div className="flex flex-wrap gap-1">
                                                                 {(row.flags ?? []).map(flag => {
-                                                                    const style = FLAG_STYLE[flag];
-                                                                    return style ? <Pill key={flag} className={style.className} title={style.title}>{style.label}</Pill> : null;
+                                                                    const style = flagStyles[flag];
+                                                                    return style ? <Pill key={flag} className={tone(style.tone).pill} title={style.title}>{style.label}</Pill> : null;
                                                                 })}
                                                             </div>
                                                         </td>
@@ -661,7 +681,7 @@ export default function LegacyReviewPage() {
                 preview={preview}
                 loading={previewLoading}
                 applying={applying}
-                caseLabel={caseInfo?.label}
+                caseInfo={caseInfo}
                 onCancel={() => setPreviewOpen(false)}
                 onConfirm={apply}
             />

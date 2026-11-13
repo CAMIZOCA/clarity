@@ -9,6 +9,8 @@ use App\Models\ConsultationTreatmentModule;
 use App\Models\Patient;
 use App\Models\User;
 use App\Services\LegacyConsultationRepairService;
+use App\Services\LegacyReview\TrialLensFlatCase;
+use App\Support\LegacyContactLens;
 use App\Support\LegacyOpticalParser;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
@@ -737,8 +739,16 @@ class ImportOpticaAndinaSqlite extends Command
             $finalLens['observacion'] = implode(' / ', $notes);
         }
 
+        // El formulario lee `test_lens.od.curva_base`: guardado plano, la tabla salia vacia.
         if ($testLens !== []) {
-            $fields['test_lens'] = $testLens;
+            $nested = LegacyContactLens::nestTestLens($testLens);
+            $fields['test_lens'] = $nested['lens'];
+            if ($nested['notes'] !== []) {
+                $fields['observaciones'] = LegacyContactLens::appendNote(
+                    $fields['observaciones'],
+                    TrialLensFlatCase::NOTE_PREFIX.': '.implode(' / ', $nested['notes']),
+                );
+            }
         }
         if ($finalLens !== []) {
             $fields['final_lens'] = $finalLens;

@@ -20,7 +20,8 @@ use RuntimeException;
  */
 class LegacyReviewService
 {
-    public const STATUS_FILTERS = ['todas', 'preseleccionadas', 'mover', 'duplicado', 'conflicto', 'editadas', 'nota_con_av'];
+    /** Estado de una fila sin nada que hacer: no se lista, solo se cuenta. */
+    public const STATUS_OK = 'igual';
 
     private const CHUNK = 500;
 
@@ -29,12 +30,17 @@ class LegacyReviewService
 
     public function __construct(private readonly DatabaseBackupService $backups)
     {
-        $this->cases = collect([new AvscFromRxUsoCase])
+        $this->cases = collect([
+            new AvscFromRxUsoCase,
+            new SoftContactLensPowerCase,
+            new TrialLensFlatCase,
+            new ContactLensBrandCase,
+        ])
             ->keyBy(fn (LegacyReviewCase $case) => $case->key())
             ->all();
     }
 
-    /** @return list<array{key: string, label: string, description: string, columns: list<array>}> */
+    /** @return list<array<string, mixed>> */
     public function cases(): array
     {
         return array_values(array_map(fn (LegacyReviewCase $case) => $this->caseInfo($case), $this->cases));
@@ -52,6 +58,15 @@ class LegacyReviewService
             'label' => $case->label(),
             'description' => $case->description(),
             'columns' => $case->columns(),
+            'row_columns' => $case->rowColumns(),
+            'statuses' => $case->statuses(),
+            'flags' => $case->flags(),
+            'filters' => array_map(fn (array $filter) => ['value' => $filter['value'], 'label' => $filter['label']], $case->filters()),
+            // Cada contador lleva el filtro que muestra esas filas (o null), para poder pulsarlo.
+            'cards' => array_map(fn (array $card) => [
+                ...$card,
+                'filter' => collect($case->filters())->first(fn ($filter) => $filter['match'] === $card['match'])['value'] ?? null,
+            ], $case->cards()),
         ];
     }
 
@@ -63,10 +78,11 @@ class LegacyReviewService
      */
     public function list(LegacyReviewCase $case, array $filters, int $page = 1, int $perPage = 25): array
     {
-        $rows = $this->evaluateAll($case, $filters);
-        $summary = $this->summary($case, $rows);
+        $all = $this->evaluateAll($case, $filters, includeOk: true);
+        $rows = array_filter($all, fn (array $row) => $row['status'] !== self::STATUS_OK);
+        $summary = $this->summary($case, $rows, count($all) - count($rows));
 
-        $filtered = array_values(array_filter($rows, fn (array $row) => $this->matchesStatus($row, $filters['status'] ?? 'todas')));
+        $filtered = array_values(array_filter($rows, fn (array $row) => $this->matchesStatus($case, $row, $filters['status'] ?? null)));
         $total = count($filtered);
         $lastPage = max(1, (int) ceil($total / $perPage));
         $page = min(max(1, $page), $lastPage);
@@ -241,9 +257,9 @@ class LegacyReviewService
     }
 
     /** @return array<int, array<string, mixed>> */
-    private function evaluateAll(LegacyReviewCase $case, array $filters, ?array $onlyIds = null): array
+    private function evaluateAll(LegacyReviewCase $case, array $filters, ?array $onlyIds = null, bool $includeOk = false): array
     {
-        $query = $case->candidates($this->baseQuery($filters));
+        $query = $case->candidates($this->baseQuery($filters, $case->legacyOnly()));
         if ($onlyIds !== null) {
             $query->whereIn('c.id', $onlyIds === [] ? [0] : $onlyIds);
         }
@@ -260,15 +276,18 @@ class LegacyReviewService
             $rows += $case->evaluate($chunk);
         }
 
-        return $rows;
+        return $includeOk ? $rows : array_filter($rows, fn (array $row) => $row['status'] !== self::STATUS_OK);
     }
 
-    private function baseQuery(array $filters): Builder
+    private function baseQuery(array $filters, bool $legacyOnly = true): Builder
     {
         $query = DB::table('consultations as c')
             ->join('patients as p', 'p.id', '=', 'c.patient_id')
-            ->whereNotNull('c.legacy_id')
             ->whereNull('c.deleted_at');
+
+        if ($legacyOnly) {
+            $query->whereNotNull('c.legacy_id');
+        }
 
         $search = trim((string) ($filters['search'] ?? ''));
         if ($search !== '') {
@@ -304,7 +323,7 @@ class LegacyReviewService
                 $this->evaluateAll($case, $filters),
                 fn (array $row, int $id) => $row['selectable']
                     && ! isset($except[$id])
-                    && $this->matchesStatus($row, $filters['status'] ?? 'todas')
+                    && $this->matchesStatus($case, $row, $filters['status'] ?? null)
                     && ($row['preselected'] || isset($include[$id])),
                 ARRAY_FILTER_USE_BOTH,
             );
@@ -319,8 +338,21 @@ class LegacyReviewService
     {
         $logs = [];
         $now = now();
+        $created = [];
 
         foreach ($changes as $change) {
+            // Fila que todavia no existe (modulo de lentes de contacto): se crea una vez por tabla.
+            if ($change['id'] === null) {
+                if (! isset($change['create'])) {
+                    continue;
+                }
+                $change['id'] = $created[$change['table']] ??= (int) DB::table($change['table'])->insertGetId([
+                    ...$change['create'],
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+            }
+
             $logged = DB::table('consultation_legacy_repairs')
                 ->where('target_table', $change['table'])
                 ->where('target_id', $change['id'])
@@ -393,30 +425,43 @@ class LegacyReviewService
         return str_ends_with($column, '_oi') ? 'oi' : (str_ends_with($column, '_od') ? 'od' : '');
     }
 
-    private function matchesStatus(array $row, ?string $status): bool
+    /** El filtro de estado elegido, segun los `filters()` del caso; uno desconocido no filtra. */
+    private function matchesStatus(LegacyReviewCase $case, array $row, ?string $status): bool
     {
-        return match ($status ?: 'todas') {
-            'preseleccionadas' => $row['preselected'],
-            'mover', 'duplicado', 'conflicto' => $row['status'] === $status,
-            'editadas' => in_array('editada', $row['flags'], true),
-            'nota_con_av' => in_array('nota_con_av', $row['flags'], true),
+        $filter = collect($case->filters())->firstWhere('value', $status ?: 'todas');
+
+        return $this->matches($row, $filter['match'] ?? ['all']);
+    }
+
+    /** @param  list<string>  $match */
+    private function matches(array $row, array $match): bool
+    {
+        return match ($match[0] ?? 'all') {
+            'preselected' => $row['preselected'],
+            'status' => $row['status'] === ($match[1] ?? null)
+                || in_array($match[1] ?? null, array_column($row['eyes'] ?? [], 'status'), true),
+            'flag' => in_array($match[1] ?? null, $row['flags'], true),
             default => true,
         };
     }
 
-    private function summary(LegacyReviewCase $case, array $rows): array
+    private function summary(LegacyReviewCase $case, array $rows, int $ok): array
     {
-        $count = fn (callable $test) => count(array_filter($rows, $test));
+        $statuses = [];
+        foreach (array_keys($case->statuses()) as $status) {
+            $statuses[$status] = count(array_filter($rows, fn ($row) => $this->matches($row, ['status', $status])));
+        }
+        $flags = [];
+        foreach (array_keys($case->flags()) as $flag) {
+            $flags[$flag] = count(array_filter($rows, fn ($row) => in_array($flag, $row['flags'], true)));
+        }
 
         return [
             'candidates' => count($rows),
-            'preselected' => $count(fn ($row) => $row['preselected']),
-            'mover' => $count(fn ($row) => $row['status'] === 'mover'),
-            'duplicado' => $count(fn ($row) => $row['status'] === 'duplicado'),
-            'conflicto' => $count(fn ($row) => $row['status'] === 'conflicto'),
-            'editadas' => $count(fn ($row) => in_array('editada', $row['flags'], true)),
-            'nota_con_av' => $count(fn ($row) => in_array('nota_con_av', $row['flags'], true)),
-            'sin_bitacora' => $count(fn ($row) => in_array('sin_bitacora', $row['flags'], true)),
+            'preselected' => count(array_filter($rows, fn ($row) => $row['preselected'])),
+            'ok' => $ok,
+            'statuses' => $statuses,
+            'flags' => $flags,
             'applied' => DB::table('consultation_legacy_repairs')
                 ->where('rule', $case->rule())
                 ->whereNotNull('batch_id')

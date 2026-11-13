@@ -22,7 +22,7 @@ use Illuminate\Support\Facades\DB;
  * La observacion de la RX en uso no se toca nunca, aunque traiga la AV real con
  * los lentes ("OD: 20/20 CC"): se marca para que la optica la vea.
  */
-class AvscFromRxUsoCase implements LegacyReviewCase
+class AvscFromRxUsoCase extends BaseLegacyReviewCase
 {
     public const KEY = 'avsc-rx-uso';
 
@@ -61,6 +61,56 @@ class AvscFromRxUsoCase implements LegacyReviewCase
         return [
             ['key' => 'avsc', 'label' => 'AV.SC lejos'],
             ['key' => 'avcc', 'label' => 'AV.CC (RX en uso 1)'],
+        ];
+    }
+
+    public function rowColumns(): array
+    {
+        return [['key' => 'observacion', 'label' => 'Observación RX en uso']];
+    }
+
+    public function statuses(): array
+    {
+        return [
+            'mover' => ['label' => 'Mover', 'tone' => 'ok'],
+            'duplicado' => ['label' => 'Duplicado', 'tone' => 'muted'],
+            'conflicto' => ['label' => 'Conflicto', 'tone' => 'danger'],
+            'sin_dato' => ['label' => 'Sin dato', 'tone' => 'muted'],
+        ];
+    }
+
+    public function flags(): array
+    {
+        return [
+            'importacion' => ['label' => 'Escrita por la importación', 'tone' => 'ok', 'title' => 'La bitácora de la importación muestra que este valor lo puso ella.'],
+            'sin_bitacora' => ['label' => 'Sin bitácora', 'tone' => 'muted', 'title' => 'No hay registro de quién escribió el valor; revisar antes de mover.'],
+            ...parent::flags(),
+            'nota_con_av' => ['label' => 'Observación con AV', 'tone' => 'warn', 'title' => 'La observación de la RX en uso trae una agudeza (posible AV con lentes). No se modifica.'],
+            'varias_rx' => ['label' => 'Varias RX en uso', 'tone' => 'muted', 'title' => 'Solo se toca la RX en uso 1.'],
+            'recorte' => ['label' => 'Se recorta a 20 caracteres', 'tone' => 'danger', 'title' => 'El valor es más largo que la columna de destino.'],
+        ];
+    }
+
+    public function filters(): array
+    {
+        return [
+            ...parent::filters(),
+            ['value' => 'mover', 'label' => 'Para mover', 'match' => ['status', 'mover']],
+            ['value' => 'nota_con_av', 'label' => 'Observación con AV', 'match' => ['flag', 'nota_con_av']],
+            ['value' => 'duplicado', 'label' => 'Duplicadas', 'match' => ['status', 'duplicado']],
+            ['value' => 'conflicto', 'label' => 'Con conflicto', 'match' => ['status', 'conflicto']],
+        ];
+    }
+
+    public function cards(): array
+    {
+        return [
+            ['label' => 'Candidatas', 'match' => ['all']],
+            ['label' => 'Preseleccionadas', 'match' => ['preselected'], 'tone' => 'ok'],
+            ['label' => 'Editadas en el sistema', 'match' => ['flag', 'editada'], 'tone' => 'warn'],
+            ['label' => 'Observación con AV', 'match' => ['flag', 'nota_con_av'], 'tone' => 'warn'],
+            ['label' => 'Con conflicto', 'match' => ['status', 'conflicto'], 'tone' => 'danger'],
+            ['label' => 'Ya corregidas', 'match' => ['applied'], 'tone' => 'muted'],
         ];
     }
 
@@ -118,14 +168,7 @@ class AvscFromRxUsoCase implements LegacyReviewCase
                 $imported[$log->target_id][$log->column_name] = trim((string) $log->new_value);
             });
 
-        $edited = DB::table('activity_log')
-            ->where('subject_type', 'App\\Models\\Consultation')
-            ->whereIn('description', ['consultation_updated', 'consultation_completed'])
-            ->whereIn('subject_id', $ids)
-            ->distinct()
-            ->pluck('subject_id')
-            ->map(fn ($id) => (int) $id)
-            ->flip();
+        $edited = $this->editedIds($ids);
 
         $rows = [];
         foreach ($ids as $id) {
@@ -135,7 +178,7 @@ class AvscFromRxUsoCase implements LegacyReviewCase
                     $consultation,
                     $entries->get($id, collect())->values()->all(),
                     $imported[$id] ?? [],
-                    $edited->has($id),
+                    isset($edited[$id]),
                 );
             }
         }
@@ -228,12 +271,7 @@ class AvscFromRxUsoCase implements LegacyReviewCase
             'legacy_id' => $c->legacy_id,
             'fecha_consulta' => $c->fecha_consulta,
             'estado' => $c->estado,
-            'patient' => [
-                'id' => (int) $c->patient_id,
-                'nombre_completo' => trim($c->nombre.' '.($c->apellido ?? '')),
-                'cedula' => $c->cedula,
-                'codigo_interno' => $c->codigo_interno,
-            ],
+            'patient' => $this->patient($c),
             'status' => $status,
             'selectable' => $selectable,
             'preselected' => $selectable
@@ -242,27 +280,9 @@ class AvscFromRxUsoCase implements LegacyReviewCase
                 && ! $edited,
             'flags' => $flags,
             'observacion' => $observacion,
+            'fields' => ['observacion' => ['current' => $observacion, 'proposed' => $observacion]],
             'eyes' => $eyes,
             'changes' => $changes,
         ];
-    }
-
-    private function change(string $table, int $id, string $column, mixed $old, ?string $new, string $eye): array
-    {
-        return [
-            'table' => $table,
-            'id' => (int) $id,
-            'column' => $column,
-            'old' => $old === null ? null : (string) $old,
-            'new' => $new,
-            'group' => $eye,
-        ];
-    }
-
-    private function clean(mixed $value): ?string
-    {
-        $value = trim((string) ($value ?? ''));
-
-        return $value === '' ? null : $value;
     }
 }
