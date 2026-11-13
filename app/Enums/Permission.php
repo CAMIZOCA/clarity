@@ -93,6 +93,7 @@ enum Permission: string
     case AUDIT_VIEW      = 'audit.view';                   // Ver logs de auditoría
     case BRANCHES_MANAGE = 'branches.manage';
     case SYSTEM_MAINTENANCE = 'system.maintenance';
+    case LEGACY_REVIEW = 'legacy.review';                  // Revisar y reubicar datos importados del sistema anterior
 
     // ─── BRIGADAS Y MÓDULOS ESPECIALES ────────────────────
     case BRIGADES_VIEW    = 'brigades.view';

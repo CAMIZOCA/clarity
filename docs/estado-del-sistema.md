@@ -73,6 +73,7 @@ Estado: ✅ completo · 🟡 parcial · ⚠️ sin UI
 | Sucursales | `/admin/sucursales` | `BranchController` | ✅ |
 | Bodegas | `/admin/bodegas` | `WarehouseController` | ✅ |
 | Backups / mantenimiento | `/admin/mantenimiento` | `SystemMaintenanceController` | ✅ |
+| Revision de datos heredados | `/admin/revision-datos` | `LegacyReviewController` + `LegacyReviewService` | ✅ caso AV.SC/AV.CC |
 | Auditoria | ⚠️ sin UI | `AuditController` (spatie/activitylog) | 🟡 |
 | Asistente IA (Claude) | boton flotante global | `AiController` + `AiService` | ✅ |
 | IA por voz (OpenAI) | solo config en Ajustes | `OpenAiService` | 🟡 |
@@ -204,7 +205,8 @@ Ordenados por impacto.
    gotcha 14). Falta, en staging y produccion, subir el `.sqlite` del Access en Mantenimiento
    para recuperar el subjetivo y la RX en uso completos (en local ya esta hecho), y que la optica
    valide la regla `ark`. Quedan para revision manual ~150 textos del Access que no se leen como
-   una refraccion.
+   una refraccion. La AV.SC lejos guardada como AV.CC de la RX en uso (~4.400 consultas) se
+   corrige desde "Revision de datos heredados", sin el Access; falta aplicarlo en produccion.
 2. **IA por voz** — diseñado y con la configuracion lista; falta captura, transcripcion y
    autocompletado. Especificacion completa en [ai-consulta-por-voz.md](ai-consulta-por-voz.md).
 3. **`mail_password` en texto plano** en `settings`. `openai_api_key` ya usa `Crypt::encryptString`

@@ -263,7 +263,22 @@ segunda pasada divida dos veces (2500 -> 25.00 -> 0.25).
   "Reescribir datos legacy" desmarcado) o con
   `consultations:repair-legacy-import --source=ruta.sqlite` (primero con `--dry-run`). Solo tocan
   un ojo que sigue como lo dejo la importacion; lo corregido a mano se respeta. Aplicado en la BD
-  local el 2026-10-13 (`avsc_origen` el 2026-11-08); en staging y produccion falta subir el `.sqlite`.
+  local el 2026-10-13; en staging y produccion falta subir el `.sqlite`. **`avsc_origen` no corre
+  si se importa con "Reescribir datos legacy" marcado** (es el default en Mantenimiento: activa
+  `--replace` y salta `repairFromSource`); al 2026-11-13 la BD local tenia 0 filas de esa regla y
+  ~4.400 consultas con la AV.SC en la AV.CC de la RX en uso.
+- **Desde la app, sin el Access**: "Revision de datos heredados" (`/admin/revision-datos`,
+  permiso `legacy.review`, `LegacyReviewController` -> `app/Services/LegacyReview/`). Cada tipo
+  de problema es un `LegacyReviewCase`; el primero, `AvscFromRxUsoCase`, lleva la AV de la AV.CC
+  de "RX en uso 1" (entrada `orden = 0` **y** columna plana `rx_uso_avcc_*`) a `avsc_*` y deja la
+  observacion intacta. La optica ve lo actual y lo propuesto; vienen marcadas las que no tienen
+  conflicto ni `activity_log` de edicion. El servidor vuelve a evaluar al aplicar (nunca escribe lo
+  que manda el navegador), genera un backup antes y registra cada valor en
+  `consultation_legacy_repairs` con la regla del caso (`revision_avsc`) y el `batch_id` de
+  `legacy_review_batches`. Deshacer un lote restaura un ojo solo si todos sus valores siguen como
+  los dejo el lote; la entrada de RX en uso se busca por `orden = 0` si guardar la recreo con otro id.
+  Escribe con `DB::table` y no mueve `updated_at`. Un caso nuevo (fase 3: lentes de contacto) se
+  registra en el constructor de `LegacyReviewService`.
 
 Las OBSERVACIONES del Access (lo vendido, cada reclamo) estan en `consultations.observaciones`
 desde la primera importacion. Se ven en el historial de la ficha del paciente y en la seccion
