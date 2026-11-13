@@ -40,7 +40,7 @@ function TabButton({ active, onClick, icon: Icon, label }) {
             onClick={onClick}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                 active
-                    ? 'bg-[#1a2a4a] text-white'
+                    ? 'bg-navy text-white'
                     : 'text-gray-600 hover:bg-gray-100'
             }`}
         >
@@ -61,7 +61,7 @@ function RangeFilters({ filters, setFilters, onApply, children }) {
                         type="date"
                         value={filters.date_from}
                         onChange={e => setFilters(f => ({ ...f, date_from: e.target.value }))}
-                        className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]/30"
+                        className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy/30"
                     />
                 </div>
                 <div>
@@ -70,7 +70,7 @@ function RangeFilters({ filters, setFilters, onApply, children }) {
                         type="date"
                         value={filters.date_to}
                         onChange={e => setFilters(f => ({ ...f, date_to: e.target.value }))}
-                        className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]/30"
+                        className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy/30"
                     />
                 </div>
                 <div className="flex gap-2 ml-auto">
@@ -646,7 +646,7 @@ export default function CommercialReportsPage() {
             {/* Header */}
             <div className="mb-6">
                 <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                    <BarChart2 size={24} className="text-[#1a2a4a]" />
+                    <BarChart2 size={24} className="text-navy" />
                     Reportes Comerciales
                 </h1>
                 <p className="text-sm text-gray-500 mt-0.5">Análisis de ventas, inventario, laboratorio y caja</p>

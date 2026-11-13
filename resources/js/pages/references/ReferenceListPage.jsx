@@ -54,7 +54,7 @@ export default function ReferenceListPage() {
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
                 <table className="w-full">
                     <thead>
-                        <tr className="bg-[#1a2a4a] text-white">
+                        <tr className="bg-navy text-white">
                             <th className="px-6 py-4 text-left text-sm font-semibold">Paciente</th>
                             <th className="px-6 py-4 text-left text-sm font-semibold">Motivo</th>
                             <th className="px-6 py-4 text-left text-sm font-semibold">Médico referido</th>
@@ -66,7 +66,7 @@ export default function ReferenceListPage() {
                     <tbody>
                         {loading ? (
                             <tr><td colSpan={6} className="py-16 text-center">
-                                <div className="animate-spin h-8 w-8 border-4 border-[#1a2a4a] border-t-transparent rounded-full mx-auto" />
+                                <div className="animate-spin h-8 w-8 border-4 border-navy border-t-transparent rounded-full mx-auto" />
                             </td></tr>
                         ) : refs.length === 0 ? (
                             <tr><td colSpan={6} className="py-16 text-center">
@@ -76,7 +76,7 @@ export default function ReferenceListPage() {
                         ) : refs.map((r, i) => (
                             <tr key={r.id} className={`border-t border-gray-100 hover:bg-blue-50/40 transition-colors ${i % 2 === 0 ? '' : 'bg-gray-50/50'}`}>
                                 <td className="px-6 py-4">
-                                    <Link to={`/pacientes/${r.patient_id}`} className="font-medium text-gray-900 hover:text-[#1a2a4a]">
+                                    <Link to={`/pacientes/${r.patient_id}`} className="font-medium text-gray-900 hover:text-navy">
                                         {r.patient?.nombre_completo || r.patient?.nombre || '—'}
                                     </Link>
                                     <p className="text-xs text-gray-500">{r.patient?.cedula}</p>

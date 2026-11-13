@@ -120,7 +120,7 @@ export default function GuaranteeReportFormPage() {
                         <select
                             value={form.estado}
                             onChange={e => set('estado', e.target.value)}
-                            className="min-h-11 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm touch-manipulation focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]"
+                            className="min-h-11 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm touch-manipulation focus:outline-none focus:ring-2 focus:ring-navy"
                         >
                             <option value="pendiente">Pendiente</option>
                             <option value="completado">Completado</option>
@@ -133,7 +133,7 @@ export default function GuaranteeReportFormPage() {
                     <select
                         value={form.optometrista_id}
                         onChange={e => set('optometrista_id', e.target.value)}
-                        className="min-h-11 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm touch-manipulation focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]"
+                        className="min-h-11 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm touch-manipulation focus:outline-none focus:ring-2 focus:ring-navy"
                     >
                         <option value="">— Seleccionar —</option>
                         {optometristas.map(u => (
@@ -149,7 +149,7 @@ export default function GuaranteeReportFormPage() {
                         onChange={e => set('motivo', e.target.value)}
                         rows={3}
                         required
-                        className="w-full min-h-11 resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm touch-manipulation focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]"
+                        className="w-full min-h-11 resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm touch-manipulation focus:outline-none focus:ring-2 focus:ring-navy"
                     />
                 </div>
 
@@ -159,7 +159,7 @@ export default function GuaranteeReportFormPage() {
                         value={form.cambios_realizados}
                         onChange={e => set('cambios_realizados', e.target.value)}
                         rows={3}
-                        className="w-full min-h-11 resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm touch-manipulation focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]"
+                        className="w-full min-h-11 resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm touch-manipulation focus:outline-none focus:ring-2 focus:ring-navy"
                     />
                 </div>
 
@@ -169,7 +169,7 @@ export default function GuaranteeReportFormPage() {
                         value={form.soluciones_indicadas}
                         onChange={e => set('soluciones_indicadas', e.target.value)}
                         rows={3}
-                        className="w-full min-h-11 resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm touch-manipulation focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]"
+                        className="w-full min-h-11 resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm touch-manipulation focus:outline-none focus:ring-2 focus:ring-navy"
                     />
                 </div>
 

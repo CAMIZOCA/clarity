@@ -11,6 +11,8 @@ import EyeFieldGroup from '../../components/forms/EyeFieldGroup';
 import RxHistoryPicker from '../../components/forms/RxHistoryPicker';
 import DiagnosisPicker, { checklistRowIndexes } from '../../components/forms/DiagnosisPicker';
 import CollapsibleSection, { FormReadOnlyContext, openCollapsibleSection } from '../../components/forms/CollapsibleSection';
+import { useUiTemplate } from '../../contexts/UiTemplateContext';
+import { ConsultationTabsProvider, ConsultationTabBar, ConsultationTabPanels } from './ConsultationTabs';
 import { AdvancedToggleButton, useAdvancedToggle } from '../../components/forms/AdvancedFieldsToggle';
 import CertificadoPdf from '../../components/pdf/CertificadoPdf';
 import { useToast } from '../../components/ui/Toast';
@@ -646,11 +648,13 @@ function rememberLastDoctorId(id) {
  * Etiqueta de un campo. El `*` de obligatorio va desde el principio: antes
  * solo aparecia despues de intentar completar la consulta sin el dato.
  */
-function FieldLabel({ name, label, invalid }) {
+function FieldLabel({ name, label, invalid, srOnly = false }) {
     const required = useRequiredFields().includes(name);
+    const { isCompact } = useUiTemplate();
+    const size = srOnly ? 'sr-only' : isCompact ? 'text-xs' : 'text-sm';
 
     return (
-        <label htmlFor={name} className={`text-sm font-medium ${invalid ? 'text-red-600' : 'text-slate-700'}`}>
+        <label htmlFor={name} className={`${size} font-medium ${invalid ? 'text-red-600' : 'text-slate-700'}`}>
             {label}
             {required && <span className="ml-0.5 text-red-500" title="Obligatorio para completar la consulta">*</span>}
         </label>
@@ -717,12 +721,12 @@ function FormSelect({ label, register, name, options = [], placeholder = 'Selecc
     );
 }
 
-function TextArea({ label, register, name, rows = 3, placeholder, hint, ...props }) {
+function TextArea({ label, register, name, rows = 3, placeholder, hint, hideLabel = false, ...props }) {
     const errors = useContext(RequiredErrorsCtx);
     const err = errors.has(name);
     return (
         <div className="flex flex-col gap-1">
-            <FieldLabel name={name} label={label} invalid={err} />
+            <FieldLabel name={name} label={label} invalid={err} srOnly={hideLabel} />
             <textarea
                 id={name}
                 rows={rows}
@@ -1455,6 +1459,39 @@ export default function ConsultationForm({ patient, consultation, meta, readOnly
     const isCompleted = watch('estado') === 'completada';
     const saveLabel = isCompleted ? 'Guardar cambios' : 'Guardar borrador';
 
+    // Plantilla Compacto: las mismas secciones repartidas en pestañas. Cada pestaña
+    // muestra cuantos errores (obligatorios, 422) y avisos de medidas tiene.
+    const { isCompact } = useUiTemplate();
+    const errorsBySection = useMemo(() => {
+        const counts = {};
+        const seen = new Set();
+        const add = (field) => {
+            const key = sectionKeyForField(field);
+            if (!key || seen.has(field)) return;
+            seen.add(field);
+            counts[key] = (counts[key] ?? 0) + 1;
+        };
+        requiredErrors.forEach((_, field) => add(field));
+        fieldErrors.forEach(({ field }) => add(field));
+        return counts;
+    }, [requiredErrors, fieldErrors]);
+    const warningsBySection = useMemo(() => {
+        const counts = {};
+        rxWarningMap.forEach((_, field) => {
+            const key = sectionKeyForField(field) ?? 'refraccion';
+            counts[key] = (counts[key] ?? 0) + 1;
+        });
+        return counts;
+    }, [rxWarningMap]);
+
+    // Bloque de la cuadricula de Refraccion (solo Compacto; en Clasico el contenido
+    // va tal cual). Es una funcion y no un componente para no remontar los inputs.
+    const rxBlock = (key, content, variant) => (isCompact ? (
+        <div key={key} className={`min-w-0 rounded-lg border border-gray-200 p-2 ${variant === 'rx-final' ? 'col-span-full border-navy/40 xl:col-span-2' : ''}`}>
+            {content}
+        </div>
+    ) : content);
+
     // Estilo/estado inicial de las secciones-módulo según estén marcadas avanzadas.
     const moduleSectionProps = (advKey) => ({
         variant: isAdvanced(advKey) ? 'advanced' : 'default',
@@ -1471,9 +1508,22 @@ export default function ConsultationForm({ patient, consultation, meta, readOnly
             autoComplete="off"
             className="pb-24 lg:pb-8"
         >
-            <div className="sticky top-0 z-20 mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-3 shadow-sm">
+          <ConsultationTabsProvider
+            enabled={isCompact}
+            storageId={consultation?.id ?? null}
+            errorsBySection={errorsBySection}
+            warningsBySection={warningsBySection}
+          >
+            <div className={isCompact
+                ? 'material-toolbar sticky top-0 z-20 mb-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-xl px-2.5 py-1.5 shadow-sm lg:top-[52px]'
+                : 'sticky top-0 z-20 mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-3 shadow-sm'}>
+                {isCompact && (
+                    <div className="min-w-0 flex-1">
+                        <ConsultationTabBar />
+                    </div>
+                )}
                 <div className="flex flex-wrap items-center gap-2">
-                    <InlineBadge label={`Paciente ${patient.codigo_interno || patient.id}`} />
+                    {!isCompact && <InlineBadge label={`Paciente ${patient.codigo_interno || patient.id}`} />}
                     <InlineBadge label={isCompleted ? 'Completada' : 'Borrador'} tone={isCompleted ? 'done' : 'draft'} />
                     {readOnly && <InlineBadge label="Solo lectura" />}
                     {lastSaved && (
@@ -1513,18 +1563,18 @@ export default function ConsultationForm({ patient, consultation, meta, readOnly
                         )}
                     </div>
                 )}
-                <div className="hidden flex-wrap items-center gap-3 lg:flex">
+                <div className={`hidden flex-wrap items-center lg:flex ${isCompact ? 'gap-2' : 'gap-3'}`}>
                     {!readOnly && (
-                        <Button type="button" variant="secondary" onClick={handleSaveDraft} loading={saving}>
-                            <Clock size={18} /> {saveLabel}
+                        <Button type="button" variant="secondary" size={isCompact ? 'sm' : 'md'} onClick={handleSaveDraft} loading={saving}>
+                            <Clock size={isCompact ? 15 : 18} /> {saveLabel}
                         </Button>
                     )}
-                    <Button type="button" variant="secondary" onClick={handleGeneratePdf}>
-                        <Printer size={18} /> Imprimir
+                    <Button type="button" variant="secondary" size={isCompact ? 'sm' : 'md'} onClick={handleGeneratePdf}>
+                        <Printer size={isCompact ? 15 : 18} /> Imprimir
                     </Button>
                     {!readOnly && (
-                        <Button type="submit" loading={saving}>
-                            <Save size={18} /> Completar consulta
+                        <Button type="submit" size={isCompact ? 'sm' : 'md'} loading={saving}>
+                            <Save size={isCompact ? 15 : 18} /> {isCompact ? 'Completar' : 'Completar consulta'}
                         </Button>
                     )}
                 </div>
@@ -1535,6 +1585,7 @@ export default function ConsultationForm({ patient, consultation, meta, readOnly
                 )}
             </div>
 
+            <ConsultationTabPanels>
             {/* Solo lo que se edita: los datos del paciente estan en la tarjeta azul. */}
             <CollapsibleSection title="Cabecera clínica" subtitle="Datos de esta consulta: médico que atiende, fecha y motivo." sectionKey="cabecera">
                 <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
@@ -1601,8 +1652,10 @@ export default function ConsultationForm({ patient, consultation, meta, readOnly
             </CollapsibleSection>
 
             <CollapsibleSection title="Examen visual y refracción" subtitle="Captura central de lectura, refracción y receta final." sectionKey="refraccion">
-                <div onBlur={refreshRxWarnings}>
+                <div onBlur={refreshRxWarnings} className={isCompact ? 'grid items-start gap-2 lg:grid-cols-2 xl:grid-cols-3' : undefined}>
+                    {rxBlock('lecturas', (
                     <EyeFieldGroup
+                        label={isCompact ? 'Lecturas iniciales' : undefined}
                         fields={topFields}
                         register={register}
                         setValue={setValue}
@@ -1611,18 +1664,25 @@ export default function ConsultationForm({ patient, consultation, meta, readOnly
                         labelOverrides={topLabels}
                         nameFor={(field, eye) => `${field}_${eye}`}
                     />
-                    <div className="mb-6">
-                        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-[#1a2a4a]/20 pb-1">
-                            <h3 className="text-sm font-semibold uppercase tracking-wider text-[#1a2a4a]">RX en uso</h3>
-                            <Button type="button" variant="secondary" onClick={() => rxUsoFieldArray.append(emptyRxUsoEntry())}>
-                                <Plus size={16} /> Agregar RX en uso
+                    ))}
+                    {rxBlock('rx-uso', (
+                    <div className={isCompact ? undefined : 'mb-6'}>
+                        <div className={isCompact
+                            ? 'mb-1.5 flex flex-wrap items-center justify-between gap-2'
+                            : 'mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-navy/20 pb-1'}>
+                            <h3 className={isCompact
+                                ? 'text-[11.5px] font-semibold uppercase tracking-wider text-navy'
+                                : 'text-sm font-semibold uppercase tracking-wider text-navy'}>RX en uso</h3>
+                            {isCompact && <RxHistoryPicker patientId={patient.id} excludeId={consultationId} onUse={copyRxFromHistory} collapsible />}
+                            <Button type="button" variant="secondary" size={isCompact ? 'sm' : 'md'} onClick={() => rxUsoFieldArray.append(emptyRxUsoEntry())}>
+                                <Plus size={16} /> {isCompact ? 'RX en uso' : 'Agregar RX en uso'}
                             </Button>
                         </div>
-                        <RxHistoryPicker patientId={patient.id} excludeId={consultationId} onUse={copyRxFromHistory} />
-                        <div className="space-y-4">
+                        {!isCompact && <RxHistoryPicker patientId={patient.id} excludeId={consultationId} onUse={copyRxFromHistory} />}
+                        <div className={isCompact ? 'space-y-2' : 'space-y-4'}>
                             {rxUsoFieldArray.fields.map((field, index) => (
-                                <div key={field.id} className="rounded-2xl border border-slate-200 p-4">
-                                    <div className="mb-2 flex items-center justify-between">
+                                <div key={field.id} className={isCompact ? 'rounded-lg bg-gray-50 p-1.5' : 'rounded-2xl border border-slate-200 p-4'}>
+                                    <div className={isCompact && rxUsoFieldArray.fields.length === 1 ? 'sr-only' : 'mb-2 flex items-center justify-between'}>
                                         <span className="text-sm font-medium text-slate-700">RX en uso {index + 1}</span>
                                         {rxUsoFieldArray.fields.length > 1 && (
                                             <button type="button" className="text-sm text-rose-600" onClick={() => rxUsoFieldArray.remove(index)}>
@@ -1642,7 +1702,8 @@ export default function ConsultationForm({ patient, consultation, meta, readOnly
                                         label="Observación"
                                         name={`rx_uso_entries.${index}.observacion`}
                                         register={register}
-                                        rows={2}
+                                        hideLabel={isCompact}
+                                        rows={isCompact ? 1 : 2}
                                         placeholder="Notas sobre esta receta en uso."
                                     />
                                 </div>
@@ -1650,14 +1711,17 @@ export default function ConsultationForm({ patient, consultation, meta, readOnly
                         </div>
                     </div>
 
+                    ))}
+
                     {/* "Lente anterior" ya no se ofrece (la optica anota eso en la Observacion de la RX en uso).
                         Solo se muestra si la consulta ya traia texto, para no ocultarlo ni perderlo. */}
                     {hasLegacyLenteAnterior && (
-                        <div className="mb-6">
+                        <div className={isCompact ? 'col-span-full' : 'mb-6'}>
                             <TextArea label="Lente anterior (registro anterior)" name="lente_anterior" register={register} rows={2} />
                         </div>
                     )}
 
+                    {rxBlock('subjetivo', (
                     <EyeFieldGroup
                         prefix="subj"
                         fields={subjFields}
@@ -1667,7 +1731,36 @@ export default function ConsultationForm({ patient, consultation, meta, readOnly
                         requiredFields={requiredFields}
                         label="Subjetivo"
                     />
+                    ))}
 
+                    {/* Compacto: vision de cerca, vision de colores y el boton de avanzados
+                        comparten la celda de al lado de la RX final. Son los mismos campos
+                        que el Clasico muestra debajo de la RX final. */}
+                    {isCompact && (advVisible('consulta:grp_vision_cerca', refractionAdv)
+                        || advVisible('consulta:vision_colores', refractionAdv)
+                        || hasRefractionAdvanced) && rxBlock('complementos', (
+                        <div className="space-y-2">
+                            {advVisible('consulta:grp_vision_cerca', refractionAdv) && (
+                                <EyeFieldGroup
+                                    prefix="vc"
+                                    fields={['esfera', 'cilindro', 'eje', 'avcc', 'dnp']}
+                                    register={register}
+                                    setValue={setValue}
+                                    warnings={rxWarningMap}
+                                    requiredFields={requiredFields}
+                                    label="RX - Visión de Cerca"
+                                />
+                            )}
+                            {advVisible('consulta:vision_colores', refractionAdv) && (
+                                <FormInput label="Visión de colores" name="vision_colores" register={register} placeholder="14/14 Test Ishihara" hint="Se imprime en el certificado." />
+                            )}
+                            {hasRefractionAdvanced && (
+                                <AdvancedToggleButton open={refractionAdv.open} onToggle={refractionAdv.toggle} />
+                            )}
+                        </div>
+                    ))}
+
+                    {rxBlock('rx-final', (
                     <EyeFieldGroup
                         prefix="rx_final"
                         fields={rxFinalFields}
@@ -1678,20 +1771,21 @@ export default function ConsultationForm({ patient, consultation, meta, readOnly
                         label="RX FINAL"
                         labelOverrides={{ dnp: 'DP' }}
                         footer={(
-                            <div className="mt-3">
+                            <div className={isCompact ? 'mt-1.5' : 'mt-3'}>
                                 <TextArea
                                     label="Observaciones"
                                     name="rx_final_observaciones"
                                     register={register}
-                                    rows={3}
+                                    rows={isCompact ? 1 : 3}
                                     placeholder="Observaciones de la receta final (aplican a ambos ojos)."
                                 hint="No se imprime en el certificado."
                                 />
                             </div>
                         )}
                     />
+                    ), 'rx-final')}
 
-                    {advVisible('consulta:grp_vision_cerca', refractionAdv) && (
+                    {advVisible('consulta:grp_vision_cerca', refractionAdv) && !isCompact && (
                         <EyeFieldGroup
                             prefix="vc"
                             fields={['esfera', 'cilindro', 'eje', 'avcc', 'dnp']}
@@ -1702,12 +1796,12 @@ export default function ConsultationForm({ patient, consultation, meta, readOnly
                             label="RX - Visión de Cerca"
                         />
                     )}
-                    {advVisible('consulta:vision_colores', refractionAdv) && (
+                    {!isCompact && advVisible('consulta:vision_colores', refractionAdv) && (
                         <div className="mt-4 max-w-md">
                             <FormInput label="Visión de colores" name="vision_colores" register={register} placeholder="14/14 Test Ishihara" hint="Se imprime en el certificado." />
                         </div>
                     )}
-                    {hasRefractionAdvanced && (
+                    {!isCompact && hasRefractionAdvanced && (
                         <div className="mt-2">
                             <AdvancedToggleButton open={refractionAdv.open} onToggle={refractionAdv.toggle} />
                         </div>
@@ -2053,6 +2147,7 @@ export default function ConsultationForm({ patient, consultation, meta, readOnly
                     </div>
                 </div>
             </CollapsibleSection>
+            </ConsultationTabPanels>
 
             <div className="mobile-sticky-actions -mx-4 px-4 py-4 lg:hidden">
                 <div className={`grid gap-2 ${readOnly ? 'grid-cols-1' : 'grid-cols-3'}`}>
@@ -2072,7 +2167,8 @@ export default function ConsultationForm({ patient, consultation, meta, readOnly
                 </div>
             </div>
 
-            <div className="hidden flex-wrap justify-end gap-3 pb-8 lg:flex">
+            {/* En Compacto las mismas acciones estan en la barra fija de arriba. */}
+            <div className={isCompact ? 'hidden' : 'hidden flex-wrap justify-end gap-3 pb-8 lg:flex'}>
                 {!readOnly && (
                     <Button type="button" variant="secondary" onClick={handleSaveDraft}>
                         <Clock size={20} /> {saveLabel}
@@ -2087,6 +2183,7 @@ export default function ConsultationForm({ patient, consultation, meta, readOnly
                     </Button>
                 )}
             </div>
+          </ConsultationTabsProvider>
         </form>
 
         {/* Fuera del <form>: Enter en el correo del certificado completaba la consulta. */}
@@ -2191,7 +2288,7 @@ export default function ConsultationForm({ patient, consultation, meta, readOnly
                     <div className="flex justify-end gap-3">
                         <button
                             onClick={() => goToMissingField(missingFields[0]?.field)}
-                            className="px-4 py-2 bg-[#1a2a4a] text-white rounded-lg text-sm font-medium hover:bg-[#253a6a] transition-colors"
+                            className="px-4 py-2 bg-navy text-white rounded-lg text-sm font-medium hover:bg-navy-light transition-colors"
                         >
                             Entendido, voy a completarlos
                         </button>

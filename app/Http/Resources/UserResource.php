@@ -30,6 +30,8 @@ class UserResource extends JsonResource
             'is_active' => $this->when(isset($this->is_active), $this->is_active ?? true),
             'phone' => $this->when(isset($this->phone), $this->phone),
             'branch_id' => $this->when(isset($this->branch_id), $this->branch_id),
+            // null = sigue el defecto de la optica (setting ui_template_default).
+            'ui_template' => $this->ui_template,
             'created_at' => $this->created_at->toISOString(),
         ];
     }

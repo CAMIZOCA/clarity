@@ -154,7 +154,7 @@ export default function ContificoTab() {
                         checked={enabled}
                         disabled={!canEnable}
                         onChange={e => setEnabled(e.target.checked)}
-                        className="mt-1 w-4 h-4 accent-[#1a2a4a]"
+                        className="mt-1 w-4 h-4 accent-navy"
                     />
                     <span>
                         <span className="block text-sm font-medium text-gray-900">Activar conexión con Contífico</span>
@@ -170,7 +170,7 @@ export default function ContificoTab() {
                 </label>
 
                 <div className="mt-6 rounded-xl border border-blue-200 bg-blue-50 p-4">
-                    <h3 className="flex items-center gap-2 text-sm font-semibold text-[#1a2a4a]">
+                    <h3 className="flex items-center gap-2 text-sm font-semibold text-navy">
                         <Info size={16} /> Cómo obtener las credenciales
                     </h3>
                     <p className="text-sm text-gray-700 mt-2">
@@ -204,7 +204,7 @@ export default function ContificoTab() {
                             href="https://contifico.github.io/"
                             target="_blank"
                             rel="noreferrer"
-                            className="inline-flex items-center gap-1 font-medium text-[#1a2a4a] underline"
+                            className="inline-flex items-center gap-1 font-medium text-navy underline"
                         >
                             Documentación oficial del API <ExternalLink size={12} />
                         </a>
@@ -220,7 +220,7 @@ export default function ContificoTab() {
                             onChange={e => setApiKey(e.target.value)}
                             autoComplete="new-password"
                             placeholder={status.has_api_key ? '•••••••• (guardada)' : 'API key de Contífico'}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy"
                         />
                         <p className="text-xs text-gray-400 mt-1">
                             {status.has_api_key ? 'Hay una clave guardada. Déjalo vacío para conservarla.' : 'Todavía no hay ninguna clave configurada.'}
@@ -234,7 +234,7 @@ export default function ContificoTab() {
                             onChange={e => setApiToken(e.target.value)}
                             autoComplete="new-password"
                             placeholder={status.has_api_token ? '•••••••• (guardado)' : 'API token de Contífico'}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy"
                         />
                         <p className="text-xs text-gray-400 mt-1">
                             {status.has_api_token ? 'Hay un token guardado. Déjalo vacío para conservarlo.' : 'Todavía no hay ningún token configurado.'}

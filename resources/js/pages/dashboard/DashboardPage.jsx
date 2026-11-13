@@ -16,6 +16,8 @@ import LatestConsultationCard from '../../components/dashboard/LatestConsultatio
 import DayConsultationList from '../../components/dashboard/DayConsultationList';
 import ConsultationsChart from '../../components/dashboard/ConsultationsChart';
 import { HIGHLIGHT_MINUTES, minutesSince } from '../../components/dashboard/timeFormat';
+import { useUiTemplate } from '../../contexts/UiTemplateContext';
+import DashboardCompactView from './DashboardCompactView';
 
 /** Cuanto tiempo queda resaltada una consulta recien llegada. */
 const FRESH_MS = 8_000;
@@ -46,6 +48,7 @@ function StatCard({ icon: Icon, label, value, color, to }) {
 export default function DashboardPage() {
     const { user, isAdmin, can } = useAuth();
     const { settings } = useSettings();
+    const { isCompact } = useUiTemplate();
     const [stats, setStats] = useState(null);
     const [feed, setFeed] = useState(null);
     const [feedFailed, setFeedFailed] = useState(false);
@@ -146,6 +149,48 @@ export default function DashboardPage() {
     // Un mensaje de animo por dia para Recepcion.
     const dailyMessage = user?.roles?.includes('recepcionista') ? messageOfTheDay(todayIso()) : null;
 
+    if (isCompact) {
+        // Las mismas acciones rapidas y con las mismas condiciones que el Clasico.
+        const quickLinks = [
+            isMenuItemVisible('pacientes') && { to: '/pacientes', icon: Stethoscope, label: 'Buscar paciente' },
+            isMenuItemVisible('pacientes') && { to: '/pacientes/nuevo', icon: Users, label: 'Nuevo paciente' },
+            isMenuSectionVisible('reportes') && isMenuItemVisible('reportes_clinicos') && { to: '/reportes', icon: FileText, label: 'Ver reportes' },
+            canManageSettings && { to: '/configuracion', icon: Settings, label: 'Configurar menu' },
+        ].filter(Boolean);
+
+        return (
+            <DashboardCompactView
+                title={upperFirst(format(today, "EEEE d 'de' MMMM", { locale: es }))}
+                greeting={`${saludo}, ${user?.name?.split(' ')[0] ?? ''} · ${format(today, 'yyyy')}`}
+                dailyMessage={dailyMessage}
+                canSeeFeed={canSeeFeed}
+                feed={feed}
+                feedFailed={feedFailed}
+                secondsAgo={secondsAgo}
+                formatAgo={formatAgo}
+                refreshing={refreshing}
+                onRefresh={() => {
+                    loadFeed();
+                    setChartRefresh(count => count + 1);
+                }}
+                isAdmin={isAdmin()}
+                showHighlight={showHighlight}
+                featured={featured}
+                others={others}
+                freshIds={freshIds}
+                now={now}
+                onSelect={setSelectedId}
+                stats={stats}
+                todayCount={todayCount}
+                chartRefresh={chartRefresh}
+                days={days}
+                expandedId={expandedId}
+                onToggle={(id) => setExpandedId(current => (current === id ? null : id))}
+                quickLinks={quickLinks}
+            />
+        );
+    }
+
     return (
         <div className="p-6 max-w-7xl mx-auto">
             <div className="mb-6 flex items-start justify-between flex-wrap gap-3">
@@ -157,7 +202,7 @@ export default function DashboardPage() {
                         {saludo}, {user?.name?.split(' ')[0]} · {format(today, 'yyyy')}
                     </p>
                     {dailyMessage && (
-                        <p className="mt-3 max-w-2xl text-base italic text-[#1a2a4a]/80">
+                        <p className="mt-3 max-w-2xl text-base italic text-navy/80">
                             “{dailyMessage.text}”
                             {dailyMessage.ref && <span className="ml-2 not-italic text-sm text-gray-500">— {dailyMessage.ref}</span>}
                         </p>
@@ -179,7 +224,7 @@ export default function DashboardPage() {
                                     setChartRefresh(count => count + 1);
                                 }}
                                 disabled={refreshing}
-                                className="flex items-center gap-2 px-4 py-2 rounded-xl border border-[#1a2a4a] text-[#1a2a4a] text-sm font-medium hover:bg-[#1a2a4a] hover:text-white transition-colors disabled:opacity-60"
+                                className="flex items-center gap-2 px-4 py-2 rounded-xl border border-navy text-navy text-sm font-medium hover:bg-navy hover:text-white transition-colors disabled:opacity-60"
                             >
                                 <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
                                 Actualizar consultas recientes
@@ -189,7 +234,7 @@ export default function DashboardPage() {
                     {isAdmin() && (
                         <Link
                             to="/dashboard-gerencial"
-                            className="flex items-center gap-2 px-4 py-2 bg-[#1a2a4a] text-white rounded-xl text-sm font-medium hover:bg-[#253d6b] transition-colors"
+                            className="flex items-center gap-2 px-4 py-2 bg-navy text-white rounded-xl text-sm font-medium hover:bg-navy-light transition-colors"
                         >
                             <BarChart2 size={16} />
                             Ver Dashboard Gerencial
@@ -226,7 +271,7 @@ export default function DashboardPage() {
 
             {/* Stats */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
-                <StatCard icon={Users} label="Pacientes registrados" value={stats?.totalPacientes} color="bg-[#1a2a4a]" to="/pacientes" />
+                <StatCard icon={Users} label="Pacientes registrados" value={stats?.totalPacientes} color="bg-navy" to="/pacientes" />
                 {canSeeFeed && (
                     <StatCard icon={Stethoscope} label="Consultas completadas hoy" value={todayCount} color="bg-blue-500" />
                 )}
@@ -239,7 +284,7 @@ export default function DashboardPage() {
             {canSeeFeed && (
                 <div className="space-y-6">
                     {!feed ? (
-                        <div className="py-8 text-center"><div className="animate-spin h-6 w-6 border-2 border-[#1a2a4a] border-t-transparent rounded-full mx-auto" /></div>
+                        <div className="py-8 text-center"><div className="animate-spin h-6 w-6 border-2 border-navy border-t-transparent rounded-full mx-auto" /></div>
                     ) : days.slice(0, 1).map((day, index) => (
                         <DayConsultationList
                             key={day.date}
@@ -253,7 +298,7 @@ export default function DashboardPage() {
             )}
 
             {/* Quick actions */}
-            <div className="mt-6 bg-[#1a2a4a] rounded-2xl p-6 text-white">
+            <div className="mt-6 bg-navy rounded-2xl p-6 text-white">
                 <h2 className="font-semibold mb-4 flex items-center gap-2"><TrendingUp size={18} /> Acciones rápidas</h2>
                 <div className="flex flex-wrap gap-3">
                     {isMenuItemVisible('pacientes') && (

@@ -27,7 +27,7 @@ function ItemRow({ item, onSave, onDelete }) {
                         value={code}
                         onChange={e => setCode(e.target.value)}
                         placeholder="Código"
-                        className="w-full text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-[#1a2a4a]"
+                        className="w-full text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-navy"
                     />
                 </td>
                 <td className="px-4 py-2">
@@ -35,7 +35,7 @@ function ItemRow({ item, onSave, onDelete }) {
                         value={label}
                         onChange={e => setLabel(e.target.value)}
                         placeholder="Nombre"
-                        className="w-full text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-[#1a2a4a]"
+                        className="w-full text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-navy"
                     />
                 </td>
                 <td className="px-4 py-2 flex gap-2">
@@ -83,7 +83,7 @@ function NewItemRow({ groupId, onCreated, onCancel }) {
                     value={code}
                     onChange={e => setCode(e.target.value)}
                     placeholder="Código (opcional)"
-                    className="w-full text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-[#1a2a4a]"
+                    className="w-full text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-navy"
                 />
             </td>
             <td className="px-4 py-2">
@@ -93,7 +93,7 @@ function NewItemRow({ groupId, onCreated, onCancel }) {
                     onChange={e => setLabel(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && save()}
                     placeholder="Nombre del elemento"
-                    className="w-full text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-[#1a2a4a]"
+                    className="w-full text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-navy"
                 />
             </td>
             <td className="px-4 py-2 flex gap-2">
@@ -192,14 +192,14 @@ export default function CatalogPage() {
         <div className="p-6 max-w-5xl mx-auto">
             <div className="mb-6">
                 <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-                    <Database size={28} className="text-[#1a2a4a]" /> Catálogos del sistema
+                    <Database size={28} className="text-navy" /> Catálogos del sistema
                 </h1>
                 <p className="text-gray-500 mt-1">Administra los valores disponibles en los formularios (materiales, diagnósticos, plantillas, etc.)</p>
             </div>
 
             {loading ? (
                 <div className="flex justify-center py-16">
-                    <div className="animate-spin h-10 w-10 border-4 border-[#1a2a4a] border-t-transparent rounded-full" />
+                    <div className="animate-spin h-10 w-10 border-4 border-navy border-t-transparent rounded-full" />
                 </div>
             ) : (
                 <div className="space-y-6">

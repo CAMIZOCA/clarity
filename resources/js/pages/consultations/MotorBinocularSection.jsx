@@ -1,5 +1,6 @@
 import React from 'react';
 import { MOTOR_BINOCULAR_BLOCKS } from '../../data/motorBinocularSchema';
+import { useUiTemplate } from '../../contexts/UiTemplateContext';
 
 // Colores por bloque (`tone` del esquema). Clases literales para que Tailwind las detecte.
 const TONES = {
@@ -25,12 +26,14 @@ const chunk = (list, size) => Array.from(
  * que `goToField` lo encuentre.
  */
 export default function MotorBinocularSection({ register }) {
+    // Compacto: en monitores anchos los cuatro bloques van de a dos.
+    const { isCompact } = useUiTemplate();
     const renderInput = (name, placeholder) => (
         <input id={name} className={INPUT_CLASS} placeholder={placeholder} {...register(name)} />
     );
 
     return (
-        <div className="space-y-6">
+        <div className={isCompact ? 'grid items-start gap-3 min-[1700px]:grid-cols-2' : 'space-y-6'}>
             {MOTOR_BINOCULAR_BLOCKS.map((block) => {
                 const tone = TONES[block.tone] ?? TONES.sky;
                 // Binocularidad: una sola columna que reparte todas las celdas en linea.

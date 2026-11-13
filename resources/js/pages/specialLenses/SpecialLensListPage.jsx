@@ -59,7 +59,7 @@ export default function SpecialLensListPage() {
             <div className="flex gap-2 mb-5">
                 {['', 'esclerales', 'ortoqueratologia', 'queratocono'].map(t => (
                     <button key={t} onClick={() => setFilter(t)}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${filter === t ? 'bg-[#1a2a4a] text-white' : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'}`}>
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${filter === t ? 'bg-navy text-white' : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'}`}>
                         {t ? TIPO_LABELS[t] : 'Todos'}
                     </button>
                 ))}
@@ -68,7 +68,7 @@ export default function SpecialLensListPage() {
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
                 <table className="w-full">
                     <thead>
-                        <tr className="bg-[#1a2a4a] text-white">
+                        <tr className="bg-navy text-white">
                             <th className="px-6 py-4 text-left text-sm font-semibold">Paciente</th>
                             <th className="px-6 py-4 text-left text-sm font-semibold">Tipo</th>
                             <th className="px-6 py-4 text-left text-sm font-semibold">Radio base OD/OI</th>
@@ -80,7 +80,7 @@ export default function SpecialLensListPage() {
                     <tbody>
                         {loading ? (
                             <tr><td colSpan={6} className="py-16 text-center">
-                                <div className="animate-spin h-8 w-8 border-4 border-[#1a2a4a] border-t-transparent rounded-full mx-auto" />
+                                <div className="animate-spin h-8 w-8 border-4 border-navy border-t-transparent rounded-full mx-auto" />
                             </td></tr>
                         ) : lenses.length === 0 ? (
                             <tr><td colSpan={6} className="py-16 text-center">
@@ -90,7 +90,7 @@ export default function SpecialLensListPage() {
                         ) : lenses.map((l, i) => (
                             <tr key={l.id} className={`border-t border-gray-100 hover:bg-blue-50/40 transition-colors ${i % 2 === 0 ? '' : 'bg-gray-50/50'}`}>
                                 <td className="px-6 py-4">
-                                    <Link to={`/pacientes/${l.patient_id}`} className="font-medium text-gray-900 hover:text-[#1a2a4a]">
+                                    <Link to={`/pacientes/${l.patient_id}`} className="font-medium text-gray-900 hover:text-navy">
                                         {l.patient?.nombre_completo || l.patient?.nombre || '—'}
                                     </Link>
                                     <p className="text-xs text-gray-500">{l.patient?.cedula}</p>

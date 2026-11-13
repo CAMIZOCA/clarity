@@ -132,10 +132,10 @@ function NewCampaignModal({ open, onClose, onCreated }) {
                         <React.Fragment key={num}>
                             <div className="flex flex-col items-center">
                                 <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-colors
-                                    ${done ? 'bg-green-500 text-white' : active ? 'bg-[#1a2a4a] text-white' : 'bg-gray-200 text-gray-500'}`}>
+                                    ${done ? 'bg-green-500 text-white' : active ? 'bg-navy text-white' : 'bg-gray-200 text-gray-500'}`}>
                                     {done ? <CheckCircle size={16} /> : num}
                                 </div>
-                                <span className={`text-xs mt-1 ${active ? 'text-[#1a2a4a] font-semibold' : 'text-gray-400'}`}>{label}</span>
+                                <span className={`text-xs mt-1 ${active ? 'text-navy font-semibold' : 'text-gray-400'}`}>{label}</span>
                             </div>
                             {i < WIZARD_STEPS.length - 1 && (
                                 <div className={`flex-1 h-0.5 mx-2 mb-4 ${done ? 'bg-green-400' : 'bg-gray-200'}`} />
@@ -155,7 +155,7 @@ function NewCampaignModal({ open, onClose, onCreated }) {
                             value={campaignName}
                             onChange={e => setCampaignName(e.target.value)}
                             placeholder="Ej: Campaña recordatorio julio 2026"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] text-sm"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy text-sm"
                         />
                     </div>
                     <SegmentBuilder
@@ -189,7 +189,7 @@ function NewCampaignModal({ open, onClose, onCreated }) {
                                     onClick={() => { setChannel(ch.value); setSelectedTemplate(''); setMessage(''); }}
                                     className={`flex items-center gap-3 p-4 rounded-xl border-2 transition-colors font-medium
                                         ${channel === ch.value
-                                            ? 'border-[#1a2a4a] bg-blue-50 text-[#1a2a4a]'
+                                            ? 'border-navy bg-blue-50 text-navy'
                                             : 'border-gray-200 text-gray-600 hover:border-gray-300'
                                         }`}
                                 >
@@ -205,7 +205,7 @@ function NewCampaignModal({ open, onClose, onCreated }) {
                         <select
                             value={selectedTemplate}
                             onChange={e => handleTemplateSelect(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] text-sm"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy text-sm"
                         >
                             <option value="">— Seleccionar plantilla —</option>
                             {templates.map(t => (
@@ -227,7 +227,7 @@ function NewCampaignModal({ open, onClose, onCreated }) {
                             rows={5}
                             maxLength={4096}
                             placeholder="Escribe tu mensaje aquí..."
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] text-sm resize-none"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy text-sm resize-none"
                         />
                         <p className="text-xs text-gray-400 mt-1">
                             Variables disponibles:{' '}
@@ -264,14 +264,14 @@ function NewCampaignModal({ open, onClose, onCreated }) {
                                 { value: 'scheduled', label: 'Programar para más tarde' },
                             ].map(opt => (
                                 <label key={opt.value} className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors
-                                    ${scheduleMode === opt.value ? 'border-[#1a2a4a] bg-blue-50' : 'border-gray-200'}`}>
+                                    ${scheduleMode === opt.value ? 'border-navy bg-blue-50' : 'border-gray-200'}`}>
                                     <input
                                         type="radio"
                                         name="scheduleMode"
                                         value={opt.value}
                                         checked={scheduleMode === opt.value}
                                         onChange={() => setScheduleMode(opt.value)}
-                                        className="accent-[#1a2a4a]"
+                                        className="accent-navy"
                                     />
                                     <span className="text-sm font-medium text-gray-700">{opt.label}</span>
                                 </label>
@@ -286,7 +286,7 @@ function NewCampaignModal({ open, onClose, onCreated }) {
                                 type="datetime-local"
                                 value={scheduledAt}
                                 onChange={e => setScheduledAt(e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] text-sm"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy text-sm"
                             />
                         </div>
                     )}
@@ -463,7 +463,7 @@ export default function CampaignPage() {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-[#1a2a4a] rounded-xl flex items-center justify-center">
+                    <div className="w-10 h-10 bg-navy rounded-xl flex items-center justify-center">
                         <Megaphone size={20} className="text-white" />
                     </div>
                     <div>
@@ -482,7 +482,7 @@ export default function CampaignPage() {
                 <div className="flex-1 bg-white rounded-xl border border-gray-200 overflow-hidden flex flex-col">
                     {loading ? (
                         <div className="flex-1 flex items-center justify-center text-gray-400">
-                            <div className="animate-spin h-8 w-8 border-4 border-[#1a2a4a] border-t-transparent rounded-full" />
+                            <div className="animate-spin h-8 w-8 border-4 border-navy border-t-transparent rounded-full" />
                         </div>
                     ) : campaigns.length === 0 ? (
                         <div className="flex-1 flex flex-col items-center justify-center text-gray-400 gap-3 p-8">

@@ -59,7 +59,7 @@ export default function BrigadeListPage() {
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
                 <table className="w-full">
                     <thead>
-                        <tr className="bg-[#1a2a4a] text-white">
+                        <tr className="bg-navy text-white">
                             <th className="px-6 py-4 text-left text-sm font-semibold">Brigada</th>
                             <th className="px-6 py-4 text-left text-sm font-semibold">Lugar</th>
                             <th className="px-6 py-4 text-left text-sm font-semibold">Fecha</th>
@@ -71,7 +71,7 @@ export default function BrigadeListPage() {
                     <tbody>
                         {loading ? (
                             <tr><td colSpan={6} className="py-16 text-center">
-                                <div className="animate-spin h-8 w-8 border-4 border-[#1a2a4a] border-t-transparent rounded-full mx-auto" />
+                                <div className="animate-spin h-8 w-8 border-4 border-navy border-t-transparent rounded-full mx-auto" />
                             </td></tr>
                         ) : brigades.length === 0 ? (
                             <tr><td colSpan={6} className="py-16 text-center">
@@ -95,7 +95,7 @@ export default function BrigadeListPage() {
                                 </td>
                                 <td className="px-6 py-4 text-gray-700">{b.optometrista?.name || '—'}</td>
                                 <td className="px-6 py-4">
-                                    <span className="text-sm bg-[#1a2a4a]/10 text-[#1a2a4a] px-2 py-0.5 rounded-full font-medium">
+                                    <span className="text-sm bg-navy/10 text-navy px-2 py-0.5 rounded-full font-medium">
                                         {b.patients_count ?? b.patients?.length ?? 0}
                                     </span>
                                 </td>

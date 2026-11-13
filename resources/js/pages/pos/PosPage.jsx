@@ -457,12 +457,12 @@ export default function PosPage() {
                     <div className="space-y-3">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Laboratorio</label>
-                            <input className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]"
+                            <input className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-navy"
                                 value={labForm.lab_name} onChange={e => setLabForm(p => ({ ...p, lab_name: e.target.value }))} />
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Notas</label>
-                            <textarea rows={2} className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]"
+                            <textarea rows={2} className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-navy"
                                 value={labForm.notes} onChange={e => setLabForm(p => ({ ...p, notes: e.target.value }))} />
                         </div>
                         <div className="grid grid-cols-2 gap-3">
@@ -497,7 +497,7 @@ export default function PosPage() {
         return (
             <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-8 gap-6">
                 <div className="text-center">
-                    <ShoppingCart size={56} className="text-[#1a2a4a] mx-auto mb-4" />
+                    <ShoppingCart size={56} className="text-navy mx-auto mb-4" />
                     <h1 className="text-3xl font-bold text-gray-900 mb-2">Punto de Venta</h1>
                     <p className="text-gray-500">Selecciona un cliente o inicia directamente</p>
                 </div>
@@ -506,7 +506,7 @@ export default function PosPage() {
                     <PatientAutocomplete onSelect={handleSelectPatient} placeholder="Buscar cliente (opcional)..." />
                     {patient && (
                         <div className="mt-2 p-3 bg-blue-50 rounded-xl flex items-center gap-3">
-                            <div className="w-8 h-8 bg-[#1a2a4a] rounded-full flex items-center justify-center text-white font-bold text-sm">
+                            <div className="w-8 h-8 bg-navy rounded-full flex items-center justify-center text-white font-bold text-sm">
                                 {(patient.nombre_completo || patient.nombre)?.[0]?.toUpperCase()}
                             </div>
                             <div className="flex-1">
@@ -533,7 +533,7 @@ export default function PosPage() {
             {/* ── LEFT COLUMN ─────────────────────────────────────────── */}
             <div className="flex-1 flex flex-col overflow-hidden" style={{ flex: '0 0 60%' }}>
                 {/* Header */}
-                <div className="bg-[#1a2a4a] text-white px-6 py-3 flex items-center gap-4 flex-shrink-0">
+                <div className="bg-navy text-white px-6 py-3 flex items-center gap-4 flex-shrink-0">
                     <ShoppingCart size={20} />
                     <div className="flex-1">
                         <span className="font-semibold">{user?.name}</span>
@@ -550,7 +550,7 @@ export default function PosPage() {
                     ) : (
                         <div className="space-y-2">
                             <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 bg-[#1a2a4a] rounded-full flex items-center justify-center text-white font-bold">
+                                <div className="w-10 h-10 bg-navy rounded-full flex items-center justify-center text-white font-bold">
                                     {(patient.nombre_completo || patient.nombre)?.[0]?.toUpperCase()}
                                 </div>
                                 <div className="flex-1">
@@ -625,7 +625,7 @@ export default function PosPage() {
                             onChange={handleSearchInput}
                             onKeyDown={handleSearchKeyDown}
                             placeholder="Buscar por nombre, SKU o escanear código... (F2)"
-                            className="w-full pl-10 pr-10 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] text-base"
+                            className="w-full pl-10 pr-10 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy text-base"
                         />
                         {searchOpen && searchResults.length > 0 && (
                             <ul className="absolute z-50 w-full bg-white border border-gray-200 rounded-xl shadow-xl mt-1 overflow-hidden max-h-64 overflow-y-auto">
@@ -737,7 +737,7 @@ export default function PosPage() {
 
                 {/* Cart footer total */}
                 {cartItems.length > 0 && (
-                    <div className="bg-[#1a2a4a] text-white px-6 py-3 flex items-center justify-between flex-shrink-0">
+                    <div className="bg-navy text-white px-6 py-3 flex items-center justify-between flex-shrink-0">
                         <span className="text-blue-200">{cartItems.length} producto(s)</span>
                         <span className="text-xl font-bold">TOTAL: ${fmt(total)}</span>
                     </div>
@@ -787,8 +787,8 @@ export default function PosPage() {
                                 onClick={() => toggleMethod(key)}
                                 className={`flex flex-col items-center gap-1.5 py-3 rounded-xl border-2 transition-all text-xs font-semibold
                                     ${selectedMethods.includes(key)
-                                        ? 'border-[#1a2a4a] bg-[#1a2a4a] text-white'
-                                        : 'border-gray-200 text-gray-600 hover:border-[#1a2a4a]'}`}
+                                        ? 'border-navy bg-navy text-white'
+                                        : 'border-gray-200 text-gray-600 hover:border-navy'}`}
                             >
                                 <Icon size={22} />
                                 {label}
@@ -807,7 +807,7 @@ export default function PosPage() {
                                     enterKeyHint="next"
                                     value={cashReceived}
                                     onChange={e => setCashReceived(e.target.value)}
-                                    className="flex-1 min-h-11 border border-gray-300 rounded-lg px-3 py-2 text-sm touch-manipulation focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]"
+                                    className="flex-1 min-h-11 border border-gray-300 rounded-lg px-3 py-2 text-sm touch-manipulation focus:outline-none focus:ring-2 focus:ring-navy"
                                     placeholder={fmt(total)}
                                 />
                             </div>
@@ -834,7 +834,7 @@ export default function PosPage() {
                                         enterKeyHint="next"
                                         value={paymentRefs[method] || ''}
                                         onChange={e => setPaymentRefs(p => ({ ...p, [method]: e.target.value }))}
-                                        className="flex-1 min-h-11 border border-gray-300 rounded-lg px-3 py-2 text-sm touch-manipulation focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]"
+                                        className="flex-1 min-h-11 border border-gray-300 rounded-lg px-3 py-2 text-sm touch-manipulation focus:outline-none focus:ring-2 focus:ring-navy"
                                         placeholder="Número de referencia"
                                     />
                                 </div>
@@ -846,7 +846,7 @@ export default function PosPage() {
                     <div className="flex items-center gap-3 mt-2">
                         <label className="relative inline-flex items-center cursor-pointer">
                             <input type="checkbox" checked={isAbono} onChange={e => setIsAbono(e.target.checked)} className="sr-only peer" />
-                            <div className="w-9 h-5 bg-gray-200 peer-checked:bg-[#1a2a4a] rounded-full transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-4"></div>
+                            <div className="w-9 h-5 bg-gray-200 peer-checked:bg-navy rounded-full transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-4"></div>
                         </label>
                         <span className="text-sm text-gray-700">¿Es abono?</span>
                         {isAbono && (
@@ -926,7 +926,7 @@ export default function PosPage() {
                                     enterKeyHint="next"
                                     value={addQty}
                                     onChange={e => setAddQty(Number(e.target.value))}
-                                    className="w-full min-h-11 border border-gray-300 rounded-lg px-3 py-2 text-center text-lg font-semibold touch-manipulation focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]"
+                                    className="w-full min-h-11 border border-gray-300 rounded-lg px-3 py-2 text-center text-lg font-semibold touch-manipulation focus:outline-none focus:ring-2 focus:ring-navy"
                                     autoFocus
                                 />
                             </div>
@@ -938,7 +938,7 @@ export default function PosPage() {
                                     enterKeyHint="done"
                                     value={addDisc}
                                     onChange={e => setAddDisc(Number(e.target.value))}
-                                    className="w-full min-h-11 border border-gray-300 rounded-lg px-3 py-2 text-center text-lg font-semibold touch-manipulation focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]"
+                                    className="w-full min-h-11 border border-gray-300 rounded-lg px-3 py-2 text-center text-lg font-semibold touch-manipulation focus:outline-none focus:ring-2 focus:ring-navy"
                                 />
                             </div>
                         </div>
@@ -970,7 +970,7 @@ export default function PosPage() {
                             rows={3}
                             value={cancelReason}
                             onChange={e => setCancelReason(e.target.value)}
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-navy"
                             placeholder="Ingresa el motivo..."
                         />
                     </div>

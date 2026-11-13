@@ -3,8 +3,8 @@ import { motion } from 'motion/react';
 import { TAP_FEEDBACK, TAP_TRANSITION } from '../../utils/motion';
 
 const variants = {
-    primary: 'bg-[#1a2a4a] text-white hover:bg-[#243660] focus-visible:ring-[#1a2a4a]',
-    secondary: 'bg-white text-[#1a2a4a] border border-[#1a2a4a] hover:bg-gray-50 focus-visible:ring-[#1a2a4a]',
+    primary: 'bg-navy text-white hover:bg-navy-light focus-visible:ring-navy',
+    secondary: 'bg-white text-navy border border-navy hover:bg-gray-50 focus-visible:ring-navy',
     danger: 'bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-500',
     success: 'bg-green-600 text-white hover:bg-green-700 focus-visible:ring-green-500',
     ghost: 'bg-transparent text-gray-600 hover:bg-gray-100 focus-visible:ring-gray-400',

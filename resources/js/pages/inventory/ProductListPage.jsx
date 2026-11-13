@@ -146,7 +146,7 @@ export default function ProductListPage() {
                         value={search}
                         onChange={e => { setSearch(e.target.value); setPage(1); }}
                         placeholder="Buscar por nombre o SKU..."
-                        className="w-full pl-10 pr-4 py-2.5 text-sm rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] bg-white"
+                        className="w-full pl-10 pr-4 py-2.5 text-sm rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-navy bg-white"
                     />
                 </div>
 
@@ -154,7 +154,7 @@ export default function ProductListPage() {
                 <select
                     value={category}
                     onChange={e => { setCategory(e.target.value); setPage(1); }}
-                    className="py-2.5 px-3 text-sm rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] bg-white"
+                    className="py-2.5 px-3 text-sm rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-navy bg-white"
                 >
                     <option value="">Todas las categorías</option>
                     <option value="armazon">Armazón</option>
@@ -168,7 +168,7 @@ export default function ProductListPage() {
                 <select
                     value={status}
                     onChange={e => { setStatus(e.target.value); setPage(1); }}
-                    className="py-2.5 px-3 text-sm rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] bg-white"
+                    className="py-2.5 px-3 text-sm rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-navy bg-white"
                 >
                     <option value="">Todos los estados</option>
                     <option value="1">Activo</option>
@@ -183,7 +183,7 @@ export default function ProductListPage() {
                         onChange={e => setBarcode(e.target.value)}
                         onKeyDown={e => e.key === 'Enter' && handleBarcodeSearch()}
                         placeholder="Código de barras..."
-                        className="py-2.5 px-3 text-sm rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] bg-white w-44"
+                        className="py-2.5 px-3 text-sm rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-navy bg-white w-44"
                     />
                     <Button
                         variant="secondary"
@@ -200,7 +200,7 @@ export default function ProductListPage() {
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
                 <table className="w-full">
                     <thead>
-                        <tr className="bg-[#1a2a4a] text-white">
+                        <tr className="bg-navy text-white">
                             <th className="px-5 py-4 text-left text-sm font-semibold">SKU</th>
                             <th className="px-5 py-4 text-left text-sm font-semibold">Nombre / Marca</th>
                             <th className="px-5 py-4 text-left text-sm font-semibold">Categoría</th>
@@ -214,7 +214,7 @@ export default function ProductListPage() {
                         {loading ? (
                             <tr>
                                 <td colSpan={7} className="py-16 text-center text-gray-400">
-                                    <div className="animate-spin h-8 w-8 border-4 border-[#1a2a4a] border-t-transparent rounded-full mx-auto" />
+                                    <div className="animate-spin h-8 w-8 border-4 border-navy border-t-transparent rounded-full mx-auto" />
                                 </td>
                             </tr>
                         ) : products.length === 0 ? (

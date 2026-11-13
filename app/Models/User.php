@@ -29,7 +29,14 @@ class User extends Authenticatable
         'is_active',
         'commission_pct',
         'phone',
+        'ui_template',
     ];
+
+    /**
+     * Plantillas de pantalla que el usuario puede elegir (ver UiTemplateContext.jsx).
+     * "clasico" es el diseño de siempre; "compacto" el basado en las HIG de Apple.
+     */
+    public const UI_TEMPLATES = ['clasico', 'compacto'];
 
     /**
      * Valores de la columna `role` que atienden consultas y salen en el selector de medico.

@@ -124,6 +124,15 @@ function submitButtonAfter(scope, from) {
 }
 
 /**
+ * Con la consulta en pestañas (plantilla Compacto) el ultimo campo de la
+ * pestaña lleva a "Siguiente: ..." en vez de saltar al boton de completar.
+ */
+function nextTabButton(scope) {
+    const button = scope.querySelector('[data-next-tab]');
+    return button && button.getClientRects().length > 0 ? button : null;
+}
+
+/**
  * True si en la posicion del campo se ve otra cosa (una barra fija, el borde
  * de un contenedor con scroll) o el campo esta fuera de pantalla.
  */
@@ -184,7 +193,7 @@ export function handleFieldNavigation(event) {
     const leavesCheckboxes = event.key === 'Enter' && from.type === 'checkbox';
 
     const target = adjacentField(form, from, intent, (field) => !(leavesCheckboxes && field.type === 'checkbox'))
-        ?? (intent === 'next' ? submitButtonAfter(form, from) : null);
+        ?? (intent === 'next' ? nextTabButton(form) ?? submitButtonAfter(form, from) : null);
 
     if (target) focusField(target);
 }

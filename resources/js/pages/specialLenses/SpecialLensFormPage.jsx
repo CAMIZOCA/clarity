@@ -90,7 +90,7 @@ export default function SpecialLensFormPage() {
             <div className="flex items-center gap-4 mb-6">
                 <button onClick={() => navigate(-1)} className="p-2 rounded-lg hover:bg-gray-100"><ArrowLeft size={24} /></button>
                 <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                    <Eye size={24} className="text-[#1a2a4a]" /> {isEdit ? 'Editar Lente Especial' : 'Nuevo Lente Especial'}
+                    <Eye size={24} className="text-navy" /> {isEdit ? 'Editar Lente Especial' : 'Nuevo Lente Especial'}
                 </h1>
             </div>
             <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 sm:p-6 space-y-5">
@@ -103,7 +103,7 @@ export default function SpecialLensFormPage() {
                     <select
                         value={form.tipo}
                         onChange={e => set('tipo', e.target.value)}
-                        className="min-h-11 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm touch-manipulation focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]"
+                        className="min-h-11 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm touch-manipulation focus:outline-none focus:ring-2 focus:ring-navy"
                     >
                         <option value="esclerales">Esclerales</option>
                         <option value="ortoqueratologia">Ortoqueratología</option>
@@ -129,7 +129,7 @@ export default function SpecialLensFormPage() {
                         value={form.seguimiento}
                         onChange={e => set('seguimiento', e.target.value)}
                         rows={3}
-                        className="w-full min-h-11 resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm touch-manipulation focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]"
+                        className="w-full min-h-11 resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm touch-manipulation focus:outline-none focus:ring-2 focus:ring-navy"
                     />
                 </div>
 

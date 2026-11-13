@@ -49,7 +49,7 @@ function RxTable({ rx }) {
                 <tbody className="font-mono text-gray-900">
                     {[['OD', rx.od], ['OI', rx.oi]].map(([label, eye]) => (
                         <tr key={label} className="border-t border-gray-100">
-                            <td className="py-1.5 pr-3 font-sans font-semibold text-[#1a2a4a]">{label}</td>
+                            <td className="py-1.5 pr-3 font-sans font-semibold text-navy">{label}</td>
                             {RX_COLUMNS.map(col => (
                                 <td key={col.key} className="text-center py-1.5 px-2 tabular-nums">{rxValue(eye, col.key)}</td>
                             ))}

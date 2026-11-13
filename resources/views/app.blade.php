@@ -1,6 +1,24 @@
 <!DOCTYPE html>
-<html lang="es">
+@php
+    // Plantilla de pantalla resuelta en el servidor para pintar el primer cuadro
+    // sin parpadeo (UiTemplateContext la mantiene al dia despues de /me).
+    $uiTemplate = auth()->user()?->ui_template
+        ?? rescue(fn () => \App\Models\Setting::get('ui_template_default', 'clasico'), 'clasico', false);
+    $uiTemplate = in_array($uiTemplate, \App\Models\User::UI_TEMPLATES, true) ? $uiTemplate : 'clasico';
+@endphp
+<html lang="es" data-ui="{{ $uiTemplate }}" data-ui-source="{{ auth()->check() ? 'server' : 'guest' }}">
 <head>
+    <script>
+        // Sin sesion (login, PWA sin red) se usa la ultima plantilla vista en este equipo.
+        (function () {
+            var root = document.documentElement;
+            if (root.getAttribute('data-ui-source') !== 'guest') return;
+            try {
+                var saved = localStorage.getItem('clarity.ui.template.v1');
+                if (saved === 'clasico' || saved === 'compacto') root.setAttribute('data-ui', saved);
+            } catch (e) {}
+        })();
+    </script>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
     <meta name="csrf-token" content="{{ csrf_token() }}">

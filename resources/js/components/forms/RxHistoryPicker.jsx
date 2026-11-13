@@ -32,8 +32,13 @@ function measure(row, column, eye) {
     return dash(formatOpticalForInput(row[key]) || row.medidas_notas?.[key]);
 }
 
-export default function RxHistoryPicker({ patientId, excludeId = null, onUse }) {
+/**
+ * @param {boolean} collapsible - plantilla Compacto: arranca plegado detras de un
+ *   boton "RX anteriores (N)" para no empujar la RX final fuera de pantalla.
+ */
+export default function RxHistoryPicker({ patientId, excludeId = null, onUse, collapsible = false }) {
     const [rows, setRows] = useState([]);
+    const [open, setOpen] = useState(!collapsible);
 
     useEffect(() => {
         if (!patientId) return undefined;
@@ -49,10 +54,29 @@ export default function RxHistoryPicker({ patientId, excludeId = null, onUse }) 
 
     if (!rows.length) return null;
 
+    if (collapsible && !open) {
+        return (
+            <button
+                type="button"
+                onClick={() => setOpen(true)}
+                aria-expanded="false"
+                title="RX final de consultas anteriores: copiar a RX en uso"
+                className="ml-auto inline-flex items-center gap-1.5 rounded-md bg-sky-50 px-2 py-1 text-[12.5px] font-medium text-navy hover:bg-sky-100"
+            >
+                <History size={14} /> Historial ({rows.length})
+            </button>
+        );
+    }
+
     return (
-        <div className="mb-4 rounded-2xl border border-sky-200 bg-sky-50/60 p-4">
-            <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-[#1a2a4a]">
+        <div className={`rounded-2xl border border-sky-200 bg-sky-50/60 p-4 ${collapsible ? 'order-last basis-full' : 'mb-4'}`}>
+            <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-navy">
                 <History size={16} /> RX final de consultas anteriores
+                {collapsible && (
+                    <button type="button" onClick={() => setOpen(false)} aria-expanded="true" className="ml-auto text-xs font-medium text-navy hover:underline">
+                        Ocultar
+                    </button>
+                )}
             </div>
             <p className="mb-3 text-xs text-slate-600">
                 Pulse «Usar» para copiar esa receta a RX en uso.
@@ -104,7 +128,7 @@ export default function RxHistoryPicker({ patientId, excludeId = null, onUse }) 
                                             <button
                                                 type="button"
                                                 onClick={() => onUse(row)}
-                                                className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-[#1a2a4a] bg-white px-3 py-2 text-sm font-medium text-[#1a2a4a] transition hover:bg-[#1a2a4a] hover:text-white"
+                                                className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-navy bg-white px-3 py-2 text-sm font-medium text-navy transition hover:bg-navy hover:text-white"
                                             >
                                                 <ClipboardCopy size={15} /> Usar
                                             </button>

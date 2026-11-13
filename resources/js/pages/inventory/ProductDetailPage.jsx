@@ -49,7 +49,7 @@ function VariantForm({ category, initial, onSave, onCancel, saving }) {
                 onChange={set(name)}
                 required={required}
                 placeholder={placeholder}
-                className="py-2 px-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] text-sm bg-white"
+                className="py-2 px-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-navy text-sm bg-white"
             />
         </div>
     );
@@ -125,7 +125,7 @@ function AdjustForm({ variantId, onSave, onCancel, saving }) {
                     required
                     value={qty}
                     onChange={e => setQty(e.target.value)}
-                    className="py-2.5 px-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] text-sm"
+                    className="py-2.5 px-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-navy text-sm"
                 />
             </div>
             <div className="flex flex-col gap-1">
@@ -136,7 +136,7 @@ function AdjustForm({ variantId, onSave, onCancel, saving }) {
                     onChange={e => setNota(e.target.value)}
                     placeholder="Motivo del ajuste..."
                     rows={3}
-                    className="py-2.5 px-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] text-sm resize-none"
+                    className="py-2.5 px-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-navy text-sm resize-none"
                 />
             </div>
             <div className="flex justify-end gap-3">
@@ -157,20 +157,20 @@ function TransferForm({ variantId, onSave, onCancel, saving }) {
             <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-1">
                     <label className="text-sm font-medium text-gray-700">Bodega origen <span className="text-red-500">*</span></label>
-                    <input required value={form.bodega_origen} onChange={set('bodega_origen')} className="py-2 px-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] text-sm" />
+                    <input required value={form.bodega_origen} onChange={set('bodega_origen')} className="py-2 px-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-navy text-sm" />
                 </div>
                 <div className="flex flex-col gap-1">
                     <label className="text-sm font-medium text-gray-700">Bodega destino <span className="text-red-500">*</span></label>
-                    <input required value={form.bodega_destino} onChange={set('bodega_destino')} className="py-2 px-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] text-sm" />
+                    <input required value={form.bodega_destino} onChange={set('bodega_destino')} className="py-2 px-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-navy text-sm" />
                 </div>
             </div>
             <div className="flex flex-col gap-1">
                 <label className="text-sm font-medium text-gray-700">Cantidad <span className="text-red-500">*</span></label>
-                <input type="number" min="1" required value={form.cantidad} onChange={set('cantidad')} className="py-2 px-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] text-sm" />
+                <input type="number" min="1" required value={form.cantidad} onChange={set('cantidad')} className="py-2 px-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-navy text-sm" />
             </div>
             <div className="flex flex-col gap-1">
                 <label className="text-sm font-medium text-gray-700">Nota</label>
-                <textarea value={form.nota} onChange={set('nota')} rows={2} className="py-2 px-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] text-sm resize-none" />
+                <textarea value={form.nota} onChange={set('nota')} rows={2} className="py-2 px-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-navy text-sm resize-none" />
             </div>
             <div className="flex justify-end gap-3">
                 <Button type="button" variant="secondary" onClick={onCancel}>Cancelar</Button>
@@ -316,7 +316,7 @@ export default function ProductDetailPage() {
     if (loading) {
         return (
             <div className="flex items-center justify-center h-64">
-                <div className="animate-spin h-10 w-10 border-4 border-[#1a2a4a] border-t-transparent rounded-full" />
+                <div className="animate-spin h-10 w-10 border-4 border-navy border-t-transparent rounded-full" />
             </div>
         );
     }
@@ -373,7 +373,7 @@ export default function ProductDetailPage() {
                         onClick={() => setTab(t)}
                         className={`px-5 py-2.5 text-sm font-medium capitalize rounded-t-lg transition-colors ${
                             tab === t
-                                ? 'bg-white border border-b-white text-[#1a2a4a] -mb-px'
+                                ? 'bg-white border border-b-white text-navy -mb-px'
                                 : 'text-gray-500 hover:text-gray-700'
                         }`}
                     >

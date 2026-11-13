@@ -8,6 +8,7 @@ import { DEFAULT_MENU_VISIBLE_ITEMS, DEFAULT_MENU_VISIBLE_SECTIONS, MENU_ITEM_OP
 import { DEFAULT_ADVANCED_FORM_FIELDS, FORM_ADVANCED_OPTIONS } from '../../data/formFieldsOptions';
 import CertifyingDoctorsTab from './CertifyingDoctorsTab';
 import ContificoTab from './ContificoTab';
+import TemplateSwitch from '../../components/ui/TemplateSwitch';
 
 const REQUIRED_FIELD_OPTIONS = [
     { key: 'optometrista_id', label: 'Médico / Optometrista' },
@@ -29,7 +30,7 @@ const SMTP_CREDENTIAL_KEYS = ['mail_username', 'mail_password', 'mail_from_addre
 function Tab({ active, onClick, icon: Icon, label }) {
     return (
         <button onClick={onClick}
-            className={`flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap shrink-0 ${active ? 'border-[#1a2a4a] text-[#1a2a4a]' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+            className={`flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap shrink-0 ${active ? 'border-navy text-navy' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
             <Icon size={16} />{label}
         </button>
     );
@@ -109,6 +110,7 @@ export default function SettingsPage() {
         advanced_form_fields: DEFAULT_ADVANCED_FORM_FIELDS,
         menu_visible_sections: DEFAULT_MENU_VISIBLE_SECTIONS,
         menu_visible_items: DEFAULT_MENU_VISIBLE_ITEMS,
+        ui_template_default: 'clasico',
     });
 
     useEffect(() => {
@@ -138,6 +140,7 @@ export default function SettingsPage() {
             menu_visible_items: Array.isArray(settings.menu_visible_items) && settings.menu_visible_items.length > 0
                 ? settings.menu_visible_items
                 : DEFAULT_MENU_VISIBLE_ITEMS,
+            ui_template_default: settings.ui_template_default === 'compacto' ? 'compacto' : 'clasico',
         });
     }, [settings]);
 
@@ -227,7 +230,7 @@ export default function SettingsPage() {
         <div className="p-6 max-w-4xl mx-auto">
             <div className="mb-6">
                 <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-                    <Settings size={28} className="text-[#1a2a4a]" /> Configuración
+                    <Settings size={28} className="text-navy" /> Configuración
                 </h1>
                 <p className="text-gray-500 mt-1">Personaliza el sistema según las necesidades de tu clínica</p>
             </div>
@@ -252,37 +255,52 @@ export default function SettingsPage() {
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Nombre de la clínica <span className="text-red-500">*</span></label>
                                 <input type="text" value={form.clinic_name} onChange={e => set('clinic_name', e.target.value)} required
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]" />
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy" />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Slogan / Tagline</label>
                                 <input type="text" value={form.clinic_tagline} onChange={e => set('clinic_tagline', e.target.value)}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]" />
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy" />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Dirección</label>
                                 <input type="text" value={form.clinic_address} onChange={e => set('clinic_address', e.target.value)}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]" />
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy" />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
                                 <input type="text" value={form.clinic_phone} onChange={e => set('clinic_phone', e.target.value)}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]" />
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy" />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Correo electrónico</label>
                                 <input type="email" value={form.clinic_email} onChange={e => set('clinic_email', e.target.value)}
                                     placeholder="contacto@clinica.com"
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]" />
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy" />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Sitio web</label>
                                 <input type="text" value={form.clinic_website} onChange={e => set('clinic_website', e.target.value)}
                                     placeholder="www.clinica.com"
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]" />
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy" />
                             </div>
                         </div>
                         <p className="text-xs text-gray-400 mt-3">El correo y el sitio web aparecen en el pie de página del certificado.</p>
+                    </div>
+
+                    {/* Diseño con el que arranca quien no eligio uno (users.ui_template = null). */}
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+                        <h2 className="font-semibold text-gray-900 mb-1">Diseño de pantalla por defecto</h2>
+                        <p className="text-sm text-gray-500 mb-4">
+                            Se aplica a los usuarios que todavía no eligieron un diseño. Quien ya eligió Clásico o
+                            Compacto conserva su elección. Los datos son los mismos en los dos diseños.
+                        </p>
+                        <TemplateSwitch
+                            label=""
+                            className="max-w-xs"
+                            value={form.ui_template_default}
+                            onChange={(value) => set('ui_template_default', value)}
+                        />
                     </div>
 
                     {/* Logo */}
@@ -324,12 +342,12 @@ export default function SettingsPage() {
                     </p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {REQUIRED_FIELD_OPTIONS.map(({ key, label }) => (
-                            <label key={key} className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${form.required_fields.includes(key) ? 'border-[#1a2a4a] bg-[#1a2a4a]/5' : 'border-gray-200 hover:bg-gray-50'}`}>
+                            <label key={key} className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${form.required_fields.includes(key) ? 'border-navy bg-navy/5' : 'border-gray-200 hover:bg-gray-50'}`}>
                                 <input
                                     type="checkbox"
                                     checked={form.required_fields.includes(key)}
                                     onChange={() => toggleRequired(key)}
-                                    className="w-4 h-4 accent-[#1a2a4a]"
+                                    className="w-4 h-4 accent-navy"
                                 />
                                 <span className="text-sm text-gray-800">{label}</span>
                             </label>
@@ -361,12 +379,12 @@ export default function SettingsPage() {
                                 )}
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     {group.items.map(({ key, label }) => (
-                                        <label key={key} className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${form.advanced_form_fields.includes(key) ? 'border-[#1a2a4a] bg-[#1a2a4a]/5' : 'border-gray-200 hover:bg-gray-50'}`}>
+                                        <label key={key} className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${form.advanced_form_fields.includes(key) ? 'border-navy bg-navy/5' : 'border-gray-200 hover:bg-gray-50'}`}>
                                             <input
                                                 type="checkbox"
                                                 checked={form.advanced_form_fields.includes(key)}
                                                 onChange={() => toggleAdvancedField(key)}
-                                                className="w-4 h-4 accent-[#1a2a4a]"
+                                                className="w-4 h-4 accent-navy"
                                             />
                                             <span className="text-sm text-gray-800">{label}</span>
                                         </label>
@@ -392,13 +410,13 @@ export default function SettingsPage() {
                     </p>
                     <div className="grid grid-cols-1 gap-3">
                         {MENU_SECTION_OPTIONS.map(({ key, label, description }) => (
-                            <div key={key} className={`rounded-xl border p-4 transition-colors ${form.menu_visible_sections.includes(key) ? 'border-[#1a2a4a] bg-[#1a2a4a]/5' : 'border-gray-200'}`}>
+                            <div key={key} className={`rounded-xl border p-4 transition-colors ${form.menu_visible_sections.includes(key) ? 'border-navy bg-navy/5' : 'border-gray-200'}`}>
                                 <label className="flex items-start gap-3 cursor-pointer">
                                     <input
                                         type="checkbox"
                                         checked={form.menu_visible_sections.includes(key)}
                                         onChange={() => toggleMenuSection(key)}
-                                        className="mt-1 w-4 h-4 accent-[#1a2a4a]"
+                                        className="mt-1 w-4 h-4 accent-navy"
                                     />
                                     <span>
                                         <span className="block text-sm font-semibold text-gray-900">{label}</span>
@@ -408,12 +426,12 @@ export default function SettingsPage() {
 
                                 <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
                                     {MENU_ITEM_OPTIONS_BY_SECTION[key].map(({ key: itemKey, label: itemLabel }) => (
-                                        <label key={itemKey} className={`flex items-center gap-3 rounded-lg border px-3 py-2 cursor-pointer transition-colors ${form.menu_visible_items.includes(itemKey) ? 'border-[#1a2a4a] bg-white' : 'border-gray-200 bg-gray-50'}`}>
+                                        <label key={itemKey} className={`flex items-center gap-3 rounded-lg border px-3 py-2 cursor-pointer transition-colors ${form.menu_visible_items.includes(itemKey) ? 'border-navy bg-white' : 'border-gray-200 bg-gray-50'}`}>
                                             <input
                                                 type="checkbox"
                                                 checked={form.menu_visible_items.includes(itemKey)}
                                                 onChange={() => toggleMenuItem(itemKey)}
-                                                className="w-4 h-4 accent-[#1a2a4a]"
+                                                className="w-4 h-4 accent-navy"
                                             />
                                             <span className="text-sm text-gray-800">{itemLabel}</span>
                                         </label>
@@ -450,18 +468,18 @@ export default function SettingsPage() {
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Servidor (host)</label>
                             <input type="text" value={form.mail_host} onChange={e => set('mail_host', e.target.value)} placeholder="smtp.gmail.com"
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]" />
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy" />
                         </div>
                         <div className="grid grid-cols-2 gap-3">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Puerto</label>
                                 <input type="number" value={form.mail_port} onChange={e => set('mail_port', e.target.value)} placeholder="587"
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]" />
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy" />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Cifrado</label>
                                 <select value={form.mail_encryption} onChange={e => set('mail_encryption', e.target.value)}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]">
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy">
                                     <option value="tls">TLS</option>
                                     <option value="ssl">SSL</option>
                                     <option value="">Ninguno</option>
@@ -472,7 +490,7 @@ export default function SettingsPage() {
                             <label className="block text-sm font-medium text-gray-700 mb-1">Usuario</label>
                             <input type="text" value={form.mail_username} onChange={e => set('mail_username', e.target.value)} placeholder="cuenta@su-dominio.com"
                                 name="smtp-account" autoComplete="off" {...credentialProps('mail_username')}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]" />
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy" />
                             {settings.mail_username && form.mail_username !== settings.mail_username && (
                                 <p className="text-xs text-amber-600 mt-1">
                                     Guardado: {settings.mail_username}. Solo cambia si lo escribe a mano.
@@ -484,19 +502,19 @@ export default function SettingsPage() {
                             <input type="password" value={form.mail_password} onChange={e => set('mail_password', e.target.value)}
                                 name="smtp-secret" autoComplete="new-password" {...credentialProps('mail_password')}
                                 placeholder={settings.mail_password === '__stored__' ? '•••••••• (guardada)' : 'Contraseña de aplicación'}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]" />
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy" />
                             <p className="text-xs text-gray-400 mt-1">Déjala vacía para conservar la contraseña actual.</p>
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Remitente (correo)</label>
                             <input type="email" value={form.mail_from_address} onChange={e => set('mail_from_address', e.target.value)} placeholder="cuenta@su-dominio.com"
                                 name="smtp-from" autoComplete="off" {...credentialProps('mail_from_address')}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]" />
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy" />
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Remitente (nombre)</label>
                             <input type="text" value={form.mail_from_name} onChange={e => set('mail_from_name', e.target.value)} placeholder="Óptica Andina"
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]" />
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy" />
                         </div>
                     </div>
 
@@ -504,7 +522,7 @@ export default function SettingsPage() {
                         <label className="block text-sm font-medium text-gray-700 mb-2">Enviar correo de prueba</label>
                         <div className="flex flex-col sm:flex-row gap-3">
                             <input type="email" value={testEmail} onChange={e => setTestEmail(e.target.value)} placeholder="destino@correo.com"
-                                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]" />
+                                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy" />
                             <Button variant="secondary" onClick={handleTestEmail} loading={testingMail}>
                                 <Send size={16} /> Enviar prueba
                             </Button>
@@ -536,7 +554,7 @@ export default function SettingsPage() {
                                 value={form.appointment_reminder_hours}
                                 onChange={e => set('appointment_reminder_hours', e.target.value)}
                                 disabled={form.appointment_email_reminders_enabled !== '1'}
-                                className="w-20 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] disabled:bg-gray-100"
+                                className="w-20 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy disabled:bg-gray-100"
                             />
                             <span>horas antes de la cita</span>
                         </div>
@@ -567,7 +585,7 @@ export default function SettingsPage() {
                             onChange={e => set('openai_api_key', e.target.value)}
                             autoComplete="new-password"
                             placeholder={settings.openai_api_key === '__stored__' ? '•••••••• (guardada)' : 'sk-...'}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy"
                         />
                         <p className="text-xs text-gray-400 mt-1">
                             {settings.openai_api_key === '__stored__'

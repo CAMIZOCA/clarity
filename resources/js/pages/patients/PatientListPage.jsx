@@ -10,6 +10,8 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { toDisplayDate } from '../../utils/dates';
 import { SESSION_RESTORED_EVENT } from '../../utils/connectionDiagnosis';
+import { useUiTemplate } from '../../contexts/UiTemplateContext';
+import PatientListCompactView from './PatientListCompactView';
 
 export default function PatientListPage() {
     const [patients, setPatients] = useState([]);
@@ -23,6 +25,7 @@ export default function PatientListPage() {
     const [toDelete, setToDelete] = useState(null);
     const { addToast } = useToast();
     const navigate = useNavigate();
+    const { isCompact } = useUiTemplate();
 
     const fetchPatients = useCallback(async () => {
         setLoading(true);
@@ -62,6 +65,40 @@ export default function PatientListPage() {
         }
     };
 
+    const confirmModal = (
+        <ConfirmModal
+            open={confirmOpen}
+            title={`¿Eliminar a "${toDelete?.nombre_completo || toDelete?.nombre}"?`}
+            message="Esta acción no se puede deshacer. El paciente y sus datos serán eliminados."
+            confirmLabel="Eliminar paciente"
+            onConfirm={handleDelete}
+            onCancel={() => { setConfirmOpen(false); setToDelete(null); }}
+        />
+    );
+
+    // Plantilla Compacto: misma logica y acciones, otra presentacion.
+    if (isCompact) {
+        return (
+            <>
+                <PatientListCompactView
+                    patients={patients}
+                    meta={meta}
+                    search={search}
+                    onSearch={(value) => { setSearch(value); setPage(1); }}
+                    sort={sort}
+                    onSort={(value) => { setSort(value); setPage(1); }}
+                    page={page}
+                    onPage={setPage}
+                    loading={loading}
+                    onOpen={(p) => navigate(`/pacientes/${p.id}`)}
+                    onEdit={(p) => navigate(`/pacientes/${p.id}/editar`)}
+                    onDelete={askDelete}
+                />
+                {confirmModal}
+            </>
+        );
+    }
+
     return (
         <div className="p-6 max-w-7xl mx-auto">
             {/* Header */}
@@ -87,7 +124,7 @@ export default function PatientListPage() {
                         value={search}
                         onChange={e => { setSearch(e.target.value); setPage(1); }}
                         placeholder="Buscar por nombre, apellido o cédula..."
-                        className="w-full pl-12 pr-4 py-3 text-base rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] bg-white"
+                        className="w-full pl-12 pr-4 py-3 text-base rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-navy bg-white"
                     />
                 </div>
                 <label className="flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-3 sm:w-auto">
@@ -108,7 +145,7 @@ export default function PatientListPage() {
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
                 <table className="w-full">
                     <thead>
-                        <tr className="bg-[#1a2a4a] text-white">
+                        <tr className="bg-navy text-white">
                             <th className="px-6 py-4 text-left text-sm font-semibold">Paciente</th>
                             <th className="px-6 py-4 text-left text-sm font-semibold">Cédula</th>
                             <th className="px-6 py-4 text-left text-sm font-semibold">Edad</th>
@@ -121,7 +158,7 @@ export default function PatientListPage() {
                     <tbody>
                         {loading ? (
                             <tr><td colSpan={7} className="py-16 text-center text-gray-400">
-                                <div className="animate-spin h-8 w-8 border-4 border-[#1a2a4a] border-t-transparent rounded-full mx-auto" />
+                                <div className="animate-spin h-8 w-8 border-4 border-navy border-t-transparent rounded-full mx-auto" />
                             </td></tr>
                         ) : patients.length === 0 ? (
                             <tr><td colSpan={7} className="py-16 text-center">
@@ -138,8 +175,8 @@ export default function PatientListPage() {
                             <tr key={p.id} className={`border-t border-gray-100 hover:bg-blue-50/50 transition-colors ${i % 2 === 0 ? '' : 'bg-gray-50/50'}`}>
                                 <td className="px-6 py-4">
                                     <div className="flex items-center gap-3">
-                                        <div className="w-9 h-9 rounded-full bg-[#1a2a4a]/10 flex items-center justify-center flex-shrink-0">
-                                            <span className="text-[#1a2a4a] font-semibold text-sm">{(p.nombre_completo || p.nombre)?.[0]}</span>
+                                        <div className="w-9 h-9 rounded-full bg-navy/10 flex items-center justify-center flex-shrink-0">
+                                            <span className="text-navy font-semibold text-sm">{(p.nombre_completo || p.nombre)?.[0]}</span>
                                         </div>
                                         <div>
                                             <p className="font-medium text-gray-900">{p.nombre_completo || p.nombre}</p>
@@ -191,14 +228,7 @@ export default function PatientListPage() {
                 )}
             </div>
 
-            <ConfirmModal
-                open={confirmOpen}
-                title={`¿Eliminar a "${toDelete?.nombre_completo || toDelete?.nombre}"?`}
-                message="Esta acción no se puede deshacer. El paciente y sus datos serán eliminados."
-                confirmLabel="Eliminar paciente"
-                onConfirm={handleDelete}
-                onCancel={() => { setConfirmOpen(false); setToDelete(null); }}
-            />
+            {confirmModal}
         </div>
     );
 }

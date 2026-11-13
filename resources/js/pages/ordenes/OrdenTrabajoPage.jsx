@@ -70,7 +70,7 @@ function SpecCheckbox({ label, name, checked, onChange }) {
                 type="checkbox"
                 checked={checked}
                 onChange={e => onChange(name, e.target.checked)}
-                className="w-4 h-4 accent-[#1a2a4a] cursor-pointer"
+                className="w-4 h-4 accent-navy cursor-pointer"
             />
             <span className="text-sm text-gray-700">{label}</span>
         </label>
@@ -80,7 +80,7 @@ function SpecCheckbox({ label, name, checked, onChange }) {
 function SpecGroup({ title, children }) {
     return (
         <div className="border rounded-lg overflow-hidden">
-            <div className="bg-[#1a2a4a] text-white text-xs font-bold px-3 py-1.5">{title}</div>
+            <div className="bg-navy text-white text-xs font-bold px-3 py-1.5">{title}</div>
             <div className="p-3 flex flex-wrap gap-3">{children}</div>
         </div>
     );
@@ -129,7 +129,7 @@ function Field({
                         focusNextField(nextFieldId);
                     }
                 }}
-                className="w-full min-h-11 border border-gray-300 rounded-lg px-3 py-2 text-sm touch-manipulation focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]"
+                className="w-full min-h-11 border border-gray-300 rounded-lg px-3 py-2 text-sm touch-manipulation focus:outline-none focus:ring-2 focus:ring-navy"
             />
         </div>
     );
@@ -430,7 +430,7 @@ export default function OrdenTrabajoPage() {
     return (
         <div className="max-w-5xl mx-auto px-4 py-6 pb-24">
             <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 bg-[#1a2a4a] rounded-xl flex items-center justify-center">
+                <div className="w-10 h-10 bg-navy rounded-xl flex items-center justify-center">
                     <ClipboardList size={20} className="text-white" />
                 </div>
                 <div>
@@ -441,7 +441,7 @@ export default function OrdenTrabajoPage() {
 
             <div className="bg-white rounded-2xl shadow-sm border p-6 mb-6">
                 <h2 className="text-base font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                    <span className="w-6 h-6 bg-[#1a2a4a] text-white rounded-full flex items-center justify-center text-xs font-bold">1</span>
+                    <span className="w-6 h-6 bg-navy text-white rounded-full flex items-center justify-center text-xs font-bold">1</span>
                     Seleccionar paciente
                 </h2>
                 <PatientAutocomplete value={paciente} onSelect={(patient) => handlePatientSelect(patient)} />
@@ -475,7 +475,7 @@ export default function OrdenTrabajoPage() {
 
             <div className="bg-white rounded-2xl shadow-sm border p-6 mb-6">
                 <h2 className="text-base font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                    <span className="w-6 h-6 bg-[#1a2a4a] text-white rounded-full flex items-center justify-center text-xs font-bold">2</span>
+                    <span className="w-6 h-6 bg-navy text-white rounded-full flex items-center justify-center text-xs font-bold">2</span>
                     Datos de la orden
                 </h2>
 
@@ -568,7 +568,7 @@ export default function OrdenTrabajoPage() {
                         value={orden.especif || ''}
                         onChange={e => handleOrdenChange('especif', e.target.value)}
                         placeholder="Ej: CR. Fotocromáticos Gris AR"
-                        className="w-full min-h-11 border border-gray-300 rounded-lg px-3 py-2 text-sm touch-manipulation focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]"
+                        className="w-full min-h-11 border border-gray-300 rounded-lg px-3 py-2 text-sm touch-manipulation focus:outline-none focus:ring-2 focus:ring-navy"
                     />
                 </div>
 
@@ -603,7 +603,7 @@ export default function OrdenTrabajoPage() {
                         value={orden.nota || ''}
                         onChange={e => handleOrdenChange('nota', e.target.value)}
                         rows={2}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] resize-none"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy resize-none"
                     />
                 </div>
 
@@ -624,7 +624,7 @@ export default function OrdenTrabajoPage() {
                         onChange={e => handleOrdenChange('recibo_detalle', e.target.value)}
                         rows={3}
                         placeholder={reciboDetalle() || 'Una línea por producto: armazón, lunas, estuche...'}
-                        className="w-full resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]"
+                        className="w-full resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy"
                     />
                     <p className="mt-1 text-xs text-gray-500">
                         Si lo deja vacío, el recibo lleva el armazón y las lunas marcadas arriba.
@@ -636,7 +636,7 @@ export default function OrdenTrabajoPage() {
                 <div className="flex w-full flex-col gap-3 md:w-auto md:flex-row">
                     <button
                         onClick={() => setShowPdf(true)}
-                        className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#1a2a4a] px-6 py-3 text-base font-semibold text-white shadow-lg transition-colors hover:bg-[#243a6a] md:w-auto"
+                        className="flex w-full items-center justify-center gap-2 rounded-xl bg-navy px-6 py-3 text-base font-semibold text-white shadow-lg transition-colors hover:bg-navy-light md:w-auto"
                     >
                         <Eye size={18} />
                         Vista Previa e Imprimir
@@ -644,7 +644,7 @@ export default function OrdenTrabajoPage() {
                     <button
                         type="button"
                         onClick={() => setShowRecibo(true)}
-                        className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#1a2a4a] px-6 py-3 text-base font-semibold text-[#1a2a4a] transition-colors hover:bg-[#1a2a4a]/5 md:w-auto"
+                        className="flex w-full items-center justify-center gap-2 rounded-xl border border-navy px-6 py-3 text-base font-semibold text-navy transition-colors hover:bg-navy/5 md:w-auto"
                     >
                         <Receipt size={18} />
                         Imprimir recibo
@@ -653,7 +653,7 @@ export default function OrdenTrabajoPage() {
                         onClick={handleSave}
                         disabled={saving || !paciente}
                         title={paciente ? undefined : 'Seleccione un paciente para guardar la orden'}
-                        className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#1a2a4a] px-6 py-3 text-base font-semibold text-[#1a2a4a] transition-colors hover:bg-[#1a2a4a]/5 disabled:cursor-not-allowed disabled:opacity-50 md:w-auto"
+                        className="flex w-full items-center justify-center gap-2 rounded-xl border border-navy px-6 py-3 text-base font-semibold text-navy transition-colors hover:bg-navy/5 disabled:cursor-not-allowed disabled:opacity-50 md:w-auto"
                     >
                         <Save size={18} />
                         {saving ? 'Guardando...' : savedOrder ? 'Guardar de nuevo' : 'Guardar orden'}

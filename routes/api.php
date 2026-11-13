@@ -30,6 +30,7 @@ use App\Http\Controllers\Api\SpecialContactLensController;
 use App\Http\Controllers\Api\SupplierController;
 use App\Http\Controllers\Api\SystemMaintenanceController;
 use App\Http\Controllers\Api\UserController;
+use App\Http\Controllers\Api\UserPreferenceController;
 use App\Http\Controllers\Api\WarehouseController;
 use Illuminate\Support\Facades\Route;
 
@@ -84,6 +85,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('guarantee-reports', GuaranteeReportController::class);
 
     // Settings
+    // Preferencias propias (plantilla de pantalla). Sin users.edit a proposito.
+    Route::patch('/me/preferences', [UserPreferenceController::class, 'update']);
+
     Route::get('/settings', [SettingController::class, 'index']);
     Route::post('/settings', [SettingController::class, 'update']);
     Route::post('/settings/logo', [SettingController::class, 'uploadLogo']);

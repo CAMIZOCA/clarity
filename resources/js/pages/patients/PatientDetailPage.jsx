@@ -12,6 +12,8 @@ import { consultationUrl } from '../../utils/consultationLinks';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { toDisplayDate } from '../../utils/dates';
+import { useUiTemplate } from '../../contexts/UiTemplateContext';
+import PatientDetailCompactView from './PatientDetailCompactView';
 
 export default function PatientDetailPage() {
     const { id } = useParams();
@@ -24,6 +26,7 @@ export default function PatientDetailPage() {
     const { addToast } = useToast();
     const { settings } = useSettings();
     const { can } = useAuth();
+    const { isCompact } = useUiTemplate();
     const contificoEnabled = String(settings.contifico_enabled) === '1';
 
     useEffect(() => {
@@ -76,7 +79,7 @@ export default function PatientDetailPage() {
 
     if (!patient) return (
         <div className="flex items-center justify-center h-64">
-            <div className="animate-spin h-10 w-10 border-4 border-[#1a2a4a] border-t-transparent rounded-full" />
+            <div className="animate-spin h-10 w-10 border-4 border-navy border-t-transparent rounded-full" />
         </div>
     );
 
@@ -95,6 +98,40 @@ export default function PatientDetailPage() {
 
     const consultaCount = history.filter(h => h._type === 'consulta').length;
     const garantiaCount = history.filter(h => h._type === 'garantia').length;
+
+    // Las dos plantillas muestran exactamente estos datos.
+    const facts = [
+        ['Nombre', patient.nombre_completo || patient.nombre],
+        ['Cédula', patient.cedula],
+        ['Fecha nac.', toDisplayDate(patient.fecha_nacimiento, '—')],
+        ['Edad', patient.edad != null ? `${patient.edad} años` : '—'],
+        ['Fecha registro', toDisplayDate(patient.fecha_registro, '—')],
+        ['Ocupación', patient.ocupacion || '—'],
+        ['Dirección', patient.direccion || '—'],
+        ['Teléfono', patient.telefono || '—'],
+        ['Email', patient.email || '—'],
+        ['Quién le recomienda / cómo nos conoció', patient.como_nos_conocio || '—'],
+        ['Diagnóstico (última consulta)', lastDiagnosis || '—'],
+    ];
+
+    if (isCompact) {
+        return (
+            <PatientDetailCompactView
+                id={id}
+                patient={patient}
+                history={history}
+                certificates={certificates}
+                facts={facts}
+                consultaCount={consultaCount}
+                garantiaCount={garantiaCount}
+                can={can}
+                contificoEnabled={contificoEnabled}
+                sendingContifico={sendingContifico}
+                onSendToContifico={handleSendToContifico}
+                onBack={() => navigate(-1)}
+            />
+        );
+    }
 
     return (
         <div className="p-6 max-w-5xl mx-auto">
@@ -133,22 +170,10 @@ export default function PatientDetailPage() {
                 {/* Patient info */}
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
                     <h2 className="font-semibold text-gray-900 text-lg mb-4 flex items-center gap-2">
-                        <Eye size={20} className="text-[#1a2a4a]" /> Datos del Paciente
+                        <Eye size={20} className="text-navy" /> Datos del Paciente
                     </h2>
                     <dl className="space-y-3">
-                        {[
-                            ['Nombre', patient.nombre_completo || patient.nombre],
-                            ['Cédula', patient.cedula],
-                            ['Fecha nac.', toDisplayDate(patient.fecha_nacimiento, '—')],
-                            ['Edad', patient.edad != null ? `${patient.edad} años` : '—'],
-                            ['Fecha registro', toDisplayDate(patient.fecha_registro, '—')],
-                            ['Ocupación', patient.ocupacion || '—'],
-                            ['Dirección', patient.direccion || '—'],
-                            ['Teléfono', patient.telefono || '—'],
-                            ['Email', patient.email || '—'],
-                            ['Quién le recomienda / cómo nos conoció', patient.como_nos_conocio || '—'],
-                            ['Diagnóstico (última consulta)', lastDiagnosis || '—'],
-                        ].map(([label, value]) => (
+                        {facts.map(([label, value]) => (
                             <div key={label}>
                                 <dt className="text-xs text-gray-500 uppercase tracking-wide">{label}</dt>
                                 <dd className="text-base text-gray-900 font-medium">{value}</dd>
@@ -186,7 +211,7 @@ export default function PatientDetailPage() {
                     {/* Certificados emitidos */}
                     <div className="mt-6 pt-4 border-t border-gray-100">
                         <h3 className="font-semibold text-gray-900 text-sm mb-3 flex items-center gap-2">
-                            <Award size={16} className="text-[#1a2a4a]" /> Certificados emitidos
+                            <Award size={16} className="text-navy" /> Certificados emitidos
                         </h3>
                         {certificates.length === 0 ? (
                             <p className="text-sm text-gray-400">Sin certificados generados</p>
@@ -224,7 +249,7 @@ export default function PatientDetailPage() {
                     <div className="bg-white rounded-2xl shadow-sm border border-gray-200">
                         <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
                             <h2 className="font-semibold text-gray-900 text-lg flex items-center gap-2">
-                                <FileText size={20} className="text-[#1a2a4a]" /> Historial
+                                <FileText size={20} className="text-navy" /> Historial
                             </h2>
                             <div className="flex gap-3 text-sm text-gray-500">
                                 <span>{consultaCount} consultas</span>

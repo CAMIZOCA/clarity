@@ -23,7 +23,7 @@ export default function Breadcrumbs({ items }) {
                             {item.to && !isCurrent ? (
                                 <Link
                                     to={item.to}
-                                    className="inline-flex min-h-9 items-center truncate rounded-md px-1.5 font-medium text-[#1a2a4a] underline-offset-2 hover:underline"
+                                    className="inline-flex min-h-9 items-center truncate rounded-md px-1.5 font-medium text-navy underline-offset-2 hover:underline"
                                 >
                                     {item.label}
                                 </Link>

@@ -134,7 +134,7 @@ export default function ProductFormPage() {
     if (loading) {
         return (
             <div className="flex items-center justify-center h-64">
-                <div className="animate-spin h-10 w-10 border-4 border-[#1a2a4a] border-t-transparent rounded-full" />
+                <div className="animate-spin h-10 w-10 border-4 border-navy border-t-transparent rounded-full" />
             </div>
         );
     }
@@ -196,7 +196,7 @@ export default function ProductFormPage() {
                             <select
                                 value={form.categoria}
                                 onChange={set('categoria')}
-                                className="min-h-11 py-2.5 px-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] bg-white text-sm touch-manipulation"
+                                className="min-h-11 py-2.5 px-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-navy bg-white text-sm touch-manipulation"
                             >
                                 <option value="">Seleccionar categoría...</option>
                                 {CATEGORIES.map(c => (
@@ -223,7 +223,7 @@ export default function ProductFormPage() {
                             <select
                                 value={form.proveedor_id}
                                 onChange={set('proveedor_id')}
-                                className="min-h-11 py-2.5 px-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] bg-white text-sm touch-manipulation"
+                                className="min-h-11 py-2.5 px-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-navy bg-white text-sm touch-manipulation"
                             >
                                 <option value="">Sin proveedor asignado</option>
                                 {suppliers.map(s => (
@@ -240,7 +240,7 @@ export default function ProductFormPage() {
                             onChange={set('descripcion')}
                             placeholder="Descripción opcional del producto..."
                             rows={3}
-                            className="min-h-11 py-2.5 px-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] bg-white text-sm resize-none touch-manipulation"
+                            className="min-h-11 py-2.5 px-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-navy bg-white text-sm resize-none touch-manipulation"
                         />
                     </div>
 
@@ -265,7 +265,7 @@ export default function ProductFormPage() {
                                     onChange={set(field)}
                                     className="sr-only peer"
                                 />
-                                <div className="w-10 h-6 bg-gray-200 peer-checked:bg-[#1a2a4a] rounded-full transition-colors" />
+                                <div className="w-10 h-6 bg-gray-200 peer-checked:bg-navy rounded-full transition-colors" />
                                 <div className="absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-4 shadow" />
                             </div>
                             <div>

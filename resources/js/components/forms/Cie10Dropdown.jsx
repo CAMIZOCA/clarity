@@ -42,14 +42,14 @@ export default function Cie10Dropdown({ value, onChange, onDescriptionChange }) 
                 value={query}
                 onChange={handleInput}
                 placeholder="Buscar código CIE-10 o descripción..."
-                className="w-full px-3 py-2.5 text-base rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] focus:bg-[#fef08a]/20"
+                className="w-full px-3 py-2.5 text-base rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-navy focus:bg-accent-yellow/20"
             />
             {open && results.length > 0 && (
                 <ul className="absolute z-50 w-full bg-white border border-gray-200 rounded-xl shadow-xl mt-1 max-h-56 overflow-y-auto">
                     {results.map(c => (
                         <li key={c.code} onClick={() => handleSelect(c)}
                             className="px-4 py-3 hover:bg-blue-50 cursor-pointer border-b last:border-0">
-                            <span className="font-mono text-sm font-semibold text-[#1a2a4a]">{c.code}</span>
+                            <span className="font-mono text-sm font-semibold text-navy">{c.code}</span>
                             <span className="text-gray-700 ml-3 text-sm">{c.description}</span>
                         </li>
                     ))}

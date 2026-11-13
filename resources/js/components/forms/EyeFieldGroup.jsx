@@ -2,6 +2,7 @@ import React from 'react';
 import { useRequiredErrors } from './RequiredErrorsContext';
 import { normalizeMeasureWithNote, normalizeAdd, normalizeRefractionText } from '../../utils/opticalFormat';
 import { focusField, navigationIntent } from '../../utils/fieldNavigation';
+import { useUiTemplate } from '../../contexts/UiTemplateContext';
 
 /**
  * Tabla OD/OI reutilizable de las secciones de refraccion.
@@ -67,6 +68,35 @@ const FIELD_NORMALIZERS = {
     add: normalizeAdd,
     av_lectura: refractionText('av_lectura'),
     retinoscopia: refractionText('retinoscopia'),
+};
+
+// Clases de cada plantilla. CLASSIC son las de siempre, sin cambios.
+const CLASSIC = {
+    wrapper: 'mb-6',
+    table: 'w-full text-sm',
+    title: 'text-sm font-semibold text-navy uppercase tracking-wider mb-3 pb-1 border-b border-navy/20',
+    headRow: 'bg-gray-100',
+    eyeHead: 'w-16 px-2 py-2 text-left text-xs font-medium text-gray-500',
+    head: 'px-2 py-2 text-center text-xs font-medium text-gray-500',
+    row: (eye) => `border-b ${eye === 'od' ? 'bg-blue-50/30' : 'bg-green-50/30'}`,
+    cell: 'px-2 py-2',
+    badge: (eye) => `inline-flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold text-white ${eye === 'od' ? 'bg-blue-600' : 'bg-green-600'}`,
+    input: 'w-full min-h-11 px-2 py-2 text-sm rounded-lg border placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-navy focus:bg-accent-yellow/20 touch-manipulation',
+};
+
+const COMPACT = {
+    wrapper: 'mb-0',
+    // table-fixed: las columnas se reparten el ancho; sin esto el ancho minimo de cada
+    // input desbordaba la tabla en la cuadricula de tres columnas.
+    table: 'w-full table-fixed text-sm',
+    title: 'mb-1.5 text-[11.5px] font-semibold uppercase tracking-wider text-navy',
+    headRow: '',
+    eyeHead: 'w-10 px-1 pb-1 text-left text-[11px] font-medium text-gray-500',
+    head: 'px-1 pb-1 text-left text-[11px] font-medium text-gray-500 truncate',
+    row: () => '',
+    cell: 'px-1 py-0.5',
+    badge: (eye) => `inline-flex h-6 w-8 items-center justify-center rounded-md text-[11px] font-bold ${eye === 'od' ? 'bg-navy/10 text-navy' : 'bg-gray-900/10 text-gray-600'}`,
+    input: 'w-full min-w-0 max-lg:min-h-11 lg:h-7 px-1.5 py-0.5 text-[13px] rounded-md border placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-navy/30 touch-manipulation',
 };
 
 const NO_WARNINGS = new Map();
@@ -138,6 +168,10 @@ export default function EyeFieldGroup({
     requiredFields = [],
 }) {
     const requiredErrors = useRequiredErrors();
+    // Plantilla Compacto: celdas de 32 px, cabecera discreta y sin margen propio
+    // (el bloque de la cuadricula de Refraccion pone el espaciado).
+    const { isCompact } = useUiTemplate();
+    const c = isCompact ? COMPACT : CLASSIC;
 
     const resolve = nameFor ?? ((field, eye) => `${prefix}_${field}_${eye}`);
     const orderedNames = buildOrderedNames({ fields, extra, tabOrder, resolve });
@@ -175,7 +209,7 @@ export default function EyeFieldGroup({
     };
 
     const inputCls = (name) =>
-        `w-full min-h-11 px-2 py-2 text-sm rounded-lg border placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-[#1a2a4a] focus:bg-[#fef08a]/20 touch-manipulation
+        `${c.input}
         ${stateCls(name)}`;
 
     // En la celda no cabe un mensaje: los de esta tabla se listan debajo.
@@ -199,33 +233,33 @@ export default function EyeFieldGroup({
     };
 
     return (
-        <div className="mb-6">
+        <div className={c.wrapper}>
             {label && (
-                <h3 className="text-sm font-semibold text-[#1a2a4a] uppercase tracking-wider mb-3 pb-1 border-b border-[#1a2a4a]/20">
+                <h3 className={c.title}>
                     {label}
                 </h3>
             )}
             <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className={c.table}>
                     <thead>
-                        <tr className="bg-gray-100">
-                            <th className="w-16 px-2 py-2 text-left text-xs font-medium text-gray-500">Ojo</th>
+                        <tr className={c.headRow}>
+                            <th className={c.eyeHead}>Ojo</th>
                             {fields.map(f => (
-                                <th key={f} className="px-2 py-2 text-center text-xs font-medium text-gray-500">
+                                <th key={f} className={c.head} title={headerLabel(f)}>
                                     {headerLabel(f)}
                                     {isRequiredColumn(f) && <span className="ml-0.5 text-red-500" title="Obligatorio para completar la consulta">*</span>}
                                 </th>
                             ))}
                             {extra.map(e => (
-                                <th key={e.name} className="px-2 py-2 text-center text-xs font-medium text-gray-500">{e.label}</th>
+                                <th key={e.name} className={c.head}>{e.label}</th>
                             ))}
                         </tr>
                     </thead>
                     <tbody>
                         {EYES.map(eye => (
-                            <tr key={eye} className={`border-b ${eye === 'od' ? 'bg-blue-50/30' : 'bg-green-50/30'}`}>
-                                <td className="px-2 py-2">
-                                    <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold text-white ${eye === 'od' ? 'bg-blue-600' : 'bg-green-600'}`}>
+                            <tr key={eye} className={c.row(eye)}>
+                                <td className={c.cell}>
+                                    <span className={c.badge(eye)}>
                                         {eye.toUpperCase()}
                                     </span>
                                 </td>
@@ -234,7 +268,7 @@ export default function EyeFieldGroup({
                                     const name = resolve(f, eye);
                                     const { onBlur: rhfOnBlur, ...regProps } = register(name);
                                     return (
-                                        <td key={f} className="px-2 py-2">
+                                        <td key={f} className={c.cell}>
                                             <input
                                                 id={name}
                                                 type="text"
@@ -255,7 +289,7 @@ export default function EyeFieldGroup({
                                 {extra.map(e => {
                                     const name = `${e.name}_${eye}`;
                                     return (
-                                        <td key={e.name} className="px-2 py-2">
+                                        <td key={e.name} className={c.cell}>
                                             {e.type === 'select' ? (
                                                 <select
                                                     id={name}

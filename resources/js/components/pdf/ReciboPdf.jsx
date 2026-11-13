@@ -232,7 +232,7 @@ export default function ReciboPdf({ orden, paciente, detalle, settings, onClose 
                         <button
                             type="button"
                             onClick={handleDownload}
-                            className="flex items-center gap-2 rounded-lg bg-[#1a2a4a] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#243a6a]"
+                            className="flex items-center gap-2 rounded-lg bg-navy px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-navy-light"
                         >
                             <Download size={16} /> Descargar PDF
                         </button>

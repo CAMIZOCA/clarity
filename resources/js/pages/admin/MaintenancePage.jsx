@@ -100,7 +100,7 @@ function OperationProgress({ progress }) {
     let label;
     let detail;
     let percent = 100;
-    let barClass = 'bg-[#1a2a4a]';
+    let barClass = 'bg-navy';
     let Icon = Loader2;
     let iconClass = 'animate-spin text-slate-500';
 
@@ -525,7 +525,7 @@ export default function MaintenancePage() {
                                                     type="checkbox"
                                                     checked={confirmRestore}
                                                     onChange={(event) => setConfirmRestore(event.target.checked)}
-                                                    className="mt-1 h-4 w-4 accent-[#1a2a4a]"
+                                                    className="mt-1 h-4 w-4 accent-navy"
                                                 />
                                                 <span>Entiendo que se reemplazara toda la base de datos actual con este backup.</span>
                                             </label>
@@ -561,7 +561,7 @@ export default function MaintenancePage() {
                                                     type="checkbox"
                                                     checked={rewriteLegacy}
                                                     onChange={(event) => setRewriteLegacy(event.target.checked)}
-                                                    className="mt-1 h-4 w-4 accent-[#1a2a4a]"
+                                                    className="mt-1 h-4 w-4 accent-navy"
                                                 />
                                                 <span>Reescribir datos legacy importados anteriormente y podar placeholders vacios.</span>
                                             </label>
@@ -570,7 +570,7 @@ export default function MaintenancePage() {
                                                     type="checkbox"
                                                     checked={confirmBackup}
                                                     onChange={(event) => setConfirmBackup(event.target.checked)}
-                                                    className="mt-1 h-4 w-4 accent-[#1a2a4a]"
+                                                    className="mt-1 h-4 w-4 accent-navy"
                                                 />
                                                 <span>Entiendo que se reemplazaran datos legacy y que el sistema generara un backup previo automatico.</span>
                                             </label>

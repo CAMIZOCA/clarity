@@ -184,29 +184,29 @@ export default function CertifyingDoctorsTab() {
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Nombre <span className="text-red-500">*</span></label>
                         <input type="text" value={form.nombre} onChange={e => set('nombre', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]" />
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy" />
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Título</label>
                             <input type="text" value={form.titulo} onChange={e => set('titulo', e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]" />
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy" />
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Código</label>
                             <input type="text" value={form.codigo} onChange={e => set('codigo', e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]" />
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy" />
                         </div>
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">REG. SENESCYT</label>
                         <input type="text" value={form.registro_senescyt} onChange={e => set('registro_senescyt', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]" />
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy" />
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Médico del sistema</label>
                         <select value={form.user_id ?? ''} onChange={e => set('user_id', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#1a2a4a]">
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-navy">
                             <option value="">— Sin vincular —</option>
                             {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
                         </select>
@@ -216,11 +216,11 @@ export default function CertifyingDoctorsTab() {
                     </div>
                     <div className="flex items-center gap-6">
                         <label className="flex items-center gap-2 text-sm text-gray-800 cursor-pointer">
-                            <input type="checkbox" checked={form.is_default} onChange={e => set('is_default', e.target.checked)} className="w-4 h-4 accent-[#1a2a4a]" />
+                            <input type="checkbox" checked={form.is_default} onChange={e => set('is_default', e.target.checked)} className="w-4 h-4 accent-navy" />
                             Predeterminado
                         </label>
                         <label className="flex items-center gap-2 text-sm text-gray-800 cursor-pointer">
-                            <input type="checkbox" checked={form.is_active} onChange={e => set('is_active', e.target.checked)} className="w-4 h-4 accent-[#1a2a4a]" />
+                            <input type="checkbox" checked={form.is_active} onChange={e => set('is_active', e.target.checked)} className="w-4 h-4 accent-navy" />
                             Activo
                         </label>
                     </div>

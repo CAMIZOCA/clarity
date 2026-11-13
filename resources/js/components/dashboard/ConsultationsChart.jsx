@@ -41,7 +41,7 @@ export default function ConsultationsChart({ refreshToken }) {
     if (!data && !failed) {
         return (
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 py-10 text-center">
-                <div className="animate-spin h-6 w-6 border-2 border-[#1a2a4a] border-t-transparent rounded-full mx-auto" />
+                <div className="animate-spin h-6 w-6 border-2 border-navy border-t-transparent rounded-full mx-auto" />
             </div>
         );
     }
@@ -78,7 +78,7 @@ export default function ConsultationsChart({ refreshToken }) {
             <div className="flex items-start justify-between flex-wrap gap-3 mb-4">
                 <div>
                     <h2 className="font-semibold text-gray-900 flex items-center gap-2">
-                        <BarChart2 size={18} className="text-[#1a2a4a]" />
+                        <BarChart2 size={18} className="text-navy" />
                         Consultas: últimos 7 días y pronóstico
                     </h2>
                     <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-gray-500">
