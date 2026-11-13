@@ -324,4 +324,75 @@ class LegacyOpticalParser
 
         return $result;
     }
+
+    /**
+     * Poder del lente de contacto blando de un ojo, como texto para la casilla
+     * "Poder" del lente definitivo: "-4.25 -0.75 x 0".
+     *
+     * En el Access el bloque "LENTES DE CONTACTO BLANDOS" (Esfera, Cilindro,
+     * Eje) se guarda en RETINOSCOPIA_ESFERA/CILINDRO/EJE. Las filas mas viejas
+     * usaban esas casillas para otra cosa ("Test de H +", "AE 20/30", "Normal"):
+     * si algo escrito no es una medida se devuelve null y no se adivina.
+     */
+    public static function contactLensPower(?string $esfera, ?string $cilindro, ?string $eje): ?string
+    {
+        if (blank($esfera) && blank($cilindro)) {
+            return null;
+        }
+
+        // Una "N" sola era "Normal" de alguna prueba vieja; con cilindro es plano.
+        if (self::isNeutral($esfera) && blank($cilindro)) {
+            return null;
+        }
+
+        $sphere = null;
+        if (filled($esfera)) {
+            $sphere = self::isNeutral($esfera) ? 'Plano' : self::lensDiopter($esfera, self::MAX_DIOPTERS);
+            if ($sphere === null) {
+                return null;
+            }
+        }
+
+        $cylinder = null;
+        if (filled($cilindro)) {
+            $cylinder = self::lensDiopter($cilindro, self::MAX_CYLINDER);
+            if ($cylinder === null) {
+                return null;
+            }
+        }
+
+        $axis = null;
+        if (filled($eje)) {
+            if (! preg_match('/^\s*(\d{1,3})\s*°?\s*$/u', $eje, $matches) || (int) $matches[1] > 180) {
+                return null;
+            }
+            $axis = (int) $matches[1];
+        }
+
+        $parts = array_filter([$sphere, $cylinder], fn ($part) => $part !== null);
+        if ($cylinder !== null && $axis !== null) {
+            $parts[] = "x {$axis}";
+        }
+
+        return implode(' ', $parts);
+    }
+
+    /**
+     * Una dioptria escrita sola, con signo, punto decimal o tres cifras
+     * ("-425", "+025", "-9,25"): "1 caja" o "20/40" no lo son.
+     */
+    private static function lensDiopter(string $raw, float $max): ?string
+    {
+        $value = trim($raw);
+        if (! preg_match('/^(?:[-+]\s*\d+(?:[.,]\d+)?|\d+[.,]\d+|\d{3,4})$/', $value)) {
+            return null;
+        }
+
+        $diopters = self::diopter(preg_replace('/\s+/', '', $value));
+        if ($diopters === null || abs((float) $diopters) > $max || ! self::isLensStep($diopters)) {
+            return null;
+        }
+
+        return ((float) $diopters > 0 ? '+' : '').$diopters;
+    }
 }

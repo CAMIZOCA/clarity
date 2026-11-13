@@ -92,7 +92,8 @@ export const MENU_ITEM_PERMISSIONS = {
     inventario_movimientos: 'inventory.view',
     crm_campanas: 'crm.view',
     crm_plantillas: 'crm.view',
-    crm_recordatorios: 'crm.view',
+    // `crm.reminders` abre solo Recordatorios (Recepcion), sin Campanas ni Plantillas.
+    crm_recordatorios: ['crm.view', 'crm.reminders'],
     reportes_clinicos: 'reports.clinical',
     reportes_comerciales: ['reports.sales', 'reports.financial', 'reports.inventory'],
     dashboard_gerencial: 'reports.financial',

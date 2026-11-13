@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\GuaranteeReportController;
 use App\Http\Controllers\Api\InventoryController;
 use App\Http\Controllers\Api\InvoiceController;
 use App\Http\Controllers\Api\LabOrderController;
+use App\Http\Controllers\Api\LegacyReviewController;
 use App\Http\Controllers\Api\OphthalmologyReferenceController;
 use App\Http\Controllers\Api\PatientController;
 use App\Http\Controllers\Api\ProductController;
@@ -242,6 +243,16 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/imports/{operation}/run', [SystemMaintenanceController::class, 'runImport']);
         Route::post('/imports/{operation}/restore', [SystemMaintenanceController::class, 'restoreSystemBackup']);
         Route::get('/imports/{operation}', [SystemMaintenanceController::class, 'showImport']);
+    });
+
+    // Revision de datos heredados (permiso legacy.review). `batches` va antes de `{case}`.
+    Route::prefix('admin/legacy-review')->group(function () {
+        Route::get('/cases', [LegacyReviewController::class, 'cases']);
+        Route::get('/batches', [LegacyReviewController::class, 'batches']);
+        Route::post('/batches/{batch}/revert', [LegacyReviewController::class, 'revert']);
+        Route::get('/{case}', [LegacyReviewController::class, 'index']);
+        Route::post('/{case}/preview', [LegacyReviewController::class, 'preview']);
+        Route::post('/{case}/apply', [LegacyReviewController::class, 'apply'])->middleware('throttle:10,1');
     });
 });
 

@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\Permission;
+use App\Enums\Role;
 use App\Jobs\ProcessPendingReminders;
 use App\Jobs\SendWhatsAppMessage;
 use App\Models\Consultation;
@@ -209,6 +210,41 @@ class CrmWhatsAppRemindersTest extends TestCase
 
         Sanctum::actingAs($this->userWith([]));
         $this->getJson('/api/crm/whatsapp-contacts')->assertForbidden();
+    }
+
+    /** Recepcion: Recordatorios si, Campañas y editar Plantillas no. */
+    public function test_reminders_permission_opens_only_the_reminders_screen(): void
+    {
+        $template = MessageTemplate::create([
+            'name' => 'Lentes listos', 'type' => 'lab_ready', 'channel' => 'whatsapp',
+            'body' => 'Hola {nombre}, sus lentes están listos.', 'is_active' => true,
+        ]);
+        $patient = $this->patient('Lucia', 'Mena', '1710034065');
+
+        Sanctum::actingAs($this->userWith([Permission::CRM_REMINDERS->value, Permission::CRM_SEND_MESSAGES->value]));
+
+        $this->getJson('/api/crm/reminders')->assertOk();
+        $this->getJson('/api/crm/whatsapp-contacts')->assertOk();
+        $this->getJson('/api/crm/templates?channel=whatsapp')->assertOk()->assertJsonPath('data.0.id', $template->id);
+        $this->getJson("/api/crm/reminders/preview?patient_id={$patient->id}&template_id={$template->id}")
+            ->assertOk()
+            ->assertJsonPath('data.message', 'Hola Lucia, sus lentes están listos.');
+        $this->postJson('/api/crm/reminders/whatsapp', ['patient_id' => $patient->id, 'message' => 'x'])->assertCreated();
+
+        $this->getJson('/api/crm/campaigns')->assertForbidden();
+        $this->postJson('/api/crm/campaigns/preview', [])->assertForbidden();
+        $this->postJson('/api/crm/templates', ['name' => 'x', 'body' => 'x'])->assertForbidden();
+        $this->putJson("/api/crm/templates/{$template->id}", ['name' => 'x'])->assertForbidden();
+    }
+
+    public function test_reception_role_gets_reminders_but_not_the_rest_of_crm(): void
+    {
+        $permissions = Permission::forRole(Role::RECEPCIONISTA);
+
+        $this->assertContains(Permission::CRM_REMINDERS->value, $permissions);
+        $this->assertContains(Permission::CRM_SEND_MESSAGES->value, $permissions);
+        $this->assertNotContains(Permission::CRM_VIEW->value, $permissions);
+        $this->assertNotContains(Permission::CRM_CAMPAIGNS->value, $permissions);
     }
 
     public function test_without_a_provider_nothing_is_marked_as_sent_automatically(): void
